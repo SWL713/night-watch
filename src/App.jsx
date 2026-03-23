@@ -2,7 +2,7 @@ import { useState, useCallback } from 'react'
 import { MapContainer, TileLayer, ZoomControl, useMapEvents } from 'react-leaflet'
 import 'leaflet/dist/leaflet.css'
 
-import Auth, { useAuth } from './components/Auth.jsx'
+import Auth from './components/Auth.jsx'
 import TimelinePanel from './components/TimelinePanel.jsx'
 import TimeSlider from './components/TimeSlider.jsx'
 import Badges from './components/Badges.jsx'
@@ -18,7 +18,7 @@ import { useSpaceWeather } from './hooks/useSpaceWeather.js'
 import { useSpots } from './hooks/useSpots.js'
 import { useCloudCover } from './hooks/useCloudCover.js'
 import { getMoonData } from './utils/moon.js'
-import { MAP_BOUNDS } from './config.js'
+import { MAP_BOUNDS, PASSPHRASE } from './config.js'
 
 // Fix Leaflet default marker icon path issue with Vite
 import L from 'leaflet'
@@ -35,10 +35,12 @@ const FONT = 'DejaVu Sans Mono, Consolas, monospace'
 const ADMIN_PHRASE = 'nwadmin2026'
 
 export default function AppWrapper() {
-  const { authed, login } = useAuth()
-  const [, forceUpdate] = useState(0)
+  const [authed, setAuthed] = useState(() => {
+    // Check localStorage immediately on first render
+    return localStorage.getItem('nw_auth') === PASSPHRASE
+  })
 
-  if (!authed) return <Auth onAuth={() => forceUpdate(n => n + 1)} />
+  if (!authed) return <Auth onAuth={() => setAuthed(true)} />
   return <App />
 }
 
