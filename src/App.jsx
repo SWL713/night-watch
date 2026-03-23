@@ -1,5 +1,5 @@
 import { useState, useCallback } from 'react'
-import { MapContainer, TileLayer, ZoomControl } from 'react-leaflet'
+import { MapContainer, TileLayer, ZoomControl, useMapEvents } from 'react-leaflet'
 import 'leaflet/dist/leaflet.css'
 
 import Auth, { useAuth } from './components/Auth.jsx'
@@ -57,13 +57,20 @@ function App() {
 
   // Determine active heatmap mode from layer toggles
   const heatmapMode = layers.clouds ? 'clouds' : layers.bortle ? 'bortle' : 'combined'
+  const [pendingPin, setPendingPin] = useState(null) // {lat, lon} from map click
 
   function toggleLayer(key) {
     setLayers(prev => {
-      const next = { ...prev, [key]: !prev[key] }
-      // Exclusive toggle for map modes — turning on clouds/bortle turns off others
-      if (key === 'clouds' && next.clouds) next.bortle = false
-      if (key === 'bortle' && next.bortle) next.clouds = false
+      const next = { ...prev }
+      if (['heatmap', 'clouds', 'bortle'].includes(key)) {
+        // Heatmap modes are mutually exclusive — turn off others when one is selected
+        next.heatmap = false
+        next.clouds  = false
+        next.bortle  = false
+        next[key]    = !prev[key]
+      } else {
+        next[key] = !prev[key]
+      }
       return next
     })
   }
@@ -116,6 +123,15 @@ function App() {
           />
 
           <ZoomControl position="bottomright" />
+
+          {/* Map click handler for spot submission */}
+          <MapClickHandler
+            active={modal === 'submitSpot' || pendingPin !== null}
+            onMapClick={(lat, lon) => {
+              setPendingPin({ lat, lon })
+              setModal('submitSpot')
+            }}
+          />
 
           {/* Heatmap */}
           {heatmapActive && (
@@ -172,7 +188,17 @@ function App() {
           padding: '0 12px', height: 36, zIndex: 1000,
         }}>
           <div style={{ display: 'flex', gap: 8 }}>
-            <ActionBtn onClick={() => setModal('submitSpot')}>+ SUBMIT SPOT</ActionBtn>
+            <ActionBtn onClick={() => {
+              setPendingPin(null)
+              setModal('submitSpot')
+            }}>
+              + SUBMIT SPOT
+            </ActionBtn>
+            {pendingPin && (
+              <span style={{ color: '#44ddaa', fontSize: 9, fontFamily: FONT, alignSelf: 'center' }}>
+                📍 {pendingPin.lat.toFixed(4)}, {pendingPin.lon.toFixed(4)}
+              </span>
+            )}
             {!adminAuthed && (
               <form onSubmit={handleAdminLogin} style={{ display: 'flex', gap: 4 }}>
                 <input
@@ -220,7 +246,12 @@ function App() {
             zIndex: 9999,
           }}
         >
-          {modal === 'submitSpot' && <SubmitSpot onClose={() => setModal(null)} />}
+          {modal === 'submitSpot' && (
+            <SubmitSpot
+              initialCoords={pendingPin}
+              onClose={() => { setModal(null); setPendingPin(null) }}
+            />
+          )}
           {modal === 'submitPhoto' && selectedSpotForPhoto && (
             <SubmitPhoto
               spot={selectedSpotForPhoto}
@@ -247,4 +278,15 @@ function ActionBtn({ onClick, children, highlight }) {
       {children}
     </button>
   )
+}
+
+// Listens for map clicks and returns lat/lon
+function MapClickHandler({ active, onMapClick }) {
+  useMapEvents({
+    click(e) {
+      if (active) return  // don't double-fire if modal already open
+      onMapClick(e.latlng.lat, e.latlng.lng)
+    },
+  })
+  return null
 }

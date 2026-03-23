@@ -10,10 +10,15 @@ const inputStyle = {
   boxSizing: 'border-box',
 }
 
-export default function SubmitSpot({ onClose }) {
+export default function SubmitSpot({ onClose, initialCoords }) {
   const [form, setForm] = useState({
-    name: '', lat: '', lon: '', bortle: '4',
-    view_direction: 'N', access_notes: '', horizon_rating: '3',
+    name: '',
+    lat: initialCoords ? initialCoords.lat.toFixed(6) : '',
+    lon: initialCoords ? initialCoords.lon.toFixed(6) : '',
+    bortle: '4',
+    view_direction: 'N',
+    access_notes: '',
+    horizon_rating: '3',
   })
   const [status, setStatus] = useState(null)
   const [submitting, setSubmitting] = useState(false)
@@ -61,9 +66,19 @@ export default function SubmitSpot({ onClose }) {
       padding: 16, width: 300, fontFamily: FONT, color: '#ccd', fontSize: 12 }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 14 }}>
         <div style={{ color: '#44ddaa', fontSize: 13, letterSpacing: 2 }}>SUBMIT A SPOT</div>
-        <button onClick={onClose} style={{ background: 'none', border: 'none', color: '#445566',
+        <button onClick={onClose} style={{
+          background: 'none', border: 'none', color: '#445566',
           fontSize: 16, cursor: 'pointer' }}>✕</button>
       </div>
+      {initialCoords ? (
+        <div style={{ color: '#44ddaa', fontSize: 10, marginBottom: 10 }}>
+          📍 Pinned from map: {initialCoords.lat.toFixed(4)}, {initialCoords.lon.toFixed(4)}
+        </div>
+      ) : (
+        <div style={{ color: '#334455', fontSize: 10, marginBottom: 10 }}>
+          Tip: close this and click the map to pin exact coordinates first.
+        </div>
+      )}
 
       <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
         <label style={{ color: '#445566', fontSize: 9, letterSpacing: 1 }}>NAME *</label>
