@@ -1,5 +1,6 @@
 import { getMoonData } from '../utils/moon.js'
 import TimelineBar from './TimelineBar.jsx'
+import { useBzTrace } from '../hooks/useBzTrace.js'
 
 const FONT = 'DejaVu Sans Mono, Consolas, monospace'
 const BASE = '/night-watch'
@@ -82,10 +83,11 @@ function StatRow({ icon, label, value, color }) {
 export default function TimelinePanel({ spaceWeather, selectedHour, onHourSelect, moonData }) {
   const now = new Date()
 
-  const {
-    state, bz_now, intensity_label, aurora_quality, aurora_quality_color,
+  const { state, bz_now, intensity_label, aurora_quality, aurora_quality_color,
     enlil_active, enlil_timeline, timeline,
   } = spaceWeather
+
+  const { trace: bzTrace } = useBzTrace()
 
   // Derived values
   const intensityColor = INTENSITY_COLOR[intensity_label] || '#aaaaaa'
@@ -237,6 +239,7 @@ export default function TimelinePanel({ spaceWeather, selectedHour, onHourSelect
         moonData={moonData}
         selectedHour={selectedHour}
         onHourSelect={onHourSelect}
+        bzTrace={bzTrace}
       />
 
       {/* ── ENLIL strip — conditional ── */}

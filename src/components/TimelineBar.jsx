@@ -34,7 +34,7 @@ function sunTimes(date) {
 }
 
 // ── Canvas timeline ───────────────────────────────────────────────────────────
-export default function TimelineBar({ spaceWeather, moonData, selectedHour, onHourSelect }) {
+export default function TimelineBar({ spaceWeather, moonData, selectedHour, onHourSelect, bzTrace }) {
   const canvasRef = useRef(null)
 
   useEffect(() => {
@@ -152,34 +152,61 @@ export default function TimelineBar({ spaceWeather, moonData, selectedHour, onHo
     ctx.setLineDash([])
 
     // ── 5. BZ TRACE ──────────────────────────────────────────────────────────
-    const bzTL  = spaceWeather.timeline || []
-    const bzVals = bzTL.map(p => p?.bz).filter(v => v != null)
-    const bzMax = Math.max(12, ...bzVals.map(Math.abs)) * 1.35
+    // Use real-time minute data if available, fall back to pipeline hourly
+    const realTrace = (bzTrace || []).filter(p => p.bz !== null)
+    const pipelineTL = (spaceWeather.timeline || []).filter(p => p?.bz != null)
+
+    // Compute y-scale from all available data
+    const allBz = [
+      ...realTrace.map(p => p.bz),
+      ...pipelineTL.map(p => p.bz),
+      spaceWeather.bz_now ?? 0,
+    ]
+    const bzMax = Math.max(8, ...allBz.map(Math.abs)) * 1.3
 
     function bzY(bz) {
-      return yZero - (bz / bzMax) * (pH * 0.46)
+      // Use full plot height with padding
+      return yZero - (bz / bzMax) * (pH * 0.47)
     }
 
-    // Observed: offset <= 0
-    const obs = bzTL.filter(p => p?.offset <= 0 && p?.bz != null)
-    ctx.lineWidth = 2.5
-    ctx.setLineDash([])
-    for (let i = 0; i < obs.length - 1; i++) {
-      const a = obs[i], b = obs[i+1]
-      const ta = new Date(now.getTime() + a.offset * 3600000)
-      const tb = new Date(now.getTime() + b.offset * 3600000)
-      const mid = (a.bz + b.bz) / 2
-      ctx.strokeStyle = mid < 0 ? '#ee5577' : '#44ddaa'
-      ctx.beginPath()
-      ctx.moveTo(tx(ta), bzY(a.bz))
-      ctx.lineTo(tx(tb), bzY(b.bz))
-      ctx.stroke()
+    ctx.lineJoin = 'round'
+    ctx.lineCap  = 'round'
+
+    if (realTrace.length >= 2) {
+      // Draw real minute-resolution observed trace
+      ctx.lineWidth = 2.5
+      ctx.setLineDash([])
+      for (let i = 0; i < realTrace.length - 1; i++) {
+        const a = realTrace[i], b = realTrace[i+1]
+        const mid = (a.bz + b.bz) / 2
+        ctx.strokeStyle = mid < 0 ? '#ee5577' : '#44ddaa'
+        ctx.beginPath()
+        ctx.moveTo(tx(a.time), bzY(a.bz))
+        ctx.lineTo(tx(b.time), bzY(b.bz))
+        ctx.stroke()
+      }
+    } else {
+      // Fall back to pipeline hourly observed points
+      const obs = pipelineTL.filter(p => p.offset <= 0)
+      ctx.lineWidth = 2.5
+      ctx.setLineDash([])
+      for (let i = 0; i < obs.length - 1; i++) {
+        const a = obs[i], b = obs[i+1]
+        const ta = new Date(now.getTime() + a.offset * 3600000)
+        const tb = new Date(now.getTime() + b.offset * 3600000)
+        const mid = (a.bz + b.bz) / 2
+        ctx.strokeStyle = mid < 0 ? '#ee5577' : '#44ddaa'
+        ctx.beginPath()
+        ctx.moveTo(tx(ta), bzY(a.bz))
+        ctx.lineTo(tx(tb), bzY(b.bz))
+        ctx.stroke()
+      }
     }
 
-    // Propagated: flat from now for ~40min based on solar wind speed
+    // Propagated: flat from now ~40min based on solar wind speed
+    const bzNow  = realTrace.length ? realTrace[realTrace.length-1].bz : (spaceWeather.bz_now ?? 0)
     const lagMs  = Math.min((1.5e6 / (spaceWeather.speed_kms || 450)) * 1000, 5400000)
     const lagEnd = new Date(now.getTime() + lagMs)
-    const bzNow  = spaceWeather.bz_now ?? 0
     if (lagEnd > now) {
       ctx.lineWidth = 1.8
       ctx.setLineDash([7, 4])
@@ -190,23 +217,21 @@ export default function TimelineBar({ spaceWeather, moonData, selectedHour, onHo
       ctx.stroke()
     }
 
-    // Prediction: offset > 0, fading dashed
-    const pred = bzTL.filter(p => p?.offset > 0 && p?.bz != null)
+    // Prediction: pipeline future points, fading dashed
+    const pred = pipelineTL.filter(p => p.offset > 0)
     if (pred.length >= 2) {
-      const lastOffset = pred[pred.length - 1].offset
+      const lastOffset = pred[pred.length-1].offset
       for (let i = 0; i < pred.length - 1; i++) {
         const a = pred[i], b = pred[i+1]
         const ta = new Date(now.getTime() + a.offset * 3600000)
         const tb = new Date(now.getTime() + b.offset * 3600000)
-        const frac = a.offset / lastOffset
-        const alpha = frac < 0.8 ? 0.70 : 0.70 - (frac - 0.8) / 0.2 * 0.60
+        const frac  = a.offset / lastOffset
+        const alpha = frac < 0.8 ? 0.70 : 0.70 - (frac-0.8)/0.2*0.60
         if (alpha < 0.05) continue
         const mid = (a.bz + b.bz) / 2
         ctx.lineWidth = 1.8
         ctx.setLineDash([5, 3])
-        ctx.strokeStyle = mid < 0
-          ? `rgba(238,85,119,${alpha})`
-          : `rgba(68,221,170,${alpha})`
+        ctx.strokeStyle = mid < 0 ? `rgba(238,85,119,${alpha})` : `rgba(68,221,170,${alpha})`
         ctx.beginPath()
         ctx.moveTo(tx(ta), bzY(a.bz))
         ctx.lineTo(tx(tb), bzY(b.bz))
@@ -297,7 +322,7 @@ export default function TimelineBar({ spaceWeather, moonData, selectedHour, onHo
       ctx.fillText(`${v > 0 ? '+' : ''}${v}`, 2, y + 3)
     }
 
-  }, [spaceWeather, moonData, selectedHour])
+  }, [spaceWeather, moonData, selectedHour, bzTrace])
 
   // Handle resize
   useEffect(() => {
