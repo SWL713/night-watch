@@ -204,7 +204,7 @@ def moon_illumination(dt):
 
 
 def moon_times(dt):
-    """Moonrise/moonset for New York (pure math)."""
+    """Moonrise/moonset for New York — scans 3 days to always find next/current events."""
     NY_LAT, NY_LON = 40.7128, -74.0060
     H0 = -0.583
 
@@ -237,18 +237,6 @@ def moon_times(dt):
         return math.degrees(math.asin(max(-1, min(1,
             math.sin(r(dec))*math.sin(r(NY_LAT)) + math.cos(r(dec))*math.cos(r(NY_LAT))*math.cos(ha)))))
 
-    base = datetime(dt.year, dt.month, dt.day, tzinfo=timezone.utc)
-    base_jd = jd_from(base)
-    crossings, prev = [], None
-    for step in range(0, 25*6):
-        frac = step / (24*6)
-        jd_t = base_jd + frac
-        alt = altitude(jd_t)
-        if prev is not None:
-            if prev < H0 <= alt:   crossings.append(('rise', jd_t))
-            elif prev > H0 >= alt: crossings.append(('set',  jd_t))
-        prev = alt
-
     def jd_to_iso(jd_v):
         jd_v += 0.5; Z = int(jd_v); F = jd_v - Z
         A = Z if Z < 2299161 else Z + 1 + int((Z-1867216.25)/36524.25) - int(int((Z-1867216.25)/36524.25)/4)
@@ -261,8 +249,33 @@ def moon_times(dt):
         h = int(hour); mn = int((hour-h)*60)
         return datetime(year, month, day, h, mn, tzinfo=timezone.utc).isoformat()
 
-    rise = next((jd_to_iso(t) for k,t in crossings if k=='rise'), None)
-    sset = next((jd_to_iso(t) for k,t in crossings if k=='set'),  None)
+    # Scan yesterday through tomorrow+1 (72hr window) to catch all crossings
+    start = datetime(dt.year, dt.month, dt.day, tzinfo=timezone.utc) - timedelta(days=1)
+    base_jd = jd_from(start)
+    crossings, prev = [], None
+    for step in range(0, 72*6):   # 10-min steps over 72 hours
+        frac = step / (24*6)
+        jd_t = base_jd + frac
+        alt = altitude(jd_t)
+        if prev is not None:
+            if prev < H0 <= alt:   crossings.append(('rise', jd_t))
+            elif prev > H0 >= alt: crossings.append(('set',  jd_t))
+        prev = alt
+
+    now_jd = jd_from(dt)
+
+    # Find the most recent past rise (moon_rise = when moon rose, even if before window)
+    # and the next set after now
+    past_rises = [(k, t) for k, t in crossings if k == 'rise' and t <= now_jd]
+    future_sets = [(k, t) for k, t in crossings if k == 'set'  and t > now_jd]
+    future_rises = [(k, t) for k, t in crossings if k == 'rise' and t > now_jd]
+
+    # Most recent rise (so we know when moon came up)
+    rise = jd_to_iso(past_rises[-1][1]) if past_rises else (
+           jd_to_iso(future_rises[0][1]) if future_rises else None)
+    # Next set after now
+    sset = jd_to_iso(future_sets[0][1]) if future_sets else None
+
     return rise, sset
 
 
