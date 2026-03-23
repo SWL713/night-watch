@@ -1,0 +1,47 @@
+name: Night Watch — Space Weather Pipeline
+
+on:
+  schedule:
+    - cron: '*/15 * * * *'   # every 15 minutes
+  workflow_dispatch:          # manual trigger
+
+permissions:
+  contents: write
+
+jobs:
+  pipeline:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: pip
+          cache-dependency-path: pipeline/requirements.txt
+
+      - name: Install dependencies
+        run: pip install -r pipeline/requirements.txt
+
+      - name: Run pipeline
+        run: python pipeline/generate_space_weather.py
+        env:
+          PYTHONUNBUFFERED: '1'
+
+      - name: Commit and push
+        run: |
+          git config user.name  "Night Watch Bot"
+          git config user.email "actions@github.com"
+          git add data/space_weather.json || true
+          git diff --staged --quiet || git commit -m \
+            "sw: $(date -u '+%Y-%m-%d %H:%M UTC') | $(python -c \
+            'import json; d=json.load(open("data/space_weather.json")); \
+            print(d["state"], d["intensity_label"], d["bz_now"])' 2>/dev/null || echo '?')"
+          git pull --rebase --autostash origin main
+          git push

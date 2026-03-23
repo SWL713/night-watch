@@ -1,0 +1,520 @@
+"""
+Night Watch — Space Weather Pipeline
+Generates data/space_weather.json consumed by the web app.
+Runs every 15 minutes via GitHub Actions.
+
+Copies logic from CME Watch and LeFevre Substorm Model.
+Runs in complete isolation — reads nothing from other repos at runtime.
+"""
+
+import json
+import math
+import logging
+import os
+import sys
+from datetime import datetime, timezone, timedelta
+
+import numpy as np
+import pandas as pd
+import requests
+
+logging.basicConfig(level=logging.INFO, format='%(asctime)s %(levelname)s %(message)s')
+log = logging.getLogger(__name__)
+
+OUTPUT_PATH = os.path.join(os.path.dirname(__file__), '..', 'data', 'space_weather.json')
+
+# ── Data source URLs ─────────────────────────────────────────────────────────
+DSCOVR_MAG_URL    = 'https://services.swpc.noaa.gov/json/rtsw/rtsw_mag_1m.json'
+DSCOVR_PLASMA_URL = 'https://services.swpc.noaa.gov/json/rtsw/rtsw_plasma_1m.json'
+WIND_URL          = 'https://services.swpc.noaa.gov/json/rtsw/rtsw_wind_1m.json'
+NOAA_ALERTS_URL   = 'https://services.swpc.noaa.gov/products/alerts.json'
+OVATION_URL       = 'https://services.swpc.noaa.gov/json/ovation_aurora_latest.json'
+ENLIL_BASE        = 'https://nomads.ncep.noaa.gov/pub/data/nccf/com/wsa_enlil/prod/'
+
+# ── Helpers ───────────────────────────────────────────────────────────────────
+
+def safe_get(url, timeout=15):
+    try:
+        r = requests.get(url, timeout=timeout)
+        r.raise_for_status()
+        return r.json()
+    except Exception as e:
+        log.warning(f'GET {url} failed: {e}')
+        return None
+
+
+def safe_get_bytes(url, timeout=30):
+    try:
+        r = requests.get(url, timeout=timeout)
+        r.raise_for_status()
+        return r.content
+    except Exception as e:
+        log.warning(f'GET bytes {url} failed: {e}')
+        return None
+
+
+# ── L1 Solar Wind ─────────────────────────────────────────────────────────────
+
+def fetch_l1():
+    """Fetch real-time L1 solar wind. DSCOVR mag + WIND plasma fallback."""
+    mag_data = safe_get(DSCOVR_MAG_URL)
+    plasma_data = safe_get(DSCOVR_PLASMA_URL) or safe_get(WIND_URL)
+
+    if not mag_data:
+        log.warning('No mag data available')
+        return None
+
+    # Parse mag
+    mag_rows = []
+    for rec in (mag_data or []):
+        t = rec.get('time_tag')
+        bz = rec.get('bz_gsm') or rec.get('Bz')
+        by = rec.get('by_gsm') or rec.get('By')
+        bx = rec.get('bx_gsm') or rec.get('Bx')
+        if t and bz is not None:
+            mag_rows.append({'time': pd.Timestamp(t, tz='UTC'), 'Bz': float(bz),
+                             'By': float(by or 0), 'Bx': float(bx or 0)})
+
+    # Parse plasma
+    plasma_rows = []
+    for rec in (plasma_data or []):
+        t = rec.get('time_tag')
+        v = rec.get('proton_speed') or rec.get('speed') or rec.get('V')
+        d = rec.get('proton_density') or rec.get('density') or rec.get('Np')
+        if t and v is not None:
+            plasma_rows.append({'time': pd.Timestamp(t, tz='UTC'),
+                                'V': float(v), 'density': float(d or 5)})
+
+    if not mag_rows:
+        return None
+
+    mag_df    = pd.DataFrame(mag_rows).set_index('time').sort_index()
+    plasma_df = pd.DataFrame(plasma_rows).set_index('time').sort_index() if plasma_rows else pd.DataFrame()
+
+    # Last 2 hours
+    cutoff = pd.Timestamp.now(tz='UTC') - pd.Timedelta(hours=2)
+    mag_df = mag_df[mag_df.index > cutoff]
+
+    if mag_df.empty:
+        return None
+
+    # Current values (last point)
+    bz_now = float(mag_df['Bz'].dropna().iloc[-1]) if not mag_df['Bz'].dropna().empty else 0.0
+    by_now = float(mag_df['By'].dropna().iloc[-1]) if not mag_df['By'].dropna().empty else 0.0
+
+    v_now = 450.0
+    d_now = 5.0
+    if not plasma_df.empty:
+        plasma_recent = plasma_df[plasma_df.index > cutoff]
+        if not plasma_recent.empty:
+            v_now = float(plasma_recent['V'].dropna().iloc[-1]) if not plasma_recent['V'].dropna().empty else 450.0
+            d_now = float(plasma_recent['density'].dropna().iloc[-1]) if not plasma_recent['density'].dropna().empty else 5.0
+
+    log.info(f'L1: Bz={bz_now:.1f} By={by_now:.1f} V={v_now:.0f} d={d_now:.1f}')
+    return {'bz_now': bz_now, 'by_now': by_now, 'v_kms': v_now, 'density_ncc': d_now,
+            'mag_df': mag_df, 'last_data_utc': mag_df.index.max().isoformat()}
+
+
+# ── Intensity calculation (LeFevre calibration) ───────────────────────────────
+
+def compute_intensity(bz, v_kms, density_ncc):
+    """
+    Ey-proxy based intensity (ported from LeFevre Substorm Timing Model).
+    Returns (label, color, ey_adjusted).
+    """
+    ey_raw = v_kms * bz / 100.0
+    pdyn   = 1.67e-6 * density_ncc * v_kms ** 2
+    factor = min(1.8, pdyn ** 0.25) if pdyn >= 4.0 else 1.0
+    ey_adj = ey_raw * factor if ey_raw < 0 else ey_raw
+
+    BINS = [
+        (0,    'Calm',        '#667788'),
+        (-15,  'Weak',        '#5599cc'),
+        (-35,  'Mild',        '#88cc44'),
+        (-75,  'Moderate',    '#ffaa00'),
+        (-125, 'Strong',      '#ff6600'),
+        (-175, 'Very Strong', '#ff2200'),
+        (-1e9, 'Extreme',     '#cc44ff'),
+    ]
+    for thresh, label, color in BINS:
+        if ey_adj >= thresh:
+            return label, color, ey_adj
+    return 'Calm', '#667788', ey_adj
+
+
+# ── NOAA Alerts ───────────────────────────────────────────────────────────────
+
+def fetch_noaa_alerts():
+    alerts = safe_get(NOAA_ALERTS_URL) or []
+    g_level, g_label, hss_active, hss_watch = '', '', False, False
+
+    for alert in alerts:
+        msg = alert.get('message', '') + alert.get('product_id', '')
+        for g in ['G5','G4','G3','G2','G1']:
+            if g in msg and not g_level:
+                g_level = g
+                g_label = g
+                break
+        if 'High Speed Stream' in msg or 'HSS' in msg:
+            if 'Warning' in msg or 'Watch' in msg:
+                hss_watch = True
+            if 'in progress' in msg.lower() or 'geomagnetic activity' in msg.lower():
+                hss_active = True
+
+    return {'g_level': g_level, 'g_label': g_label, 'hss_active': hss_active, 'hss_watch': hss_watch}
+
+
+# ── Moon data (ported from render_aurora_card.py) ────────────────────────────
+
+def moon_illumination(dt):
+    def jd_val(d):
+        y, m = d.year, d.month
+        day = d.day + d.hour/24 + d.minute/1440
+        if m <= 2: y -= 1; m += 12
+        A = int(y/100); B = 2 - A + int(A/4)
+        return int(365.25*(y+4716)) + int(30.6001*(m+1)) + day + B - 1524.5
+
+    jd = jd_val(dt)
+    T = (jd - 2451545.0) / 36525.0
+    r = math.radians
+
+    Ls = (280.46646 + 36000.76983*T) % 360
+    Ms = r((357.52911 + 35999.05029*T) % 360)
+    sun_lon = (Ls + (1.914602 - 0.004817*T)*math.sin(Ms) + 0.019993*math.sin(2*Ms)) % 360
+
+    Lm = (218.3164477 + 481267.88123421*T) % 360
+    Mm = r((134.9633964 + 477198.8675055*T) % 360)
+    D  = r((297.8501921 + 445267.1114034*T) % 360)
+    moon_lon = (Lm + 6.289*math.sin(Mm) - 1.274*math.sin(2*D-Mm) + 0.658*math.sin(2*D)) % 360
+
+    phase_angle = (moon_lon - sun_lon + 360) % 360
+    illumination = (1 - math.cos(r(phase_angle))) / 2
+    idx = int((phase_angle + 22.5) / 45) % 8
+    names = ['new','waxing_crescent','first_quarter','waxing_gibbous',
+             'full','waning_gibbous','last_quarter','waning_crescent']
+    labels = ['New Moon','Waxing Crescent','First Quarter','Waxing Gibbous',
+              'Full Moon','Waning Gibbous','Last Quarter','Waning Crescent']
+    return {
+        'illumination': round(illumination, 4),
+        'phase_angle':  round(phase_angle, 2),
+        'phase_name':   names[idx],
+        'phase_label':  labels[idx],
+        'phase_index':  idx + 1,
+    }
+
+
+def moon_times(dt):
+    """Moonrise/moonset for New York (pure math)."""
+    NY_LAT, NY_LON = 40.7128, -74.0060
+    H0 = -0.583
+
+    def jd_from(d):
+        y, m = d.year, d.month
+        day = d.day + d.hour/24
+        if m <= 2: y -= 1; m += 12
+        A = int(y/100); B = 2 - A + int(A/4)
+        return int(365.25*(y+4716)) + int(30.6001*(m+1)) + day + B - 1524.5
+
+    def altitude(jd):
+        T = (jd - 2451545.0) / 36525
+        gmst = (280.46061837 + 360.98564736629*(jd-2451545.0)) % 360
+        lst = (gmst + NY_LON) % 360
+        r = math.radians
+        Lm = (218.3164477 + 481267.88123421*T) % 360
+        Mm = r((134.9633964 + 477198.8675055*T) % 360)
+        D  = r((297.8501921 + 445267.1114034*T) % 360)
+        F  = r((93.2720950  + 483202.0175233*T) % 360)
+        eps = 23.439 - 0.013*T
+        eLon = r((Lm + 6.289*math.sin(Mm) - 1.274*math.sin(2*D-Mm) +
+                  0.658*math.sin(2*D) - 0.214*math.sin(2*Mm)) % 360)
+        eLat = r(5.128*math.sin(F))
+        ra = math.degrees(math.atan2(
+            math.sin(eLon)*math.cos(r(eps)) - math.tan(eLat)*math.sin(r(eps)),
+            math.cos(eLon))) % 360
+        dec = math.degrees(math.asin(max(-1, min(1,
+            math.sin(eLat)*math.cos(r(eps)) + math.cos(eLat)*math.sin(r(eps))*math.sin(eLon)))))
+        ha = r((lst - ra) % 360)
+        return math.degrees(math.asin(max(-1, min(1,
+            math.sin(r(dec))*math.sin(r(NY_LAT)) + math.cos(r(dec))*math.cos(r(NY_LAT))*math.cos(ha)))))
+
+    base = datetime(dt.year, dt.month, dt.day, tzinfo=timezone.utc)
+    base_jd = jd_from(base)
+    crossings, prev = [], None
+    for step in range(0, 25*6):
+        frac = step / (24*6)
+        jd_t = base_jd + frac
+        alt = altitude(jd_t)
+        if prev is not None:
+            if prev < H0 <= alt:   crossings.append(('rise', jd_t))
+            elif prev > H0 >= alt: crossings.append(('set',  jd_t))
+        prev = alt
+
+    def jd_to_iso(jd_v):
+        jd_v += 0.5; Z = int(jd_v); F = jd_v - Z
+        A = Z if Z < 2299161 else Z + 1 + int((Z-1867216.25)/36524.25) - int(int((Z-1867216.25)/36524.25)/4)
+        B = A+1524; C = int((B-122.1)/365.25); D2 = int(365.25*C)
+        E = int((B-D2)/30.6001)
+        day_f = B - D2 - int(30.6001*E) + F
+        day = int(day_f); hour = (day_f-day)*24
+        month = E-1 if E < 14 else E-13
+        year = C-4716 if month > 2 else C-4715
+        h = int(hour); mn = int((hour-h)*60)
+        return datetime(year, month, day, h, mn, tzinfo=timezone.utc).isoformat()
+
+    rise = next((jd_to_iso(t) for k,t in crossings if k=='rise'), None)
+    sset = next((jd_to_iso(t) for k,t in crossings if k=='set'),  None)
+    return rise, sset
+
+
+# ── Overall quality ───────────────────────────────────────────────────────────
+
+def overall_quality(intensity_label, astro_dark_pct):
+    rank = ['Calm','Weak','Mild','Moderate','Strong','Very Strong','Extreme']
+    idx = rank.index(intensity_label) if intensity_label in rank else 0
+    if idx == 0: return 'POOR', '#ff5566'
+    if astro_dark_pct < 30: return 'POOR', '#ff5566'
+    if idx == 1 and astro_dark_pct < 60: return 'POOR', '#ff5566'
+    if idx <= 2 and astro_dark_pct < 50: return 'FAIR', '#ffcc44'
+    if idx <= 2: return 'FAIR', '#ffcc44'
+    if idx == 3 and astro_dark_pct >= 50: return 'GOOD', '#44cc88'
+    if idx == 3: return 'FAIR', '#ffcc44'
+    if idx >= 4 and astro_dark_pct >= 40: return 'EXCELLENT', '#44ffcc'
+    return 'GOOD', '#44cc88'
+
+
+# ── ENLIL extraction ──────────────────────────────────────────────────────────
+
+def fetch_enlil_timeline():
+    """
+    Fetch latest ENLIL suball.nc and extract Earth time-series for next 12 hours.
+    Returns list of {time, speed, density} dicts, or empty list on failure.
+    """
+    try:
+        # Find latest run directory
+        index = requests.get(ENLIL_BASE, timeout=15).text
+        import re
+        dirs = re.findall(r'wsa_enlil\.\d{8}/', index)
+        if not dirs: return []
+        latest_dir = sorted(dirs)[-1]
+
+        # Find latest suball.nc in that directory
+        dir_index = requests.get(ENLIL_BASE + latest_dir, timeout=15).text
+        nc_files = re.findall(r'wsa_enlil\.mrid\d+\.suball\.nc', dir_index)
+        if not nc_files: return []
+        latest_nc = sorted(nc_files)[-1]
+
+        nc_url = ENLIL_BASE + latest_dir + latest_nc
+        log.info(f'ENLIL: fetching {nc_url}')
+
+        # Download (174MB file — we stream and use netCDF4)
+        import tempfile, netCDF4 as nc4
+        nc_bytes = safe_get_bytes(nc_url)
+        if not nc_bytes: return []
+
+        with tempfile.NamedTemporaryFile(suffix='.nc', delete=False) as tmp:
+            tmp.write(nc_bytes)
+            tmp_path = tmp.name
+
+        ds = nc4.Dataset(tmp_path)
+        os.unlink(tmp_path)
+
+        # Find Earth time-series variables
+        # ENLIL uses 'Earth' or 'L1' as location identifier
+        times, speeds, densities = [], [], []
+        now = datetime.now(timezone.utc)
+        cutoff = now + timedelta(hours=13)
+
+        # Try to find time and Earth-point variables
+        time_var = ds.variables.get('Time') or ds.variables.get('time')
+        if time_var is None: return []
+
+        # Time units: 'days since YYYY-MM-DD'
+        import netCDF4 as nc4
+        times_raw = nc4.num2date(time_var[:], time_var.units)
+
+        # Find speed and density at Earth
+        v_var = (ds.variables.get('SE1Vr') or ds.variables.get('V1Vr') or
+                 ds.variables.get('Vr'))
+        d_var = (ds.variables.get('SE1N') or ds.variables.get('V1N') or
+                 ds.variables.get('N'))
+
+        timeline = []
+        for i, t in enumerate(times_raw):
+            dt = datetime(t.year, t.month, t.day, t.hour, t.minute, tzinfo=timezone.utc)
+            if dt < now or dt > cutoff: continue
+            try:
+                v = float(v_var[i]) if v_var is not None else None
+                d = float(d_var[i]) if d_var is not None else None
+                timeline.append({'time': dt.isoformat(), 'speed': v, 'density': d})
+            except Exception:
+                pass
+
+        ds.close()
+        log.info(f'ENLIL: extracted {len(timeline)} points for next 12hr')
+        return timeline[:13]  # cap at 13 hourly points
+
+    except ImportError:
+        log.warning('netCDF4 not available — ENLIL extraction skipped')
+        return []
+    except Exception as e:
+        log.warning(f'ENLIL extraction failed: {e}')
+        return []
+
+
+# ── Determine pipeline state ──────────────────────────────────────────────────
+
+def determine_state(bz, v_kms, noaa):
+    """Simplified state for the map — full state machine lives in CME Watch."""
+    g_level = noaa.get('g_level', '')
+    hss = noaa.get('hss_active') or noaa.get('hss_watch')
+    g_num = int(g_level[1]) if g_level and len(g_level) > 1 else 0
+
+    if g_num >= 3 or bz < -10:     return 'STORM_ACTIVE'
+    if g_num >= 1 or bz < -5:      return 'ARRIVED'
+    if hss:                          return 'WATCH'
+    if bz < -2:                     return 'WATCH'
+    return 'QUIET'
+
+
+# ── Build timeline for app ────────────────────────────────────────────────────
+
+def build_bz_timeline(l1_data):
+    """Build 10-point Bz timeline (-1hr to +8hr) for the app timeline panel."""
+    if l1_data is None:
+        return [None] * 10
+
+    mag_df = l1_data.get('mag_df', pd.DataFrame())
+    bz_now = l1_data.get('bz_now', 0)
+    timeline = []
+    now = datetime.now(timezone.utc)
+
+    for offset in range(-1, 9):
+        dt = now + timedelta(hours=offset)
+        if offset <= 0:
+            # Use observed data
+            if not mag_df.empty:
+                cutoff = dt - timedelta(minutes=5)
+                nearby = mag_df[mag_df.index >= cutoff]
+                if not nearby.empty:
+                    timeline.append({'offset': offset, 'bz': round(float(nearby['Bz'].iloc[-1]), 1)})
+                    continue
+        # Future: use current value with simple decay toward 0
+        decay = max(0.0, 1 - offset * 0.1) if bz_now < 0 else 1.0
+        timeline.append({'offset': offset, 'bz': round(bz_now * decay, 1)})
+
+    return timeline
+
+
+# ── Main ──────────────────────────────────────────────────────────────────────
+
+def main():
+    now = datetime.now(timezone.utc)
+    log.info(f'Night Watch pipeline starting: {now.isoformat()}')
+
+    # Fetch all data
+    l1 = fetch_l1()
+    noaa = fetch_noaa_alerts()
+
+    bz_now   = l1['bz_now']   if l1 else 0.0
+    v_kms    = l1['v_kms']    if l1 else 450.0
+    density  = l1['density_ncc'] if l1 else 5.0
+
+    # Intensity
+    intensity_label, intensity_color, ey_adj = compute_intensity(bz_now, v_kms, density)
+
+    # Moon
+    moon = moon_illumination(now)
+    moon_rise, moon_set = moon_times(now)
+
+    # Sun times for NY (approximate)
+    NY_LAT, NY_LON = 40.7128, -74.006
+    n = now.timetuple().tm_yday
+    B = math.radians(360/365*(n-81))
+    eot = 9.87*math.sin(2*B) - 7.53*math.cos(B) - 1.5*math.sin(B)
+    decl = math.radians(23.45*math.sin(math.radians(360/365*(n-81))))
+    cos_ha = ((-math.sin(math.radians(-0.833)) - math.sin(math.radians(NY_LAT))*math.sin(decl))
+              / (math.cos(math.radians(NY_LAT))*math.cos(decl)))
+    cos_ha = max(-1.0, min(1.0, cos_ha))
+    ha = math.degrees(math.acos(cos_ha))
+    noon_utc = (720 - 4*NY_LON - eot) / 60
+    ss_hour = noon_utc + ha/15
+    sr_hour = noon_utc - ha/15
+    today = now.date()
+    ss_dt = datetime(today.year, today.month, today.day,
+                     int(ss_hour), int((ss_hour%1)*60), tzinfo=timezone.utc)
+    tomorrow = today + timedelta(days=1)
+    sr2_hour, _ = (noon_utc - ha/15, None)
+    sr2_dt = datetime(tomorrow.year, tomorrow.month, tomorrow.day,
+                      int(sr2_hour), int((sr2_hour%1)*60), tzinfo=timezone.utc)
+    dark_hours = max(0.1, (sr2_dt - ss_dt).total_seconds() / 3600)
+
+    # Moon interference
+    moon_up_hours = 0.0
+    if moon_rise and moon_set:
+        mr_dt = datetime.fromisoformat(moon_rise)
+        ms_dt = datetime.fromisoformat(moon_set)
+        if ms_dt > mr_dt:
+            overlap = max(0, (min(ms_dt, sr2_dt) - max(mr_dt, ss_dt)).total_seconds() / 3600)
+        else:
+            overlap = max(0, (min(sr2_dt, sr2_dt) - max(ss_dt, ss_dt)).total_seconds() / 3600)
+        moon_up_hours = overlap
+    elif moon_set:
+        ms_dt = datetime.fromisoformat(moon_set)
+        moon_up_hours = max(0, (min(ms_dt, sr2_dt) - ss_dt).total_seconds() / 3600)
+
+    interference_pct = min(100, moon['illumination'] * (moon_up_hours / dark_hours) * 100)
+    astro_dark_pct   = max(0, 100 - interference_pct)
+
+    # Overall quality
+    quality_label, quality_color = overall_quality(intensity_label, astro_dark_pct)
+
+    # State
+    state = determine_state(bz_now, v_kms, noaa)
+
+    # ENLIL — only fetch when warranted (avoid unnecessary 174MB downloads)
+    enlil_active = state in ('ARRIVED', 'STORM_ACTIVE') or noaa.get('hss_active')
+    enlil_timeline = fetch_enlil_timeline() if enlil_active else []
+
+    # Bz timeline
+    bz_timeline = build_bz_timeline(l1)
+
+    # Build output JSON
+    output = {
+        'last_updated':       now.isoformat(),
+        'state':              state,
+        'bz_now':             round(bz_now, 2),
+        'by_now':             round(l1['by_now'] if l1 else 0, 2),
+        'speed_kms':          round(v_kms, 0),
+        'density_ncc':        round(density, 2),
+        'ey_adjusted':        round(ey_adj, 2),
+        'intensity_label':    intensity_label,
+        'intensity_color':    intensity_color,
+        'aurora_quality':     quality_label,
+        'aurora_quality_color': quality_color,
+        'interference_pct':   round(interference_pct, 1),
+        'astro_dark_pct':     round(astro_dark_pct, 1),
+        'moon_illumination':  moon['illumination'],
+        'moon_phase_index':   moon['phase_index'],
+        'moon_phase_name':    moon['phase_name'],
+        'moon_phase_label':   moon['phase_label'],
+        'moon_rise':          moon_rise,
+        'moon_set':           moon_set,
+        'g_level':            noaa.get('g_level', ''),
+        'g_label':            noaa.get('g_label', ''),
+        'hss_active':         noaa.get('hss_active', False),
+        'hss_watch':          noaa.get('hss_watch', False),
+        'enlil_active':       bool(enlil_active),
+        'enlil_timeline':     enlil_timeline,
+        'timeline':           bz_timeline,
+    }
+
+    os.makedirs(os.path.dirname(OUTPUT_PATH), exist_ok=True)
+    with open(OUTPUT_PATH, 'w') as f:
+        json.dump(output, f, indent=2)
+
+    log.info(f'space_weather.json written: state={state} intensity={intensity_label} '
+             f'bz={bz_now:.1f} quality={quality_label}')
+
+
+if __name__ == '__main__':
+    main()
