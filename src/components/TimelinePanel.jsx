@@ -1,5 +1,5 @@
-import { useMemo } from 'react'
-import { getMoonData, isMoonUp } from '../utils/moon.js'
+import { getMoonData } from '../utils/moon.js'
+import TimelineBar from './TimelineBar.jsx'
 
 const FONT = 'DejaVu Sans Mono, Consolas, monospace'
 const BASE = '/night-watch'
@@ -242,52 +242,13 @@ export default function TimelinePanel({ spaceWeather, selectedHour, onHourSelect
         </div>
       </div>
 
-      {/* ── HOUR TIMELINE ── */}
-      <div style={{ display: 'flex', gap: 2, padding: '6px 8px 4px', overflowX: 'auto' }}>
-        {hours.map((h, i) => {
-          const isSelected = h.offset === selectedHour
-          const isNow = h.offset === 0
-          return (
-            <div
-              key={i}
-              onClick={() => onHourSelect(h.offset)}
-              style={{
-                flex: '0 0 auto', width: 70, cursor: 'pointer',
-                background: isSelected ? '#0d1a2a' : isNow ? '#0a1020' : '#070b16',
-                border: isSelected ? '1px solid #ff4444' : isNow ? '1px solid #ffffff44' : '1px solid #1a2035',
-                borderRadius: 2, padding: '5px 4px', textAlign: 'center',
-                transition: 'all 0.15s',
-              }}
-            >
-              <div style={{ color: isNow ? '#ffffff' : '#445566', fontSize: 9, letterSpacing: 1, marginBottom: 2 }}>
-                {isNow ? 'NOW' : formatTime(h.dt)}
-              </div>
-              {/* Bz mini bar */}
-              <div style={{ height: 24, position: 'relative', margin: '0 4px' }}>
-                <div style={{ position: 'absolute', top: '50%', left: 0, right: 0, height: 1, background: '#1a2035' }} />
-                {h.bz !== null && (
-                  <div style={{
-                    position: 'absolute', left: 0, right: 0,
-                    background: h.bz < 0 ? '#ee5577' : '#44ddaa',
-                    opacity: 0.85,
-                    bottom: h.bz < 0 ? '50%' : undefined,
-                    top: h.bz >= 0 ? '50%' : undefined,
-                    height: `${Math.min(50, Math.abs(h.bz) * 2.5)}%`,
-                    borderRadius: 1,
-                  }} />
-                )}
-              </div>
-              <div style={{ color: h.bzColor, fontSize: 9, fontWeight: 'bold', margin: '2px 0' }}>
-                {h.bz != null ? (h.bz > 0 ? '+' : '') + h.bz.toFixed(1) : '—'}
-              </div>
-              {/* Moon up indicator */}
-              <div style={{ fontSize: 8, color: h.moonUp ? '#aabbcc' : '#1e2a3a' }}>
-                {h.moonUp ? '☽' : '·'}
-              </div>
-            </div>
-          )
-        })}
-      </div>
+      {/* ── CME Watch-style timeline bar ── */}
+      <TimelineBar
+        spaceWeather={spaceWeather}
+        moonData={moonData}
+        selectedHour={selectedHour}
+        onHourSelect={onHourSelect}
+      />
 
       {/* ── ENLIL strip — conditional ── */}
       {enlil_active && enlil_timeline?.length > 0 && (
