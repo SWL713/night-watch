@@ -59,7 +59,8 @@ function App() {
 
   // Determine active heatmap mode from layer toggles
   const heatmapMode = layers.clouds ? 'clouds' : layers.bortle ? 'bortle' : 'combined'
-  const [pendingPin, setPendingPin] = useState(null) // {lat, lon} from map click
+  const [pendingPin, setPendingPin] = useState(null)
+  const [pinMode, setPinMode] = useState(false) // true = user clicked "place pin" button
 
   function toggleLayer(key) {
     setLayers(prev => {
@@ -115,7 +116,7 @@ function App() {
           minZoom={MAP_BOUNDS.minZoom}
           maxZoom={MAP_BOUNDS.maxZoom}
           zoomControl={false}
-          style={{ height: '100%', width: '100%', background: '#06080f' }}
+          style={{ height: '100%', width: '100%', background: '#06080f', cursor: pinMode ? 'crosshair' : 'grab' }}
         >
           {/* Dark base tile layer */}
           <TileLayer
@@ -126,11 +127,12 @@ function App() {
 
           <ZoomControl position="bottomright" />
 
-          {/* Map click handler for spot submission */}
+          {/* Map click handler — only active in pin placement mode */}
           <MapClickHandler
-            active={modal === 'submitSpot' || pendingPin !== null}
+            active={pinMode}
             onMapClick={(lat, lon) => {
               setPendingPin({ lat, lon })
+              setPinMode(false)
               setModal('submitSpot')
             }}
           />
@@ -189,18 +191,47 @@ function App() {
           display: 'flex', justifyContent: 'space-between', alignItems: 'center',
           padding: '0 12px', height: 36, zIndex: 1000,
         }}>
-          <div style={{ display: 'flex', gap: 8 }}>
-            <ActionBtn onClick={() => {
-              setPendingPin(null)
-              setModal('submitSpot')
-            }}>
-              + SUBMIT LOCATION
-            </ActionBtn>
-            {pendingPin && (
-              <span style={{ color: '#44ddaa', fontSize: 9, fontFamily: FONT, alignSelf: 'center' }}>
-                📍 {pendingPin.lat.toFixed(4)}, {pendingPin.lon.toFixed(4)}
-              </span>
+          <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+            {/* Step 1: Toggle pin placement mode */}
+            <button
+              onClick={() => {
+                setPinMode(m => !m)
+                setPendingPin(null)
+              }}
+              style={{
+                background: pinMode ? '#0d2a1a' : '#060810',
+                border: `1px solid ${pinMode ? '#44ddaa' : '#1a2a3a'}`,
+                color: pinMode ? '#44ddaa' : '#334455',
+                padding: '3px 10px', fontSize: 9, fontFamily: FONT,
+                cursor: 'pointer', letterSpacing: 1, borderRadius: 2,
+              }}
+            >
+              {pinMode ? '📍 CLICK MAP TO PIN' : '+ PLACE PIN'}
+            </button>
+
+            {/* Step 2: Once pinned, show coords and submit button */}
+            {pendingPin && !pinMode && (
+              <>
+                <span style={{ color: '#44ddaa', fontSize: 9, fontFamily: FONT }}>
+                  {pendingPin.lat.toFixed(4)}, {pendingPin.lon.toFixed(4)}
+                </span>
+                <ActionBtn
+                  highlight
+                  onClick={() => setModal('submitSpot')}
+                >
+                  SUBMIT
+                </ActionBtn>
+                <button
+                  onClick={() => setPendingPin(null)}
+                  style={{
+                    background: 'none', border: 'none',
+                    color: '#445566', fontSize: 12,
+                    cursor: 'pointer', padding: '0 2px',
+                  }}
+                >✕</button>
+              </>
             )}
+          </div>
             {!adminAuthed && (
               <form onSubmit={handleAdminLogin} style={{ display: 'flex', gap: 4 }}>
                 <input
@@ -256,7 +287,7 @@ function App() {
           {modal === 'submitSpot' && (
             <SubmitSpot
               initialCoords={pendingPin}
-              onClose={() => { setModal(null); setPendingPin(null) }}
+              onClose={() => { setModal(null); setPendingPin(null); setPinMode(false) }}
             />
           )}
           {modal === 'submitPhoto' && selectedSpotForPhoto && (
