@@ -152,32 +152,34 @@ export default function TimelineBar({ spaceWeather, moonData, selectedHour, onHo
     ctx.setLineDash([])
 
     // ── 5. BZ TRACE ──────────────────────────────────────────────────────────
-    // Use real-time minute data if available, fall back to pipeline hourly
-    const realTrace = (bzTrace || []).filter(p => p.bz !== null)
+    // Rules ported from CME Watch _draw_timeline:
+    //  OBSERVED  — solid, lw 1.8, alpha 0.92, sign-colored
+    //  PROPAGATED— dashed (4,3), lw 1.4, alpha 0.50, sign-colored, slope-extrapolated
+    //              only drawn when |Bz| >= 2nT (zeroed near zero to avoid kink)
+    //  PREDICTION— dashed (5,3), lw 1.6, fades 0.80→0.15 over last 20%
+    //              ONLY drawn when |Bz| >= 2.5 AND trend is monotonic >= 1.5 nT/hr
+    //              i.e. Bz clearly trending toward zero — otherwise skip entirely
+
+    const realTrace  = (bzTrace || []).filter(p => p.bz !== null)
     const pipelineTL = (spaceWeather.timeline || []).filter(p => p?.bz != null)
 
-    // Compute y-scale from all available data
-    const allBz = [
-      ...realTrace.map(p => p.bz),
-      ...pipelineTL.map(p => p.bz),
-      spaceWeather.bz_now ?? 0,
-    ]
-    const bzMax = Math.max(8, ...allBz.map(Math.abs)) * 1.3
-
-    function bzY(bz) {
-      // Use full plot height with padding
-      return yZero - (bz / bzMax) * (pH * 0.47)
-    }
+    // Y scale — use full plot height
+    const allBzVals = [...realTrace.map(p => p.bz), spaceWeather.bz_now ?? 0]
+    const bzMax = Math.max(8, ...allBzVals.map(Math.abs)) * 1.3
+    function bzY(bz) { return yZero - (bz / bzMax) * (pH * 0.47) }
 
     ctx.lineJoin = 'round'
     ctx.lineCap  = 'round'
 
-    if (realTrace.length >= 2) {
-      // Draw real minute-resolution observed trace
-      ctx.lineWidth = 2.5
+    // ── OBSERVED (solid, sign-colored, lw 1.8) ───────────────────────────────
+    const obsPoints = realTrace.length >= 2 ? realTrace : null
+    const obsHourly = pipelineTL.filter(p => p.offset <= 0)
+
+    if (obsPoints) {
+      ctx.lineWidth = 1.8
       ctx.setLineDash([])
-      for (let i = 0; i < realTrace.length - 1; i++) {
-        const a = realTrace[i], b = realTrace[i+1]
+      for (let i = 0; i < obsPoints.length - 1; i++) {
+        const a = obsPoints[i], b = obsPoints[i+1]
         const mid = (a.bz + b.bz) / 2
         ctx.strokeStyle = mid < 0 ? '#ee5577' : '#44ddaa'
         ctx.beginPath()
@@ -185,13 +187,11 @@ export default function TimelineBar({ spaceWeather, moonData, selectedHour, onHo
         ctx.lineTo(tx(b.time), bzY(b.bz))
         ctx.stroke()
       }
-    } else {
-      // Fall back to pipeline hourly observed points
-      const obs = pipelineTL.filter(p => p.offset <= 0)
-      ctx.lineWidth = 2.5
+    } else if (obsHourly.length >= 2) {
+      ctx.lineWidth = 1.8
       ctx.setLineDash([])
-      for (let i = 0; i < obs.length - 1; i++) {
-        const a = obs[i], b = obs[i+1]
+      for (let i = 0; i < obsHourly.length - 1; i++) {
+        const a = obsHourly[i], b = obsHourly[i+1]
         const ta = new Date(now.getTime() + a.offset * 3600000)
         const tb = new Date(now.getTime() + b.offset * 3600000)
         const mid = (a.bz + b.bz) / 2
@@ -203,42 +203,135 @@ export default function TimelineBar({ spaceWeather, moonData, selectedHour, onHo
       }
     }
 
-    // Propagated: flat from now ~40min based on solar wind speed
-    const bzNow  = realTrace.length ? realTrace[realTrace.length-1].bz : (spaceWeather.bz_now ?? 0)
+    // ── PROPAGATED (dashed, dim, slope-extrapolated) ──────────────────────────
+    // Get the last observed Bz and compute slope from last 30 min of real data
+    const bzNow = obsPoints?.length
+      ? obsPoints[obsPoints.length - 1].bz
+      : (spaceWeather.bz_now ?? 0)
+
     const lagMs  = Math.min((1.5e6 / (spaceWeather.speed_kms || 450)) * 1000, 5400000)
     const lagEnd = new Date(now.getTime() + lagMs)
-    if (lagEnd > now) {
-      ctx.lineWidth = 1.8
-      ctx.setLineDash([7, 4])
-      ctx.strokeStyle = bzNow < 0 ? '#994466' : '#226644'
-      ctx.beginPath()
-      ctx.moveTo(tx(now), bzY(bzNow))
-      ctx.lineTo(tx(lagEnd < tEnd ? lagEnd : tEnd), bzY(bzNow))
-      ctx.stroke()
-    }
 
-    // Prediction: pipeline future points, fading dashed
-    const pred = pipelineTL.filter(p => p.offset > 0)
-    if (pred.length >= 2) {
-      const lastOffset = pred[pred.length-1].offset
-      for (let i = 0; i < pred.length - 1; i++) {
-        const a = pred[i], b = pred[i+1]
-        const ta = new Date(now.getTime() + a.offset * 3600000)
-        const tb = new Date(now.getTime() + b.offset * 3600000)
-        const frac  = a.offset / lastOffset
-        const alpha = frac < 0.8 ? 0.70 : 0.70 - (frac-0.8)/0.2*0.60
-        if (alpha < 0.05) continue
-        const mid = (a.bz + b.bz) / 2
-        ctx.lineWidth = 1.8
-        ctx.setLineDash([5, 3])
-        ctx.strokeStyle = mid < 0 ? `rgba(238,85,119,${alpha})` : `rgba(68,221,170,${alpha})`
-        ctx.beginPath()
-        ctx.moveTo(tx(ta), bzY(a.bz))
-        ctx.lineTo(tx(tb), bzY(b.bz))
-        ctx.stroke()
+    // Compute slope from last 30min of real trace (only if |Bz| >= 2nT)
+    let propSlope = 0.0
+    if (obsPoints && obsPoints.length >= 5 && Math.abs(bzNow) >= 2.0) {
+      const cutoff30 = new Date(now.getTime() - 30 * 60000)
+      const w30 = obsPoints.filter(p => p.time >= cutoff30)
+      if (w30.length >= 5) {
+        const t0 = w30[0].time.getTime()
+        const xs = w30.map(p => (p.time.getTime() - t0) / 3600000)
+        const ys = w30.map(p => p.bz)
+        const n  = xs.length
+        const sx = xs.reduce((a, b) => a + b, 0)
+        const sy = ys.reduce((a, b) => a + b, 0)
+        const sxy = xs.reduce((a, x, i) => a + x * ys[i], 0)
+        const sxx = xs.reduce((a, x) => a + x * x, 0)
+        const raw = (n * sxy - sx * sy) / (n * sxx - sx * sx) || 0
+        // Taper slope to 0 as |Bz| drops below 4nT (prevents kink near zero)
+        const taper = Math.min(1.0, (Math.abs(bzNow) - 2.0) / 2.0)
+        propSlope = Math.max(-10, Math.min(10, raw)) * taper
       }
     }
+
+    const lagHrs  = lagMs / 3600000
+    const anchorV = bzNow + propSlope * lagHrs
+
+    // Draw propagated segment
+    if (lagEnd > now && lagEnd <= tEnd) {
+      const propColor = anchorV < 0 ? '#994466' : '#226644'
+      ctx.lineWidth = 1.4
+      ctx.setLineDash([4, 3])
+      ctx.strokeStyle = propColor
+      ctx.globalAlpha = 0.50
+      ctx.beginPath()
+      ctx.moveTo(tx(now), bzY(bzNow))
+      ctx.lineTo(tx(lagEnd), bzY(anchorV))
+      ctx.stroke()
+      ctx.globalAlpha = 1.0
+    }
+
+    // ── PREDICTION (dashed fading — ONLY if clearly trending) ────────────────
+    // Rule: only draw if |Bz| >= 2.5 AND Bz trending toward 0 monotonically
+    // at >= 1.5 nT/hr. Otherwise skip entirely — no flat lines, no guessing.
+    const bzSouthLive = bzNow < -2.5
+    const bzNorthLive = bzNow >  2.5
+
+    // Compute slope from last 60min for prediction gate
+    let slope60 = 0.0, isMono = false
+    if (obsPoints && obsPoints.length >= 10) {
+      const cutoff60 = new Date(now.getTime() - 60 * 60000)
+      const w60 = obsPoints.filter(p => p.time >= cutoff60)
+      if (w60.length >= 10) {
+        const t0 = w60[0].time.getTime()
+        const xs = w60.map(p => (p.time.getTime() - t0) / 3600000)
+        const ys = w60.map(p => p.bz)
+        const n  = xs.length
+        const sx = xs.reduce((a, b) => a + b, 0)
+        const sy = ys.reduce((a, b) => a + b, 0)
+        const sxy = xs.reduce((a, x, i) => a + x * ys[i], 0)
+        const sxx = xs.reduce((a, x) => a + x * x, 0)
+        slope60 = (n * sxy - sx * sy) / (n * sxx - sx * sx) || 0
+        // Check monotonicity: signal must dominate residuals
+        const meanX = sx / n
+        const fitted = xs.map(x => sy/n + slope60 * (x - meanX))
+        const residStd = Math.sqrt(ys.reduce((a, y, i) => a + (y - fitted[i])**2, 0) / n)
+        const signal = Math.abs(ys[ys.length-1] - ys[0])
+        isMono = signal > 2.0 && residStd < signal * 0.55
+      }
+    }
+
+    const trendingToZero = isMono && (
+      (bzSouthLive && slope60 > 1.5) ||
+      (bzNorthLive && slope60 < -1.5)
+    )
+
+    if (trendingToZero) {
+      // Cosine arc from anchorV → 0, time estimated from slope
+      const hrsToZero = Math.min(6, Math.abs(anchorV) / Math.max(Math.abs(slope60), 0.1))
+      const zeroT = new Date(lagEnd.getTime() + hrsToZero * 3600000)
+
+      if (zeroT > lagEnd && zeroT <= tEnd) {
+        const STEPS = 40
+        const totalMs = zeroT - lagEnd
+        const fadeStartMs = totalMs * 0.80
+
+        for (let i = 0; i < STEPS - 1; i++) {
+          const fracA = i / (STEPS - 1)
+          const fracB = (i + 1) / (STEPS - 1)
+          const tA = new Date(lagEnd.getTime() + fracA * totalMs)
+          const tB = new Date(lagEnd.getTime() + fracB * totalMs)
+
+          // Cosine easing anchorV → 0
+          const cfA = (1 - Math.cos(Math.PI * fracA)) / 2
+          const cfB = (1 - Math.cos(Math.PI * fracB)) / 2
+          const vA  = anchorV * (1 - cfA)
+          const vB  = anchorV * (1 - cfB)
+
+          // Alpha: 0.80 until 80%, then fade to 0.15
+          const elapsedA = tA - lagEnd
+          let alpha = 0.80
+          if (elapsedA > fadeStartMs) {
+            alpha = 0.80 - ((elapsedA - fadeStartMs) / (totalMs - fadeStartMs)) * 0.65
+          }
+          if (alpha < 0.03) break
+
+          const mid = (vA + vB) / 2
+          ctx.lineWidth = 1.6
+          ctx.setLineDash([5, 3])
+          ctx.strokeStyle = mid < 0
+            ? `rgba(238,85,119,${alpha})`
+            : `rgba(68,221,170,${alpha})`
+          ctx.globalAlpha = 1.0
+          ctx.beginPath()
+          ctx.moveTo(tx(tA), bzY(vA))
+          ctx.lineTo(tx(tB), bzY(vB))
+          ctx.stroke()
+        }
+      }
+    }
+
     ctx.setLineDash([])
+    ctx.globalAlpha = 1.0
 
     // ── 6. VERTICAL MARKERS ──────────────────────────────────────────────────
     function vLine(t, color, label, yFrac, dashed) {
