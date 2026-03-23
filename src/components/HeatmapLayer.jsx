@@ -28,29 +28,30 @@ function interpolateBortle(lat, lon) {
   return Math.max(1, Math.min(9, vSum / wSum))
 }
 
-// Bilinear interpolation between 4 corner scores
 function bilinear(s00, s10, s01, s11, tx, ty) {
   const top = s00 + (s10 - s00) * tx
   const bot = s01 + (s11 - s01) * tx
   return top + (bot - top) * ty
 }
 
+// Build padded score grid — null cloud = use bortle only
 function buildScoreGrid(mode, getCloudAt, selectedHour) {
-  const lats = []
-  const lons = []
-  for (let lat = GRID_BOUNDS.maxLat; lat >= GRID_BOUNDS.minLat - 0.01; lat -= GRID_SPACING) {
+  const pad = GRID_SPACING * 2
+  const lats = [], lons = []
+  for (let lat = GRID_BOUNDS.maxLat + pad; lat >= GRID_BOUNDS.minLat - pad - 0.01; lat -= GRID_SPACING)
     lats.push(parseFloat(lat.toFixed(2)))
-  }
-  for (let lon = GRID_BOUNDS.minLon; lon <= GRID_BOUNDS.maxLon + 0.01; lon += GRID_SPACING) {
+  for (let lon = GRID_BOUNDS.minLon - pad; lon <= GRID_BOUNDS.maxLon + pad + 0.01; lon += GRID_SPACING)
     lons.push(parseFloat(lon.toFixed(2)))
-  }
 
   const grid = lats.map(lat =>
     lons.map(lon => {
-      const cloud = getCloudAt ? getCloudAt(lat, lon, selectedHour) : 50
       const bortle = interpolateBortle(lat, lon)
-      if (mode === 'clouds') return 1 - cloud / 100
       if (mode === 'bortle') return bortleScore(bortle)
+
+      const cloud = getCloudAt ? getCloudAt(lat, lon, selectedHour) : null
+      if (mode === 'clouds') return cloud !== null ? 1 - cloud / 100 : bortleScore(bortle) * 0.5
+      // Combined: if no cloud data, fall back to bortle-only with slight dimming
+      if (cloud === null) return bortleScore(bortle) * 0.6
       return combinedScore(cloud, bortle)
     })
   )
@@ -74,9 +75,8 @@ const SmoothHeatmap = L.Layer.extend({
     map.off('moveend zoomend resize', this._redraw, this)
   },
 
-  updateData(scoreData, mode) {
+  updateData(scoreData) {
     this._scoreData = scoreData
-    this._mode = mode
     this._redraw()
   },
 
@@ -95,40 +95,50 @@ const SmoothHeatmap = L.Layer.extend({
     const { grid, lats, lons } = this._scoreData
     const rows = lats.length
     const cols = lons.length
+    if (rows < 2 || cols < 2) return
 
-    // Render pixel-by-pixel using bilinear interpolation for smooth gradient
-    // Sample every 2px for performance
-    const STEP = 2
+    const latMax = lats[0], latMin = lats[rows - 1]
+    const lonMin = lons[0], lonMax = lons[cols - 1]
+    const latRange = latMax - latMin
+    const lonRange = lonMax - lonMin
+
+    // Pixel-by-pixel bilinear interpolation — sample every 3px for performance
+    const STEP = 3
     const imageData = ctx.createImageData(size.x, size.y)
     const data = imageData.data
 
     for (let py = 0; py < size.y; py += STEP) {
       for (let px = 0; px < size.x; px += STEP) {
-        // Pixel → LatLng
         const latlng = map.containerPointToLatLng([px, py])
         const lat = latlng.lat
         const lon = latlng.lng
 
-        // Find grid cell
-        const ci = (GRID_BOUNDS.maxLat - lat) / GRID_SPACING
-        const cj = (lon - GRID_BOUNDS.minLon) / GRID_SPACING
+        // Grid cell indices
+        const ci = (latMax - lat) / GRID_SPACING
+        const cj = (lon - lonMin) / GRID_SPACING
         const r0 = Math.floor(ci), r1 = r0 + 1
         const c0 = Math.floor(cj), c1 = c0 + 1
 
         if (r0 < 0 || r1 >= rows || c0 < 0 || c1 >= cols) continue
 
-        const tx = cj - c0
-        const ty = ci - r0
         const score = bilinear(
           grid[r0][c0], grid[r0][c1],
           grid[r1][c0], grid[r1][c1],
-          tx, ty
+          cj - c0, ci - r0
         )
 
-        const [red, green, blue] = scoreToRGB(score)
-        const alpha = Math.round(0.55 * 255)
+        const [red, green, blue] = scoreToRGB(Math.max(0, Math.min(1, score)))
 
-        // Fill STEP×STEP block
+        // Edge fade — smoothly reduce opacity near grid boundary
+        const pad = GRID_SPACING * 1.5
+        const distFromEdge = Math.min(
+          lat - (latMin + pad), (latMax - pad) - lat,
+          lon - (lonMin + pad), (lonMax - pad) - lon
+        )
+        const fadeZone = GRID_SPACING * 2
+        const edgeFade = Math.max(0, Math.min(1, distFromEdge / fadeZone))
+        const alpha = Math.round(0.62 * edgeFade * 255)
+
         for (let dy = 0; dy < STEP && py + dy < size.y; dy++) {
           for (let dx = 0; dx < STEP && px + dx < size.x; dx++) {
             const idx = ((py + dy) * size.x + (px + dx)) * 4
@@ -143,12 +153,12 @@ const SmoothHeatmap = L.Layer.extend({
 
     ctx.putImageData(imageData, 0, 0)
 
-    // Single gaussian blur pass for smooth final result
-    ctx.filter = 'blur(6px)'
+    // Gaussian blur for smooth gradients
     const tmp = document.createElement('canvas')
     tmp.width = size.x; tmp.height = size.y
-    tmp.getContext('2d').drawImage(canvas, 0, 0)
-    ctx.filter = 'none'
+    const tctx = tmp.getContext('2d')
+    tctx.filter = 'blur(8px)'
+    tctx.drawImage(canvas, 0, 0)
     ctx.clearRect(0, 0, size.x, size.y)
     ctx.drawImage(tmp, 0, 0)
   },
@@ -168,9 +178,9 @@ export default function HeatmapLayer({ mode, selectedHour, getCloudAt, cloudLoad
   }, [map])
 
   useEffect(() => {
-    if (!layerRef.current || cloudLoading) return
+    if (!layerRef.current) return
     const scoreData = buildScoreGrid(mode, getCloudAt, selectedHour)
-    layerRef.current.updateData(scoreData, mode)
+    layerRef.current.updateData(scoreData)
   }, [mode, selectedHour, getCloudAt, cloudLoading])
 
   return null
