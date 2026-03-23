@@ -52,7 +52,7 @@ function App() {
 
   const { data: sw } = useSpaceWeather()
   const { spots } = useSpots()
-  const { getCloudAt, loading: cloudLoading, progress } = useCloudCover()
+  const { getCloudAt, loading: cloudLoading, progress, coverage, total } = useCloudCover()
   const moonData = getMoonData()
 
   // Determine active heatmap mode from layer toggles
@@ -176,7 +176,7 @@ function App() {
             padding: '4px 12px', fontSize: 9, color: '#445566', zIndex: 1000,
             fontFamily: FONT, letterSpacing: 1,
           }}>
-            LOADING CLOUD DATA {progress}%
+            CLOUD DATA {progress}% · {coverage}/{total} pts
           </div>
         )}
 
