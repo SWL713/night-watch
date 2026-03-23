@@ -54,7 +54,7 @@ function App() {
 
   const { data: sw } = useSpaceWeather()
   const { spots } = useSpots()
-  const { getCloudAt, loading: cloudLoading, progress, coverage, total } = useCloudCover()
+  const { getCloudAt, loading: cloudLoading, progress, coverage, total, phase } = useCloudCover()
   const moonData = getMoonData()
 
   // Determine active heatmap mode from layer toggles
@@ -173,14 +173,16 @@ function App() {
         />
 
         {/* Cloud loading indicator */}
-        {cloudLoading && (
+        {(cloudLoading || phase === 'detail') && (
           <div style={{
             position: 'absolute', bottom: 48, left: '50%', transform: 'translateX(-50%)',
             background: '#070b16', border: '1px solid #1a2035', borderRadius: 2,
-            padding: '4px 12px', fontSize: 9, color: '#445566', zIndex: 1000,
+            padding: '4px 12px', fontSize: 9, zIndex: 1000,
             fontFamily: FONT, letterSpacing: 1,
+            color: phase === 'detail' ? '#1e3a2a' : '#445566',
           }}>
-            CLOUD DATA {progress}% · {coverage}/{total} pts
+            {phase === 'coarse' && `CLOUD DATA ${progress}% — LOADING...`}
+            {phase === 'detail' && `REFINING ${progress}% · ${coverage}/${total} pts`}
           </div>
         )}
 
