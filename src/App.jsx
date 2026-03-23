@@ -194,10 +194,7 @@ function App() {
           <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
             {/* Step 1: Toggle pin placement mode */}
             <button
-              onClick={() => {
-                setPinMode(m => !m)
-                setPendingPin(null)
-              }}
+              onClick={() => { setPinMode(m => !m); setPendingPin(null) }}
               style={{
                 background: pinMode ? '#0d2a1a' : '#060810',
                 border: `1px solid ${pinMode ? '#44ddaa' : '#1a2a3a'}`,
@@ -209,29 +206,21 @@ function App() {
               {pinMode ? '📍 CLICK MAP TO PIN' : '+ PLACE PIN'}
             </button>
 
-            {/* Step 2: Once pinned, show coords and submit button */}
+            {/* Step 2: Once pinned show coords + submit + cancel */}
             {pendingPin && !pinMode && (
               <>
                 <span style={{ color: '#44ddaa', fontSize: 9, fontFamily: FONT }}>
                   {pendingPin.lat.toFixed(4)}, {pendingPin.lon.toFixed(4)}
                 </span>
-                <ActionBtn
-                  highlight
-                  onClick={() => setModal('submitSpot')}
-                >
-                  SUBMIT
-                </ActionBtn>
-                <button
-                  onClick={() => setPendingPin(null)}
-                  style={{
-                    background: 'none', border: 'none',
-                    color: '#445566', fontSize: 12,
-                    cursor: 'pointer', padding: '0 2px',
-                  }}
-                >✕</button>
+                <ActionBtn highlight onClick={() => setModal('submitSpot')}>SUBMIT</ActionBtn>
+                <button onClick={() => setPendingPin(null)} style={{
+                  background: 'none', border: 'none', color: '#445566',
+                  fontSize: 12, cursor: 'pointer', padding: '0 2px',
+                }}>✕</button>
               </>
             )}
-          </div>
+
+            {/* Admin login */}
             {!adminAuthed && (
               <form onSubmit={handleAdminLogin} style={{ display: 'flex', gap: 4 }}>
                 <input
@@ -253,9 +242,7 @@ function App() {
               </form>
             )}
             {adminAuthed && (
-              <ActionBtn onClick={() => setModal('admin')} highlight>
-                QUEUE
-              </ActionBtn>
+              <ActionBtn onClick={() => setModal('admin')} highlight>QUEUE</ActionBtn>
             )}
           </div>
 
