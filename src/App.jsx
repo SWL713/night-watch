@@ -192,7 +192,7 @@ function App() {
               setPendingPin(null)
               setModal('submitSpot')
             }}>
-              + SUBMIT SPOT
+              + SUBMIT LOCATION
             </ActionBtn>
             {pendingPin && (
               <span style={{ color: '#44ddaa', fontSize: 9, fontFamily: FONT, alignSelf: 'center' }}>

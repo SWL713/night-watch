@@ -65,7 +65,7 @@ export default function SubmitSpot({ onClose, initialCoords }) {
     <div style={{ background: '#070b16', border: '1px solid #1a2a3a', borderRadius: 4,
       padding: 16, width: 300, fontFamily: FONT, color: '#ccd', fontSize: 12 }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 14 }}>
-        <div style={{ color: '#44ddaa', fontSize: 13, letterSpacing: 2 }}>SUBMIT A SPOT</div>
+        <div style={{ color: '#44ddaa', fontSize: 13, letterSpacing: 2 }}>SUBMIT A LOCATION</div>
         <button onClick={onClose} style={{
           background: 'none', border: 'none', color: '#445566',
           fontSize: 16, cursor: 'pointer' }}>✕</button>

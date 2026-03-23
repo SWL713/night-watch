@@ -10,7 +10,7 @@ export default function LayerControls({ layers, onToggle, enlilActive }) {
     { key: 'clouds',  label: 'Clouds only', group: 'heatmap' },
     { key: 'bortle',  label: 'Bortle only', group: 'heatmap' },
     { key: 'ovation', label: 'Aurora Oval', group: 'toggle' },
-    { key: 'pins',    label: 'Spots',       group: 'toggle' },
+    { key: 'pins',    label: 'Locations',   group: 'toggle' },
     ...(enlilActive ? [{ key: 'enlil', label: 'ENLIL', group: 'toggle' }] : []),
   ]
 
