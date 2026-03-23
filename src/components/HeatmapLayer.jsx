@@ -236,7 +236,7 @@ const SmoothHeatmap = L.Layer.extend({
         )
         const fadeZone = GRID_SPACING * 2
         const edgeFade = Math.max(0, Math.min(1, distFromEdge / fadeZone))
-        const alpha = Math.round(0.62 * edgeFade * 255)
+        const alpha = Math.round(0.45 * edgeFade * 255)
 
         for (let dy = 0; dy < STEP && py + dy < size.y; dy++) {
           for (let dx = 0; dx < STEP && px + dx < size.x; dx++) {
