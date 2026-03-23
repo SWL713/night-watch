@@ -212,6 +212,11 @@ function App() {
                     fontFamily: FONT, width: 80, outline: 'none', borderRadius: 2,
                   }}
                 />
+                <button type="submit" style={{
+                  background: '#060810', border: '1px solid #1a2035',
+                  color: '#334455', padding: '2px 8px', fontSize: 9,
+                  fontFamily: FONT, cursor: 'pointer', borderRadius: 2,
+                }}>GO</button>
               </form>
             )}
             {adminAuthed && (
