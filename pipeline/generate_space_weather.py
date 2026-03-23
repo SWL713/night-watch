@@ -529,10 +529,6 @@ def main():
              f'bz={bz_now:.1f} quality={quality_label}')
 
 
-if __name__ == '__main__':
-    import time
-    main_with_clouds()
-
 CLOUD_GRID_SPACING = 0.5   # degrees — good balance of detail vs file size
 CLOUD_OUTPUT_PATH  = os.path.join(os.path.dirname(__file__), '..', 'data', 'cloud_cover.json')
 
