@@ -1,50 +1,72 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { GRID_BOUNDS } from '../config.js'
 
-const GRID_SPACING = 1.0
+// 0.25° spacing ~28km — fine enough to look smooth, manageable API calls
+const GRID_SPACING = 0.25
+export { GRID_SPACING }
 
 function buildGrid() {
   const points = []
   for (let lat = GRID_BOUNDS.minLat; lat <= GRID_BOUNDS.maxLat; lat += GRID_SPACING) {
     for (let lon = GRID_BOUNDS.minLon; lon <= GRID_BOUNDS.maxLon; lon += GRID_SPACING) {
-      points.push({ lat: parseFloat(lat.toFixed(1)), lon: parseFloat(lon.toFixed(1)) })
+      points.push({
+        lat: parseFloat(lat.toFixed(2)),
+        lon: parseFloat(lon.toFixed(2))
+      })
     }
   }
   return points
 }
 
-async function fetchPointForecast(lat, lon) {
-  const url = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&hourly=cloudcover&forecast_days=2&timezone=UTC`
+// Open-Meteo supports batch requests — up to 100 locations per call
+async function fetchBatch(points) {
+  const lats = points.map(p => p.lat).join(',')
+  const lons = points.map(p => p.lon).join(',')
+  const url = `https://api.open-meteo.com/v1/forecast?latitude=${lats}&longitude=${lons}&hourly=cloudcover&forecast_days=2&timezone=UTC`
   const res = await fetch(url)
   if (!res.ok) throw new Error(`HTTP ${res.status}`)
   const data = await res.json()
-  const times = data.hourly.time.map(t => new Date(t + 'Z'))
-  const clouds = data.hourly.cloudcover
+
+  // Response is array when multiple locations, object when single
+  const responses = Array.isArray(data) ? data : [data]
   const now = new Date()
-  return times
-    .map((t, i) => ({ time: t, cloudcover: clouds[i] }))
-    .filter(p => p.time >= new Date(now - 3600000) && p.time <= new Date(now.getTime() + 9 * 3600000))
+  const results = {}
+
+  responses.forEach((d, i) => {
+    const pt = points[i]
+    if (!pt || !d?.hourly) return
+    const times = d.hourly.time.map(t => new Date(t + 'Z'))
+    const clouds = d.hourly.cloudcover
+    results[`${pt.lat},${pt.lon}`] = times
+      .map((t, j) => ({ time: t, cloudcover: clouds[j] }))
+      .filter(p => p.time >= new Date(now - 3600000) && p.time <= new Date(now.getTime() + 9 * 3600000))
+  })
+
+  return results
 }
 
 async function fetchAllGrid(onProgress, onPartialUpdate) {
   const grid = buildGrid()
   const results = {}
-  const CHUNK = 5
-  for (let i = 0; i < grid.length; i += CHUNK) {
-    const chunk = grid.slice(i, i + CHUNK)
-    await Promise.all(chunk.map(async ({ lat, lon }) => {
-      try {
-        const forecast = await fetchPointForecast(lat, lon)
-        results[`${lat},${lon}`] = forecast
-      } catch (e) {
-        results[`${lat},${lon}`] = null
-      }
-    }))
-    const pct = Math.min(100, Math.round((i + CHUNK) / grid.length * 100))
+  const BATCH_SIZE = 100  // Open-Meteo batch limit
+
+  for (let i = 0; i < grid.length; i += BATCH_SIZE) {
+    const batch = grid.slice(i, i + BATCH_SIZE)
+    try {
+      const batchResults = await fetchBatch(batch)
+      Object.assign(results, batchResults)
+    } catch (e) {
+      // On batch failure, fill with nulls for these points
+      batch.forEach(p => { results[`${p.lat},${p.lon}`] = null })
+      console.warn('Batch fetch failed:', e)
+    }
+    const pct = Math.min(100, Math.round((i + BATCH_SIZE) / grid.length * 100))
     onProgress?.(pct)
     onPartialUpdate?.({ grid, results: { ...results } })
-    if (i + CHUNK < grid.length) await new Promise(r => setTimeout(r, 300))
+    // Gentle rate limiting between batches
+    if (i + BATCH_SIZE < grid.length) await new Promise(r => setTimeout(r, 500))
   }
+
   return { grid, results }
 }
 
@@ -88,8 +110,9 @@ export function useCloudCover() {
 
   const getCloudAt = useCallback((lat, lon, hourOffset = 0) => {
     if (!cloudData?.results) return 50
-    const gridLat = parseFloat((Math.round(lat / GRID_SPACING) * GRID_SPACING).toFixed(1))
-    const gridLon = parseFloat((Math.round(lon / GRID_SPACING) * GRID_SPACING).toFixed(1))
+    // Snap to nearest grid point
+    const gridLat = parseFloat((Math.round(lat / GRID_SPACING) * GRID_SPACING).toFixed(2))
+    const gridLon = parseFloat((Math.round(lon / GRID_SPACING) * GRID_SPACING).toFixed(2))
     const key = `${gridLat},${gridLon}`
     const forecast = cloudData.results[key]
     if (!forecast || !forecast.length) return 50
@@ -104,5 +127,14 @@ export function useCloudCover() {
 }
 
 export async function fetchSpotForecast(lat, lon) {
-  return fetchPointForecast(lat, lon)
+  const url = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&hourly=cloudcover&forecast_days=2&timezone=UTC`
+  const res = await fetch(url)
+  if (!res.ok) throw new Error(`HTTP ${res.status}`)
+  const data = await res.json()
+  const times = data.hourly.time.map(t => new Date(t + 'Z'))
+  const clouds = data.hourly.cloudcover
+  const now = new Date()
+  return times
+    .map((t, i) => ({ time: t, cloudcover: clouds[i] }))
+    .filter(p => p.time >= new Date(now - 3600000) && p.time <= new Date(now.getTime() + 9 * 3600000))
 }

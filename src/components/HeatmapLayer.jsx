@@ -3,8 +3,7 @@ import { useMap } from 'react-leaflet'
 import L from 'leaflet'
 import { combinedScore, cloudScore, bortleScore } from '../utils/scoring.js'
 import { GRID_BOUNDS } from '../config.js'
-
-const GRID_SPACING = 1.0
+import { GRID_SPACING } from '../hooks/useCloudCover.js'
 
 const BORTLE_ANCHOR = [
   [40.71, -74.01, 9], [42.36, -71.06, 8], [42.65, -73.75, 7],
@@ -30,7 +29,6 @@ function interpolateBortle(lat, lon) {
 }
 
 function scoreToRGB(score) {
-  // Green → Yellow → Orange → Red
   if (score >= 0.70) return [34, 197, 94]
   if (score >= 0.50) return [134, 197, 34]
   if (score >= 0.35) return [234, 179, 8]
@@ -38,42 +36,42 @@ function scoreToRGB(score) {
   return [239, 68, 68]
 }
 
-// Build score grid from data
-function buildScoreGrid(mode, getCloudAt, selectedHour) {
-  const grid = []
-  for (let lat = GRID_BOUNDS.maxLat; lat >= GRID_BOUNDS.minLat; lat -= GRID_SPACING) {
-    const row = []
-    for (let lon = GRID_BOUNDS.minLon; lon <= GRID_BOUNDS.maxLon; lon += GRID_SPACING) {
-      const gLat = parseFloat(lat.toFixed(1))
-      const gLon = parseFloat(lon.toFixed(1))
-      const cloud = getCloudAt ? getCloudAt(gLat, gLon, selectedHour) : 50
-      const bortle = interpolateBortle(gLat, gLon)
-      let score
-      if (mode === 'clouds') score = 1 - cloud / 100
-      else if (mode === 'bortle') score = bortleScore(bortle)
-      else score = combinedScore(cloud, bortle)
-      row.push(score)
-    }
-    grid.push(row)
-  }
-  return grid
+// Bilinear interpolation between 4 corner scores
+function bilinear(s00, s10, s01, s11, tx, ty) {
+  const top = s00 + (s10 - s00) * tx
+  const bot = s01 + (s11 - s01) * tx
+  return top + (bot - top) * ty
 }
 
-// Custom Leaflet layer using canvas with bilinear interpolation
+function buildScoreGrid(mode, getCloudAt, selectedHour) {
+  const lats = []
+  const lons = []
+  for (let lat = GRID_BOUNDS.maxLat; lat >= GRID_BOUNDS.minLat - 0.01; lat -= GRID_SPACING) {
+    lats.push(parseFloat(lat.toFixed(2)))
+  }
+  for (let lon = GRID_BOUNDS.minLon; lon <= GRID_BOUNDS.maxLon + 0.01; lon += GRID_SPACING) {
+    lons.push(parseFloat(lon.toFixed(2)))
+  }
+
+  const grid = lats.map(lat =>
+    lons.map(lon => {
+      const cloud = getCloudAt ? getCloudAt(lat, lon, selectedHour) : 50
+      const bortle = interpolateBortle(lat, lon)
+      if (mode === 'clouds') return 1 - cloud / 100
+      if (mode === 'bortle') return bortleScore(bortle)
+      return combinedScore(cloud, bortle)
+    })
+  )
+  return { grid, lats, lons }
+}
+
 const SmoothHeatmap = L.Layer.extend({
-  initialize(options) {
-    this._options = options
-  },
+  initialize(options) { this._options = options },
 
   onAdd(map) {
     this._map = map
     this._canvas = document.createElement('canvas')
-    this._canvas.style.cssText = [
-      'position:absolute',
-      'pointer-events:none',
-      'z-index:200',
-      'opacity:0.72',
-    ].join(';')
+    this._canvas.style.cssText = 'position:absolute;pointer-events:none;z-index:200;'
     map.getPanes().overlayPane.appendChild(this._canvas)
     map.on('moveend zoomend resize', this._redraw, this)
     this._redraw()
@@ -84,87 +82,83 @@ const SmoothHeatmap = L.Layer.extend({
     map.off('moveend zoomend resize', this._redraw, this)
   },
 
-  updateData(scoreGrid, mode) {
-    this._scoreGrid = scoreGrid
+  updateData(scoreData, mode) {
+    this._scoreData = scoreData
     this._mode = mode
     this._redraw()
   },
 
   _redraw() {
-    if (!this._map || !this._scoreGrid) return
+    if (!this._map || !this._scoreData) return
     const map = this._map
     const canvas = this._canvas
     const size = map.getSize()
-    canvas.width = size.x
+    canvas.width  = size.x
     canvas.height = size.y
-
-    // Position canvas at top-left of map container
     L.DomUtil.setPosition(canvas, map.containerPointToLayerPoint([0, 0]))
 
     const ctx = canvas.getContext('2d')
-    ctx.clearRect(0, 0, canvas.width, canvas.height)
+    ctx.clearRect(0, 0, size.x, size.y)
 
-    const grid = this._scoreGrid
-    const rows = grid.length
-    const cols = grid[0].length
+    const { grid, lats, lons } = this._scoreData
+    const rows = lats.length
+    const cols = lons.length
 
-    // Map each grid cell to pixel coordinates and draw filled quads
-    const latStep = (GRID_BOUNDS.maxLat - GRID_BOUNDS.minLat) / (rows - 1)
-    const lonStep = (GRID_BOUNDS.maxLon - GRID_BOUNDS.minLon) / (cols - 1)
+    // Render pixel-by-pixel using bilinear interpolation for smooth gradient
+    // Sample every 2px for performance
+    const STEP = 2
+    const imageData = ctx.createImageData(size.x, size.y)
+    const data = imageData.data
 
-    for (let r = 0; r < rows - 1; r++) {
-      for (let c = 0; c < cols - 1; c++) {
-        const lat1 = GRID_BOUNDS.maxLat - r * latStep
-        const lat2 = GRID_BOUNDS.maxLat - (r + 1) * latStep
-        const lon1 = GRID_BOUNDS.minLon + c * lonStep
-        const lon2 = GRID_BOUNDS.minLon + (c + 1) * lonStep
+    for (let py = 0; py < size.y; py += STEP) {
+      for (let px = 0; px < size.x; px += STEP) {
+        // Pixel → LatLng
+        const latlng = map.containerPointToLatLng([px, py])
+        const lat = latlng.lat
+        const lon = latlng.lng
 
-        const p1 = map.latLngToContainerPoint([lat1, lon1])
-        const p2 = map.latLngToContainerPoint([lat2, lon2])
+        // Find grid cell
+        const ci = (GRID_BOUNDS.maxLat - lat) / GRID_SPACING
+        const cj = (lon - GRID_BOUNDS.minLon) / GRID_SPACING
+        const r0 = Math.floor(ci), r1 = r0 + 1
+        const c0 = Math.floor(cj), c1 = c0 + 1
 
-        // Average the 4 corner scores for smooth blending
-        const s = (grid[r][c] + grid[r][c+1] + grid[r+1][c] + grid[r+1][c+1]) / 4
-        const [red, green, blue] = scoreToRGB(s)
+        if (r0 < 0 || r1 >= rows || c0 < 0 || c1 >= cols) continue
 
-        ctx.fillStyle = `rgba(${red},${green},${blue},0.55)`
-        ctx.fillRect(
-          Math.floor(p1.x), Math.floor(p1.y),
-          Math.ceil(p2.x - p1.x), Math.ceil(p2.y - p1.y)
+        const tx = cj - c0
+        const ty = ci - r0
+        const score = bilinear(
+          grid[r0][c0], grid[r0][c1],
+          grid[r1][c0], grid[r1][c1],
+          tx, ty
         )
+
+        const [red, green, blue] = scoreToRGB(score)
+        const alpha = Math.round(0.55 * 255)
+
+        // Fill STEP×STEP block
+        for (let dy = 0; dy < STEP && py + dy < size.y; dy++) {
+          for (let dx = 0; dx < STEP && px + dx < size.x; dx++) {
+            const idx = ((py + dy) * size.x + (px + dx)) * 4
+            data[idx]     = red
+            data[idx + 1] = green
+            data[idx + 2] = blue
+            data[idx + 3] = alpha
+          }
+        }
       }
     }
 
-    // Smooth with a slight blur for gradients between cells
-    ctx.filter = 'blur(18px)'
-    const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height)
-    ctx.clearRect(0, 0, canvas.width, canvas.height)
+    ctx.putImageData(imageData, 0, 0)
 
-    // Re-draw with blur applied via shadow instead (canvas filter is two-pass)
+    // Single gaussian blur pass for smooth final result
+    ctx.filter = 'blur(6px)'
+    const tmp = document.createElement('canvas')
+    tmp.width = size.x; tmp.height = size.y
+    tmp.getContext('2d').drawImage(canvas, 0, 0)
     ctx.filter = 'none'
-    for (let r = 0; r < rows - 1; r++) {
-      for (let c = 0; c < cols - 1; c++) {
-        const lat1 = GRID_BOUNDS.maxLat - r * latStep
-        const lat2 = GRID_BOUNDS.maxLat - (r + 1) * latStep
-        const lon1 = GRID_BOUNDS.minLon + c * lonStep
-        const lon2 = GRID_BOUNDS.minLon + (c + 1) * lonStep
-
-        const p1 = map.latLngToContainerPoint([lat1, lon1])
-        const p2 = map.latLngToContainerPoint([lat2, lon2])
-
-        const s = (grid[r][c] + grid[r][c+1] + grid[r+1][c] + grid[r+1][c+1]) / 4
-        const [red, green, blue] = scoreToRGB(s)
-
-        // Use shadow blur for smooth edges between cells
-        const pw = Math.ceil(p2.x - p1.x)
-        const ph = Math.ceil(p2.y - p1.y)
-        ctx.shadowColor = `rgba(${red},${green},${blue},0.4)`
-        ctx.shadowBlur = Math.max(pw, ph) * 0.8
-        ctx.fillStyle = `rgba(${red},${green},${blue},0.45)`
-        ctx.fillRect(Math.floor(p1.x), Math.floor(p1.y), pw + 1, ph + 1)
-      }
-    }
-    ctx.shadowBlur = 0
-    ctx.shadowColor = 'transparent'
+    ctx.clearRect(0, 0, size.x, size.y)
+    ctx.drawImage(tmp, 0, 0)
   },
 })
 
@@ -177,17 +171,14 @@ export default function HeatmapLayer({ mode, selectedHour, getCloudAt, cloudLoad
     layer.addTo(map)
     layerRef.current = layer
     return () => {
-      if (layerRef.current) {
-        map.removeLayer(layerRef.current)
-        layerRef.current = null
-      }
+      if (layerRef.current) { map.removeLayer(layerRef.current); layerRef.current = null }
     }
   }, [map])
 
   useEffect(() => {
     if (!layerRef.current || cloudLoading) return
-    const grid = buildScoreGrid(mode, getCloudAt, selectedHour)
-    layerRef.current.updateData(grid, mode)
+    const scoreData = buildScoreGrid(mode, getCloudAt, selectedHour)
+    layerRef.current.updateData(scoreData, mode)
   }, [mode, selectedHour, getCloudAt, cloudLoading])
 
   return null
