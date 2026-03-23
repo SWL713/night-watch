@@ -52,7 +52,11 @@ export default function Auth({ onAuth }) {
       fontFamily: 'monospace', color: '#ccd',
     }}>
       <div style={{ textAlign: 'center', marginBottom: 40 }}>
-        <div style={{ fontSize: 48, marginBottom: 8 }}>☽</div>
+        <img
+          src="/night-watch/logo.jpg"
+          alt="Substorm Society"
+          style={{ width: 160, height: 160, objectFit: 'contain', marginBottom: 16 }}
+        />
         <div style={{ fontSize: 28, fontWeight: 'bold', color: '#44ddaa', letterSpacing: 4 }}>
           NIGHT WATCH
         </div>
