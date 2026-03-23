@@ -2,8 +2,8 @@ name: Night Watch — Space Weather Pipeline
 
 on:
   schedule:
-    - cron: '0 * * * *'   # every hour
-  workflow_dispatch:
+    - cron: '0 * * * *'   # every hour (saves ~2000 minutes/month vs every 15min)
+  workflow_dispatch:          # manual trigger
 
 permissions:
   contents: write
@@ -39,6 +39,7 @@ jobs:
           git config user.name  "Night Watch Bot"
           git config user.email "actions@github.com"
           git add data/space_weather.json || true
+          git add data/cloud_cover.json || true
           git diff --staged --quiet || git commit -m \
             "sw: $(date -u '+%Y-%m-%d %H:%M UTC') | $(python -c \
             'import json; d=json.load(open("data/space_weather.json")); \

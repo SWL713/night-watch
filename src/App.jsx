@@ -173,16 +173,16 @@ function App() {
         />
 
         {/* Cloud loading indicator */}
-        {(cloudLoading || phase === 'detail') && (
+        {(cloudLoading || phase === 'fallback') && (
           <div style={{
             position: 'absolute', bottom: 48, left: '50%', transform: 'translateX(-50%)',
             background: '#070b16', border: '1px solid #1a2035', borderRadius: 2,
             padding: '4px 12px', fontSize: 9, zIndex: 1000,
             fontFamily: FONT, letterSpacing: 1,
-            color: phase === 'detail' ? '#1e3a2a' : '#445566',
+            color: phase === 'fallback' ? '#cc8800' : '#445566',
           }}>
-            {phase === 'coarse' && `CLOUD DATA ${progress}% — LOADING...`}
-            {phase === 'detail' && `REFINING ${progress}% · ${coverage}/${total} pts`}
+            {phase === 'loading'  && `CLOUD DATA LOADING...`}
+            {phase === 'fallback' && `PIPELINE UNAVAILABLE — FETCHING DIRECT ${progress}%`}
           </div>
         )}
 

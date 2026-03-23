@@ -530,4 +530,192 @@ def main():
 
 
 if __name__ == '__main__':
-    main()
+    import time
+    main_with_clouds()
+
+CLOUD_GRID_SPACING = 0.5   # degrees — good balance of detail vs file size
+CLOUD_OUTPUT_PATH  = os.path.join(os.path.dirname(__file__), '..', 'data', 'cloud_cover.json')
+
+def build_cloud_grid():
+    pad = CLOUD_GRID_SPACING * 2
+    grid = []
+    lat = 40 - pad
+    while lat <= 50 + pad:
+        lon = -80 - pad
+        while lon <= -65 + pad:
+            grid.append({'lat': round(lat, 2), 'lon': round(lon, 2)})
+            lon = round(lon + CLOUD_GRID_SPACING, 2)
+        lat = round(lat + CLOUD_GRID_SPACING, 2)
+    return grid
+
+
+def fetch_cloud_batch(points):
+    """Fetch cloud cover for up to 100 points in one Open-Meteo call."""
+    lats = ','.join(str(p['lat']) for p in points)
+    lons = ','.join(str(p['lon']) for p in points)
+    url = (f'https://api.open-meteo.com/v1/forecast'
+           f'?latitude={lats}&longitude={lons}'
+           f'&hourly=cloudcover&forecast_days=2&timezone=UTC')
+    data = safe_get(url, timeout=20)
+    if not data:
+        return {}
+
+    responses = data if isinstance(data, list) else [data]
+    results = {}
+    now = datetime.now(timezone.utc)
+
+    for i, pt in enumerate(points):
+        if i >= len(responses):
+            break
+        d = responses[i]
+        if not d or 'hourly' not in d:
+            continue
+        times  = d['hourly'].get('time', [])
+        clouds = d['hourly'].get('cloudcover', [])
+        key = f"{pt['lat']},{pt['lon']}"
+        # Store 10 hourly values: -1hr to +8hr from now
+        forecast = []
+        for t_str, cc in zip(times, clouds):
+            if cc is None:
+                continue
+            t = datetime.fromisoformat(t_str).replace(tzinfo=timezone.utc)
+            offset_hr = round((t - now).total_seconds() / 3600)
+            if -2 <= offset_hr <= 9:
+                forecast.append({'offset': offset_hr, 'cc': int(cc)})
+        if forecast:
+            results[key] = forecast
+
+    return results
+
+
+def fetch_all_cloud(grid):
+    """Fetch cloud cover for entire grid in batches of 100."""
+    results = {}
+    BATCH = 100
+    total = len(grid)
+    for i in range(0, total, BATCH):
+        batch = grid[i:i+BATCH]
+        try:
+            batch_results = fetch_cloud_batch(batch)
+            results.update(batch_results)
+        except Exception as e:
+            log.warning(f'Cloud batch {i}–{i+BATCH} failed: {e}')
+        pct = min(100, round((i + BATCH) / total * 100))
+        log.info(f'  Cloud grid: {pct}% ({len(results)}/{total} points)')
+        time.sleep(0.3)
+    return results
+
+
+def main_with_clouds():
+    """Extended main that also fetches cloud cover."""
+    import time as _time
+
+    now = datetime.now(timezone.utc)
+    log.info(f'Night Watch pipeline starting: {now.isoformat()}')
+
+    # Space weather (existing)
+    l1    = fetch_l1()
+    noaa  = fetch_noaa_alerts()
+
+    bz_now  = l1['bz_now']       if l1 else 0.0
+    v_kms   = l1['v_kms']        if l1 else 450.0
+    density = l1['density_ncc']  if l1 else 5.0
+
+    intensity_label, intensity_color, ey_adj = compute_intensity(bz_now, v_kms, density)
+    moon        = moon_illumination(now)
+    moon_rise, moon_set = moon_times(now)
+
+    NY_LAT, NY_LON = 40.7128, -74.006
+    n   = now.timetuple().tm_yday
+    B   = math.radians(360/365*(n-81))
+    eot = 9.87*math.sin(2*B) - 7.53*math.cos(B) - 1.5*math.sin(B)
+    decl = math.radians(23.45*math.sin(math.radians(360/365*(n-81))))
+    cos_ha = ((-math.sin(math.radians(-0.833)) - math.sin(math.radians(NY_LAT))*math.sin(decl))
+              / (math.cos(math.radians(NY_LAT))*math.cos(decl)))
+    cos_ha = max(-1.0, min(1.0, cos_ha))
+    ha = math.degrees(math.acos(cos_ha))
+    noon_utc = (720 - 4*NY_LON - eot) / 60
+    ss_hour  = noon_utc + ha/15
+    sr_hour  = noon_utc - ha/15
+    today    = now.date()
+    ss_dt    = datetime(today.year, today.month, today.day,
+                        int(ss_hour), int((ss_hour%1)*60), tzinfo=timezone.utc)
+    tomorrow = today + timedelta(days=1)
+    sr2_dt   = datetime(tomorrow.year, tomorrow.month, tomorrow.day,
+                        int(sr_hour), int((sr_hour%1)*60), tzinfo=timezone.utc)
+    dark_hours = max(0.1, (sr2_dt - ss_dt).total_seconds() / 3600)
+
+    moon_up_hours = 0.0
+    if moon_rise and moon_set:
+        mr_dt = datetime.fromisoformat(moon_rise)
+        ms_dt = datetime.fromisoformat(moon_set)
+        if ms_dt > mr_dt:
+            overlap = max(0, (min(ms_dt, sr2_dt) - max(mr_dt, ss_dt)).total_seconds() / 3600)
+        else:
+            overlap = max(0, (sr2_dt - ss_dt).total_seconds() / 3600)
+        moon_up_hours = overlap
+    elif moon_set:
+        ms_dt = datetime.fromisoformat(moon_set)
+        moon_up_hours = max(0, (min(ms_dt, sr2_dt) - ss_dt).total_seconds() / 3600)
+
+    interference_pct = min(100, moon['illumination'] * (moon_up_hours / dark_hours) * 100)
+    astro_dark_pct   = max(0, 100 - interference_pct)
+    quality_label, quality_color = overall_quality(intensity_label, astro_dark_pct)
+    state = determine_state(bz_now, v_kms, noaa)
+
+    enlil_active   = state in ('ARRIVED', 'STORM_ACTIVE') or noaa.get('hss_active')
+    enlil_timeline = fetch_enlil_timeline() if enlil_active else []
+    bz_timeline    = build_bz_timeline(l1)
+
+    sw_output = {
+        'last_updated':         now.isoformat(),
+        'state':                state,
+        'bz_now':               round(bz_now, 2),
+        'by_now':               round(l1['by_now'] if l1 else 0, 2),
+        'speed_kms':            round(v_kms, 0),
+        'density_ncc':          round(density, 2),
+        'ey_adjusted':          round(ey_adj, 2),
+        'intensity_label':      intensity_label,
+        'intensity_color':      intensity_color,
+        'aurora_quality':       quality_label,
+        'aurora_quality_color': quality_color,
+        'interference_pct':     round(interference_pct, 1),
+        'astro_dark_pct':       round(astro_dark_pct, 1),
+        'moon_illumination':    moon['illumination'],
+        'moon_phase_index':     moon['phase_index'],
+        'moon_phase_name':      moon['phase_name'],
+        'moon_phase_label':     moon['phase_label'],
+        'moon_rise':            moon_rise,
+        'moon_set':             moon_set,
+        'g_level':              noaa.get('g_level', ''),
+        'g_label':              noaa.get('g_label', ''),
+        'hss_active':           noaa.get('hss_active', False),
+        'hss_watch':            noaa.get('hss_watch', False),
+        'enlil_active':         bool(enlil_active),
+        'enlil_timeline':       enlil_timeline,
+        'timeline':             bz_timeline,
+    }
+
+    os.makedirs(os.path.dirname(OUTPUT_PATH), exist_ok=True)
+    with open(OUTPUT_PATH, 'w') as f:
+        json.dump(sw_output, f, indent=2)
+    log.info(f'space_weather.json written: {state} {intensity_label} bz={bz_now:.1f}')
+
+    # Cloud cover grid
+    log.info('Fetching cloud cover grid...')
+    grid = build_cloud_grid()
+    cloud_results = fetch_all_cloud(grid)
+
+    cloud_output = {
+        'last_updated': now.isoformat(),
+        'spacing':      CLOUD_GRID_SPACING,
+        'points':       cloud_results,
+    }
+    with open(CLOUD_OUTPUT_PATH, 'w') as f:
+        json.dump(cloud_output, f, separators=(',', ':'))  # compact — saves ~30% size
+    log.info(f'cloud_cover.json written: {len(cloud_results)} points')
+
+
+if __name__ == '__main__':
+    import time
+    main_with_clouds()
