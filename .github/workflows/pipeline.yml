@@ -2,8 +2,8 @@ name: Night Watch — Space Weather Pipeline
 
 on:
   schedule:
-    - cron: '*/15 * * * *'   # every 15 minutes
-  workflow_dispatch:          # manual trigger
+    - cron: '0 * * * *'   # every hour
+  workflow_dispatch:
 
 permissions:
   contents: write
