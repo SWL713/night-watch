@@ -1,18 +1,18 @@
 {
-  "last_updated": "2026-03-23T17:07:44.304268+00:00",
+  "last_updated": "2026-03-23T18:02:22.459538+00:00",
   "state": "ARRIVED",
-  "bz_now": -1.54,
-  "by_now": -4.69,
-  "speed_kms": 632.0,
-  "density_ncc": 0.03,
-  "ey_adjusted": -9.73,
-  "intensity_label": "Weak",
-  "intensity_color": "#5599cc",
+  "bz_now": -5.11,
+  "by_now": -1.53,
+  "speed_kms": 635.0,
+  "density_ncc": 0.04,
+  "ey_adjusted": -32.47,
+  "intensity_label": "Mild",
+  "intensity_color": "#88cc44",
   "aurora_quality": "FAIR",
   "aurora_quality_color": "#ffcc44",
-  "interference_pct": 25.4,
-  "astro_dark_pct": 74.6,
-  "moon_illumination": 0.254,
+  "interference_pct": 25.8,
+  "astro_dark_pct": 74.2,
+  "moon_illumination": 0.2579,
   "moon_phase_index": 2,
   "moon_phase_name": "waxing_crescent",
   "moon_phase_label": "Waxing Crescent",
@@ -27,43 +27,43 @@
   "timeline": [
     {
       "offset": -1,
-      "bz": -1.5
+      "bz": -5.1
     },
     {
       "offset": 0,
-      "bz": -1.5
+      "bz": -5.1
     },
     {
       "offset": 1,
-      "bz": -1.4
+      "bz": -4.6
     },
     {
       "offset": 2,
-      "bz": -1.2
+      "bz": -4.1
     },
     {
       "offset": 3,
-      "bz": -1.1
+      "bz": -3.6
     },
     {
       "offset": 4,
-      "bz": -0.9
+      "bz": -3.1
     },
     {
       "offset": 5,
-      "bz": -0.8
+      "bz": -2.6
     },
     {
       "offset": 6,
-      "bz": -0.6
+      "bz": -2.0
     },
     {
       "offset": 7,
-      "bz": -0.5
+      "bz": -1.5
     },
     {
       "offset": 8,
-      "bz": -0.3
+      "bz": -1.0
     }
   ]
 }
