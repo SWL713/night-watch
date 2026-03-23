@@ -1,7 +1,7 @@
 import { useEffect, useRef } from 'react'
 import { useMap } from 'react-leaflet'
 import L from 'leaflet'
-import { combinedScore, cloudScore, bortleScore } from '../utils/scoring.js'
+import { combinedScore, cloudScore, bortleScore, scoreToRGB } from '../utils/scoring.js'
 import { GRID_BOUNDS } from '../config.js'
 import { GRID_SPACING } from '../hooks/useCloudCover.js'
 
@@ -26,14 +26,6 @@ function interpolateBortle(lat, lon) {
     wSum += w; vSum += w * b
   }
   return Math.max(1, Math.min(9, vSum / wSum))
-}
-
-function scoreToRGB(score) {
-  if (score >= 0.70) return [34, 197, 94]
-  if (score >= 0.50) return [134, 197, 34]
-  if (score >= 0.35) return [234, 179, 8]
-  if (score >= 0.20) return [249, 115, 22]
-  return [239, 68, 68]
 }
 
 // Bilinear interpolation between 4 corner scores
