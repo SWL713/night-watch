@@ -64,7 +64,7 @@ async function fetchBatch(points) {
       .map((t, j) => ({ time: new Date(t + 'Z'), cloudcover: d.hourly.cloudcover[j] }))
       .filter(p =>
         p.time >= new Date(now.getTime() - 3600000) &&
-        p.time <= new Date(now.getTime() + 9 * 3600000) &&
+        p.time <= new Date(now.getTime() + 10 * 3600000) &&
         p.cloudcover !== null
       )
     results[pt.key] = forecast.length ? forecast : null
