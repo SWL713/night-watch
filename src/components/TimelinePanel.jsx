@@ -97,17 +97,6 @@ export default function TimelinePanel({ spaceWeather, selectedHour, onHourSelect
   const interferencePct = Math.round(spaceWeather.interference_pct ?? 0)
   const astroDarkPct    = Math.round(spaceWeather.astro_dark_pct ?? 100)
 
-  // Hour slots — -1hr to +8hr
-  const hours = useMemo(() => {
-    return Array.from({ length: 10 }, (_, i) => {
-      const dt = new Date(now.getTime() + (i - 1) * 3600000)
-      const moonUp = isMoonUp(dt, moonData)
-      const bz = timeline?.[i]?.bz ?? bz_now ?? 0
-      const bzColor = bz < -5 ? '#ee5577' : bz < 0 ? '#ff8899' : '#44ddaa'
-      return { dt, moonUp, bz, bzColor, offset: i - 1 }
-    })
-  }, [spaceWeather, moonData])
-
   return (
     <div style={{
       background: '#06080f',
