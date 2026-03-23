@@ -13,7 +13,6 @@ function makeKey(lat, lon) {
 
 function buildGrid() {
   const points = []
-  // Extend slightly beyond bounds so edges don't cut off hard
   const pad = GRID_SPACING * 2
   for (let lat = GRID_BOUNDS.minLat - pad; lat <= GRID_BOUNDS.maxLat + pad + 0.01; lat += GRID_SPACING) {
     for (let lon = GRID_BOUNDS.minLon - pad; lon <= GRID_BOUNDS.maxLon + pad + 0.01; lon += GRID_SPACING) {
@@ -25,57 +24,54 @@ function buildGrid() {
   return points
 }
 
-// Single point fetch — reliable fallback
+// Keep FULL 48-hour forecast — don't filter at fetch time
+// This ensures all hour offsets 0-8 have real data
+async function fetchBatch(points) {
+  const lats = points.map(p => p.lat).join(',')
+  const lons = points.map(p => p.lon).join(',')
+  const url = `https://api.open-meteo.com/v1/forecast?latitude=${lats}&longitude=${lons}&hourly=cloudcover&forecast_days=2&timezone=UTC`
+
+  const res = await fetch(url)
+  if (!res.ok) throw new Error(`HTTP ${res.status}`)
+  const raw = await res.json()
+  const responses = Array.isArray(raw) ? raw : [raw]
+
+  if (responses.length !== points.length) {
+    throw new Error(`Expected ${points.length} responses, got ${responses.length}`)
+  }
+
+  const results = {}
+  for (let i = 0; i < points.length; i++) {
+    const pt = points[i]
+    const d = responses[i]
+    if (!d?.hourly?.time || !d?.hourly?.cloudcover) {
+      results[pt.key] = null
+      continue
+    }
+    // Store ALL 48 hours as {time, cloudcover} — look up by offset at render time
+    results[pt.key] = d.hourly.time.map((t, j) => ({
+      time: new Date(t + 'Z'),
+      cloudcover: d.hourly.cloudcover[j] ?? null,
+    })).filter(p => p.cloudcover !== null)
+  }
+  return results
+}
+
 async function fetchSingle(lat, lon) {
   const url = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&hourly=cloudcover&forecast_days=2&timezone=UTC`
   const res = await fetch(url)
   if (!res.ok) throw new Error(`HTTP ${res.status}`)
   const data = await res.json()
-  const now = new Date()
-  return data.hourly.time
-    .map((t, i) => ({ time: new Date(t + 'Z'), cloudcover: data.hourly.cloudcover[i] }))
-    .filter(p =>
-      p.time >= new Date(now.getTime() - 3600000) &&
-      p.time <= new Date(now.getTime() + 9 * 3600000) &&
-      p.cloudcover !== null
-    )
-}
-
-// Batch fetch — Open-Meteo supports comma-separated lat/lon
-async function fetchBatch(points) {
-  const lats = points.map(p => p.lat).join(',')
-  const lons = points.map(p => p.lon).join(',')
-  const url = `https://api.open-meteo.com/v1/forecast?latitude=${lats}&longitude=${lons}&hourly=cloudcover&forecast_days=2&timezone=UTC`
-  const res = await fetch(url)
-  if (!res.ok) throw new Error(`HTTP ${res.status}`)
-  const raw = await res.json()
-
-  // Open-Meteo returns array for multiple, object for single
-  const responses = Array.isArray(raw) ? raw : [raw]
-  if (responses.length !== points.length) throw new Error(`Expected ${points.length} responses, got ${responses.length}`)
-
-  const now = new Date()
-  const results = {}
-  for (let i = 0; i < points.length; i++) {
-    const pt = points[i]
-    const d = responses[i]
-    if (!d?.hourly?.time) { results[pt.key] = null; continue }
-    const forecast = d.hourly.time
-      .map((t, j) => ({ time: new Date(t + 'Z'), cloudcover: d.hourly.cloudcover[j] }))
-      .filter(p =>
-        p.time >= new Date(now.getTime() - 3600000) &&
-        p.time <= new Date(now.getTime() + 10 * 3600000) &&
-        p.cloudcover !== null
-      )
-    results[pt.key] = forecast.length ? forecast : null
-  }
-  return results
+  return data.hourly.time.map((t, i) => ({
+    time: new Date(t + 'Z'),
+    cloudcover: data.hourly.cloudcover[i] ?? null,
+  })).filter(p => p.cloudcover !== null)
 }
 
 async function fetchAllGrid(onProgress, onPartialUpdate) {
   const grid = buildGrid()
   const results = {}
-  const BATCH = 50  // smaller batches = more reliable
+  const BATCH = 50
 
   for (let i = 0; i < grid.length; i += BATCH) {
     const batch = grid.slice(i, i + BATCH)
@@ -83,20 +79,17 @@ async function fetchAllGrid(onProgress, onPartialUpdate) {
       const batchResults = await fetchBatch(batch)
       Object.assign(results, batchResults)
     } catch (e) {
-      console.warn(`Batch ${i} failed (${e.message}), falling back to individual fetches`)
-      // Fall back to individual fetches for this batch
+      console.warn(`Batch ${i} failed (${e.message}), falling back to individual`)
       for (const pt of batch) {
         try {
-          const fc = await fetchSingle(pt.lat, pt.lon)
-          results[pt.key] = fc
-          await new Promise(r => setTimeout(r, 50)) // gentle rate limit
-        } catch (e2) {
+          results[pt.key] = await fetchSingle(pt.lat, pt.lon)
+          await new Promise(r => setTimeout(r, 60))
+        } catch {
           results[pt.key] = null
         }
       }
     }
-    const pct = Math.min(99, Math.round((i + BATCH) / grid.length * 100))
-    onProgress?.(pct)
+    onProgress?.(Math.min(99, Math.round((i + BATCH) / grid.length * 100)))
     onPartialUpdate?.({ grid, results: { ...results } })
     if (i + BATCH < grid.length) await new Promise(r => setTimeout(r, 300))
   }
@@ -141,15 +134,20 @@ export function useCloudCover() {
   }, [])
 
   const getCloudAt = useCallback((lat, lon, hourOffset = 0) => {
-    if (!cloudData?.results) return null  // null = no data (not 50% fake default)
+    if (!cloudData?.results) return null
     const key = makeKey(lat, lon)
     const fc = cloudData.results[key]
     if (!fc || !fc.length) return null
+
+    // Find the forecast entry closest to now + hourOffset
     const target = new Date(Date.now() + hourOffset * 3600000)
-    const nearest = fc.reduce((best, pt) =>
-      Math.abs(pt.time - target) < Math.abs(best.time - target) ? pt : best
-    , fc[0])
-    return nearest ? nearest.cloudcover : null
+    let best = fc[0]
+    let bestDiff = Math.abs(fc[0].time - target)
+    for (let i = 1; i < fc.length; i++) {
+      const diff = Math.abs(fc[i].time - target)
+      if (diff < bestDiff) { bestDiff = diff; best = fc[i] }
+    }
+    return best ? best.cloudcover : null
   }, [cloudData])
 
   const coverage = cloudData?.results

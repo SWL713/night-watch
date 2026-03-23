@@ -282,5 +282,12 @@ export default function HeatmapLayer({ mode, selectedHour, getCloudAt, cloudLoad
     layerRef.current.updateData(scoreData)
   }, [mode, selectedHour, getCloudAt, cloudLoading])
 
+  // Extra: force redraw on selectedHour even if getCloudAt reference is stable
+  useEffect(() => {
+    if (!layerRef.current || !cloudLoading === false) return
+    const scoreData = buildScoreGrid(mode, getCloudAt, selectedHour)
+    layerRef.current.updateData(scoreData)
+  }, [selectedHour]) // eslint-disable-line
+
   return null
 }
