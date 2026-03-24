@@ -311,7 +311,7 @@ function ActionBtn({ onClick, children, highlight }) {
 function MapClickHandler({ active, onMapClick }) {
   useMapEvents({
     click(e) {
-      if (active) return  // don't double-fire if modal already open
+      if (!active) return  // only fire when pin mode is active
       onMapClick(e.latlng.lat, e.latlng.lng)
     },
   })
