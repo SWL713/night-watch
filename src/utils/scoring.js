@@ -1,9 +1,14 @@
 import { WEIGHT_CLOUDS, WEIGHT_BORTLE, CLOUD_FLOOR_THRESHOLD } from '../config.js'
 
 // Bortle 1-9 → normalized 0-1 score (1 = darkest/best)
+// Calibrated so Bortle 2 (best realistic NE sky) → 1.0
+// Bortle 5 (suburban) → ~0.45, Bortle 9 (inner city) → 0.0
 export function bortleScore(bortle) {
   const b = Math.min(9, Math.max(1, bortle))
-  return Math.pow((9 - b) / 8, 1.6)
+  // Remap so Bortle 2 = 1.0 (realistic ceiling for our region)
+  // Bortle 1 also = 1.0 (we don't have any, no point wasting color range)
+  const remapped = Math.max(0, 9 - b) / 7   // 7 = range from B9 to B2
+  return Math.min(1, Math.pow(remapped, 1.4))
 }
 
 // Cloud cover 0-100% → 0-1 score
@@ -11,9 +16,7 @@ export function cloudScore(cloudPct) {
   return 1 - Math.min(100, Math.max(0, cloudPct)) / 100
 }
 
-// Combined score 0-1 — true weighted computation, not transparency layering
-// Clouds 70% weight, bortle 30% weight
-// Hard floor: >=95% cloud = 0 regardless of bortle
+// Combined score 0-1 — weighted sum, not transparency layering
 export function combinedScore(cloudPct, bortle) {
   if (cloudPct >= CLOUD_FLOOR_THRESHOLD) return 0
   const cScore = cloudScore(cloudPct) * WEIGHT_CLOUDS
@@ -21,17 +24,19 @@ export function combinedScore(cloudPct, bortle) {
   return Math.min(1, Math.max(0, cScore + bScore))
 }
 
-// Color scale: green = clear dark sky (good), red = cloudy/bright (bad)
-// Matches aurora hunter intuition — green means GO
+// Unified color scale for both bortle and cloud layers
+// Score 1.0 → vivid emerald green (best conditions)
+// Score 0.0 → deep red (worst conditions)
+// Same stops used for all modes — consistent visual language
 function interpolateColor(score) {
   const stops = [
-    [1.00,   0, 210,  80],  // best  — vivid emerald
-    [0.85,  60, 220,  50],  // great — bright lime
-    [0.70, 140, 210,  20],  // good  — yellow-green
-    [0.54, 200, 190,   0],  // fair  — golden
-    [0.38, 240, 140,   0],  // poor  — amber
-    [0.22, 250,  70,   0],  // bad   — orange-red
-    [0.00, 200,  20,  20],  // worst — deep red
+    [1.00,   0, 200,  80],  // vivid emerald   — perfect (B2 dark, clear)
+    [0.80,  80, 210,  30],  // lime green       — excellent
+    [0.60, 170, 210,   0],  // yellow-green     — good
+    [0.42, 220, 180,   0],  // golden amber     — fair
+    [0.26, 250, 110,   0],  // orange           — poor
+    [0.12, 240,  40,  10],  // red-orange       — bad
+    [0.00, 190,   0,  20],  // deep red         — worst
   ]
 
   const s = Math.max(0, Math.min(1, score))
@@ -47,35 +52,36 @@ function interpolateColor(score) {
       ]
     }
   }
-  return [180, 0, 0]
+  return [190, 0, 20]
 }
 
-export function scoreToRGB(score)              { return interpolateColor(score) }
+export function scoreToRGB(score)               { return interpolateColor(score) }
 export function scoreToColor(score, alpha=0.65) {
   const [r, g, b] = interpolateColor(score)
   return `rgba(${r},${g},${b},${alpha})`
 }
-
 export function scoreToLabel(score) {
-  if (score >= 0.75) return 'Excellent'
-  if (score >= 0.55) return 'Good'
-  if (score >= 0.35) return 'Fair'
-  if (score >= 0.18) return 'Poor'
+  if (score >= 0.80) return 'Excellent'
+  if (score >= 0.60) return 'Good'
+  if (score >= 0.40) return 'Fair'
+  if (score >= 0.20) return 'Poor'
   return 'Very Poor'
 }
-
 export function pinColor(score) {
   const [r, g, b] = interpolateColor(score)
   return `rgb(${r},${g},${b})`
 }
-
 export function locationScore(spot) {
   const bScore = bortleScore(spot.bortle)
   const hScore = (spot.horizon_rating || 3) / 5
   return (bScore * 0.6 + hScore * 0.4)
 }
-
 export function intensityRank(label) {
   const ranks = { 'Calm':0,'Weak':1,'Mild':2,'Moderate':3,'Strong':4,'Very Strong':5,'Extreme':6 }
   return ranks[label] ?? 0
 }
+
+// Verify calibration
+// Bortle 2 → score should be ~1.0 (full green)
+// Bortle 5 → score should be ~0.45 (amber)
+// Bortle 9 → score should be 0.0 (red)
