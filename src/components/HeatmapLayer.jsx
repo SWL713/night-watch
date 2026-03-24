@@ -222,7 +222,7 @@ const SmoothHeatmap = L.Layer.extend({
         const edgeFade = Math.max(0, Math.min(1, distFromEdge / FADE))
 
         const [red, green, blue] = scoreToRGB(Math.max(0, Math.min(1, score)))
-        const baseAlpha = 0.45 * edgeFade
+        const baseAlpha = 0.35 * edgeFade
         const idx = (py * W + px) * 4
 
         if (renderMode !== 'combined' || !bGrid) {
