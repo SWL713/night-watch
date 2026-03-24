@@ -21,22 +21,17 @@ export function combinedScore(cloudPct, bortle) {
   return Math.min(1, Math.max(0, cScore + bScore))
 }
 
-// Color scale designed for aurora hunters:
-// Uses cool/warm contrast — NOT green (aurora color) to avoid confusion
-// Best → aqua/teal (clear dark sky)
-// Good → blue-white
-// Fair → yellow
-// Poor → orange
-// Worst → red/deep red (overcast/bright)
+// Color scale: green = clear dark sky (good), red = cloudy/bright (bad)
+// Matches aurora hunter intuition — green means GO
 function interpolateColor(score) {
   const stops = [
-    [1.00,   0, 220, 180],  // best  — vivid teal/aqua
-    [0.82,  40, 200, 240],  // great — cyan-blue
-    [0.64,  80, 160, 255],  // good  — sky blue
-    [0.48, 220, 210,  60],  // fair  — yellow
-    [0.32, 255, 140,   0],  // poor  — amber/orange
-    [0.16, 240,  50,   0],  // bad   — red-orange
-    [0.00, 180,   0,   0],  // worst — deep red
+    [1.00,   0, 210,  80],  // best  — vivid emerald
+    [0.85,  60, 220,  50],  // great — bright lime
+    [0.70, 140, 210,  20],  // good  — yellow-green
+    [0.54, 200, 190,   0],  // fair  — golden
+    [0.38, 240, 140,   0],  // poor  — amber
+    [0.22, 250,  70,   0],  // bad   — orange-red
+    [0.00, 200,  20,  20],  // worst — deep red
   ]
 
   const s = Math.max(0, Math.min(1, score))
