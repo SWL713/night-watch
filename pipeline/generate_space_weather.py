@@ -592,7 +592,7 @@ def main():
              f'bz={bz_now:.1f} quality={quality_label}')
 
 
-CLOUD_GRID_SPACING = 0.5
+CLOUD_GRID_SPACING = 0.25
 CLOUD_GRID_BOUNDS  = {'minLat': 38.5, 'maxLat': 47.5, 'minLon': -82, 'maxLon': -66}
 CLOUD_OUTPUT_PATH  = os.path.join(os.path.dirname(__file__), '..', 'data', 'cloud_cover.json')
 
