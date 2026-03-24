@@ -55,7 +55,7 @@ function App() {
 
   const { data: sw } = useSpaceWeather()
   const { spots } = useSpots()
-  const { getCloudAt, loading: cloudLoading, progress, coverage, total, phase } = useCloudCover()
+  const { getCloudAt, loading: cloudLoading, progress, coverage, total, phase, cloudData } = useCloudCover()
 
   const [bortleGrid, setBortleGrid] = useState(null)
   useEffect(() => { loadBortleGrid().then(g => { if (g) setBortleGrid(g) }) }, [])
@@ -261,10 +261,19 @@ function App() {
             developed by Scott W. LeFevre
           </div>
 
-          <div style={{ color: sw.last_updated ? '#334455' : '#1e2a3a', fontSize: 9 }}>
-            {sw.last_updated
-              ? `SW: ${new Date(sw.last_updated).toUTCString().slice(17,22)} UTC`
-              : 'SW: —'}
+          <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+            <div style={{ color: sw.last_updated ? '#334455' : '#1e2a3a', fontSize: 9 }}>
+              {sw.last_updated
+                ? `SW: ${new Date(sw.last_updated).toUTCString().slice(17,22)} UTC`
+                : 'SW: —'}
+            </div>
+            {(() => {
+              const cu = cloudData?.lastUpdated
+              if (!cu) return null
+              const ageMin = Math.round((Date.now() - new Date(cu)) / 60000)
+              const color = ageMin > 180 ? '#ff5544' : ageMin > 90 ? '#ffaa33' : '#334455'
+              return <div style={{ color, fontSize: 9 }}>{`CL: ${new Date(cu).toUTCString().slice(17,22)} UTC`}</div>
+            })()}
           </div>
         </div>
       </div>

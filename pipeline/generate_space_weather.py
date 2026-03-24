@@ -900,8 +900,8 @@ def fetch_hrrr_cloud(grid):
 
     now = datetime.now(timezone.utc)
 
-    # Most recent HRRR run available (files ready ~20min after the hour)
-    run_dt   = now - timedelta(minutes=20)
+    # HRRR files are ready ~45-60 min after the hour — subtract 60 min to be safe
+    run_dt   = now - timedelta(minutes=60)
     run_hour = run_dt.hour
     run_date = run_dt.strftime('%Y%m%d')
     base_url = f'{HRRR_BASE}hrrr.{run_date}/conus/hrrr.t{run_hour:02d}z'
@@ -1105,14 +1105,18 @@ def fetch_cloud_batch(points):
 
 def fetch_all_cloud_openmeteo(grid):
     """Fetch cloud cover for the full grid using Open-Meteo.
-    Uses batches of 50 with 2s delay between batches to stay well under
-    the free-tier rate limit. On 429 the batch retries with backoff.
-    """
+    Hard time budget of 90 seconds — stops early if taking too long.
+    This is a fallback only; HRRR should be the primary source."""
     results = {}
-    BATCH = 50   # 50 pts/request — safer than 100, still only 57 requests total
-    total = len(grid)
+    BATCH      = 50
+    TIME_LIMIT = 90   # seconds — stop after this regardless of progress
+    total      = len(grid)
+    start_time = time.time()
 
     for i in range(0, total, BATCH):
+        if time.time() - start_time > TIME_LIMIT:
+            log.warning(f'Open-Meteo: time limit reached after {TIME_LIMIT}s, stopping at {len(results)}/{total} points')
+            break
         batch = grid[i:i+BATCH]
         try:
             batch_results = fetch_cloud_batch(batch)
@@ -1121,7 +1125,7 @@ def fetch_all_cloud_openmeteo(grid):
             log.warning(f'Cloud batch {i}-{i+BATCH} failed: {e}')
         pct = min(100, round((i + BATCH) / total * 100))
         log.info(f'  Cloud grid: {pct}% ({len(results)}/{total} points)')
-        time.sleep(2.0)   # 2s between batches = max 30 req/min, well under limit
+        time.sleep(2.0)
 
     log.info(f'Open-Meteo cloud complete: {len(results)}/{total} points')
     return results
@@ -1257,8 +1261,9 @@ def main_with_clouds():
 
     cloud_results = fetch_hrrr_cloud(grid)
     if not cloud_results:
-        log.warning('HRRR failed — falling back to Open-Meteo')
-        cloud_results = fetch_all_cloud_openmeteo(grid)
+        log.warning('HRRR failed — keeping existing cloud_cover.json from last successful run')
+        log.info(f'cloud_cover.json unchanged (HRRR unavailable)')
+        return  # exit early — don't overwrite good data with nothing
 
     cloud_output = {
         'last_updated': now.isoformat(),
