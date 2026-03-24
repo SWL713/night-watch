@@ -69,24 +69,35 @@ function sunTimesForDate(date) {
 
 // Compute astro dark % for a given time — 0 during day, tapers through twilight
 function computeAstroDark(t, moonIllum, moonRise, moonSet) {
-  const sun0    = sunTimesForDate(t)
-  const sun1    = sunTimesForDate(new Date(t.getTime() + 86400000))
-  const TAPER   = 90 * 60000  // 90 min twilight taper
-
-  let raw = 0
-  const ss = sun0.set.getTime()
-  const sr = sun1.rise.getTime()
+  const TAPER = 90 * 60000  // 90 min twilight taper
   const tm = t.getTime()
 
-  if (tm <= ss || tm >= sr) {
-    raw = 0  // daytime
+  // Compute sun times for today, yesterday and tomorrow so we always
+  // find the sunset/sunrise pair that brackets t regardless of selectedHour
+  const candidates = [
+    sunTimesForDate(new Date(t.getTime() - 86400000)),
+    sunTimesForDate(new Date(t)),
+    sunTimesForDate(new Date(t.getTime() + 86400000)),
+  ]
+
+  // Find the sunset that is before t and the sunrise that is after t
+  let ss = null, sr = null
+  for (const day of candidates) {
+    if (day.set.getTime()  <= tm) ss = day.set.getTime()
+    if (day.rise.getTime() >  tm && sr === null) sr = day.rise.getTime()
+  }
+
+  let raw = 0
+  if (ss === null || sr === null) {
+    raw = 0  // can't determine — assume daytime
   } else if (tm < ss + TAPER) {
     raw = (tm - ss) / TAPER        // evening taper 0→1
   } else if (tm > sr - TAPER) {
     raw = (sr - tm) / TAPER        // morning taper 1→0
   } else {
-    raw = 1                         // full darkness
+    raw = 1                        // full darkness
   }
+  raw = Math.max(0, raw)
 
   // Moon interference
   let moonUp = false
