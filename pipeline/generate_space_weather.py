@@ -112,7 +112,7 @@ def fetch_l1():
 
     log.info(f'L1: Bz={bz_now:.1f} By={by_now:.1f} V={v_now:.0f} d={d_now:.1f}')
     return {'bz_now': bz_now, 'by_now': by_now, 'v_kms': v_now, 'density_ncc': d_now,
-            'mag_df': mag_df, 'last_data_utc': mag_df.index.max().isoformat()}
+            'mag_df': mag_df, 'plasma_df': plasma_df, 'last_data_utc': mag_df.index.max().isoformat()}
 
 
 # ── Intensity calculation (LeFevre calibration) ───────────────────────────────
@@ -481,6 +481,45 @@ def build_bz_timeline(l1_data):
     return timeline
 
 
+def build_plasma_timeline(l1_data):
+    """Build minute-resolution plasma timeline for the last 2 hours.
+    Returns list of {time, speed, density} dicts with ISO timestamps.
+    Used by frontend so it never needs CORS to fetch plasma directly."""
+    if l1_data is None:
+        return []
+
+    plasma_df = l1_data.get('plasma_df', pd.DataFrame())
+    if plasma_df.empty:
+        return []
+
+    now    = datetime.now(timezone.utc)
+    cutoff = now - timedelta(hours=2)
+    window = plasma_df[plasma_df.index >= cutoff].copy()
+    if window.empty:
+        return []
+
+    # Downsample to every 2 minutes to keep JSON small (~60 points)
+    window = window.resample('2min').mean().dropna(how='all')
+
+    points = []
+    for ts, row in window.iterrows():
+        v = row.get('V')
+        d = row.get('density')
+        # Filter NOAA fill values (-9999 etc)
+        if v is not None and not pd.isna(v) and 200 <= float(v) <= 3000:
+            v = round(float(v), 0)
+        else:
+            v = None
+        if d is not None and not pd.isna(d) and 0 < float(d) <= 200:
+            d = round(float(d), 2)
+        else:
+            d = None
+        if v is not None or d is not None:
+            points.append({'time': ts.isoformat(), 'speed': v, 'density': d})
+
+    return points
+
+
 # ── Main ──────────────────────────────────────────────────────────────────────
 
 def main():
@@ -572,7 +611,8 @@ def main():
     enlil_timeline = fetch_enlil_timeline() if enlil_active else []
 
     # Bz timeline
-    bz_timeline = build_bz_timeline(l1)
+    bz_timeline     = build_bz_timeline(l1)
+    plasma_timeline = build_plasma_timeline(l1)
 
     # Build output JSON
     output = {
@@ -602,7 +642,7 @@ def main():
         'enlil_active':       bool(enlil_active),
         'enlil_timeline':     enlil_timeline,
         'timeline':           bz_timeline,
-    }
+        'plasma_timeline':    plasma_timeline,
 
     os.makedirs(os.path.dirname(OUTPUT_PATH), exist_ok=True)
     with open(OUTPUT_PATH, 'w') as f:
@@ -764,9 +804,10 @@ def main_with_clouds():
     quality_label, quality_color = overall_quality(intensity_label, astro_dark_pct)
     state = determine_state(bz_now, v_kms, noaa)
 
-    enlil_active   = state in ('ARRIVED', 'STORM_ACTIVE') or noaa.get('hss_active')
-    enlil_timeline = fetch_enlil_timeline() if enlil_active else []
-    bz_timeline    = build_bz_timeline(l1)
+    enlil_active    = state in ('ARRIVED', 'STORM_ACTIVE') or noaa.get('hss_active')
+    enlil_timeline  = fetch_enlil_timeline() if enlil_active else []
+    bz_timeline     = build_bz_timeline(l1)
+    plasma_timeline = build_plasma_timeline(l1)
 
     # Ovation Prime aurora model
     ovation = fetch_ovation()
@@ -798,6 +839,7 @@ def main_with_clouds():
         'enlil_active':         bool(enlil_active),
         'enlil_timeline':       enlil_timeline,
         'timeline':             bz_timeline,
+        'plasma_timeline':      plasma_timeline,
         'ovation_oval':         ovation.get('oval_boundary', []),
         'ovation_viewline':     ovation.get('view_line', []),
         'ovation_obs_time':     ovation.get('observation_time'),
