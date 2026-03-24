@@ -69,7 +69,8 @@ function gaussianSmooth(grid, rows, cols) {
 }
 
 function buildScoreGrid(mode, getCloudAt, selectedHour, bortleLookup) {
-  const spacing = mode === 'bortle' ? BORTLE_SPACING : CLOUD_SPACING
+  // Combined and bortle-only use BORTLE_SPACING (0.1°) — bortle is the base layer
+  const spacing = (mode === 'bortle' || mode === 'combined') ? BORTLE_SPACING : CLOUD_SPACING
   const pad = spacing * 2
   const lats = [], lons = []
   for (let lat = GRID_BOUNDS.maxLat + pad; lat >= GRID_BOUNDS.minLat - pad - 0.001; lat -= spacing)
@@ -81,33 +82,29 @@ function buildScoreGrid(mode, getCloudAt, selectedHour, bortleLookup) {
     lons.map(lon => {
       if (isOcean(lat, lon)) return null
       const bortle = bortleLookup ? getBortle(bortleLookup, lat, lon) : 5
-      if (mode === 'bortle') return bortleScore(bortle)
+      if (mode === 'bortle' || mode === 'combined') return bortleScore(bortle)
+      // Clouds-only: cloud score with 40% threshold
       const cloud = getCloudAt ? getCloudAt(lat, lon, selectedHour) : null
-      if (mode === 'clouds') {
-        if (cloud === null) return null
-        // Thin/scattered clouds (<40%) don't meaningfully block aurora — treat as clear
-        // Scale 40-100% to the full 0-1 penalty range
-        const adjusted = cloud < 40 ? 0 : (cloud - 40) / 60 * 100
-        return 1 - adjusted / 100
-      }
-      // Combined: same threshold applied to cloud layer
       if (cloud === null) return null
       const adjusted = cloud < 40 ? 0 : (cloud - 40) / 60 * 100
       return 1 - adjusted / 100
     })
   )
 
-  // Bortle overlay grid for combined mode only (raw bortle 1-9 values, not scored)
-  const bortleRaw = mode === 'combined' ? lats.map(lat =>
+  // Cloud overlay for combined mode: bortle is base, cloud red sits on top
+  // Values are 0 (clear) to 1 (fully overcast) after 40% threshold
+  const cloudRaw = mode === 'combined' ? lats.map(lat =>
     lons.map(lon => {
       if (isOcean(lat, lon)) return null
-      return bortleLookup ? getBortle(bortleLookup, lat, lon) : 5
+      const cloud = getCloudAt ? getCloudAt(lat, lon, selectedHour) : null
+      if (cloud === null) return 0  // no data = assume clear
+      return cloud < 40 ? 0 : (cloud - 40) / 60
     })
   ) : null
 
-  const grid        = gaussianSmooth(raw, lats.length, lons.length)
-  const bortleGrid2 = bortleRaw ? gaussianSmooth(bortleRaw, lats.length, lons.length) : null
-  return { grid, lats, lons, bortleGrid: bortleGrid2, mode }
+  const grid      = gaussianSmooth(raw, lats.length, lons.length)
+  const cloudGrid = cloudRaw ? gaussianSmooth(cloudRaw, lats.length, lons.length) : null
+  return { grid, lats, lons, cloudGrid, mode }
 }
 
 function bilinear(s00, s10, s01, s11, tx, ty) {
@@ -155,7 +152,7 @@ const SmoothHeatmap = L.Layer.extend({
     const ctx = canvas.getContext('2d')
     ctx.clearRect(0, 0, W, H)
 
-    const { grid, lats, lons, bortleGrid: bGrid, mode: renderMode } = this._scoreData
+    const { grid, lats, lons, cloudGrid: cGrid, mode: renderMode } = this._scoreData
     const rows   = lats.length
     const cols   = lons.length
     if (rows < 2 || cols < 2) return
@@ -206,8 +203,8 @@ const SmoothHeatmap = L.Layer.extend({
         const [red, green, blue] = scoreToRGB(Math.max(0, Math.min(1, score)))
         const baseAlpha = 0.45 * edgeFade
 
-        if (renderMode !== 'combined' || !bGrid) {
-          // Bortle-only or clouds-only: single pass, done
+        if (renderMode !== 'combined' || !cGrid) {
+          // Bortle-only or clouds-only: single pass
           data[idx]     = red
           data[idx + 1] = green
           data[idx + 2] = blue
@@ -215,39 +212,28 @@ const SmoothHeatmap = L.Layer.extend({
           continue
         }
 
-        // ── Pass 2 (combined only): bortle red overlay ────────────────────────
-        // Bortle 1-2 → 0 opacity, each step above 2 adds one unit of red
-        // Max opacity at bortle 9 = 7/7 * 0.65 = 0.65 (map always shows through)
-        const bortleVal = sampleGrid(bGrid, ci, cj, r0, r1, c0, c1)
-        // Logarithmic curve matching Walker's Law — steepest at bortle 4-5
-        // where aurora hunting transitions from viable to compromised
-        // opacity = ln(1 + t*6) / ln(7) * 0.75  where t = (bortle-2)/7
-        const bortleAlpha = bortleVal != null
-          ? (() => {
-              const t = Math.max(0, bortleVal - 2) / 7
-              return (Math.log(1 + t * 6) / Math.log(7)) * 0.75 * edgeFade
-            })()
-          : 0
+        // ── Pass 2 (combined only): cloud red overlay on top of bortle base ──
+        // cloudVal is 0 (clear) to 1 (overcast) after 40% threshold
+        // Max cloud overlay alpha = 0.75 so even 100% overcast still shows map
+        const cloudVal   = sampleGrid(cGrid, ci, cj, r0, r1, c0, c1)
+        const cloudAlpha = (cloudVal != null ? cloudVal : 0) * 0.75 * edgeFade
 
-        // Composite: cloud layer first, then bortle red on top
-        // Using standard alpha compositing: result = src + dst*(1-srcAlpha)
-        const cA = baseAlpha           // cloud layer alpha
-        const bA = bortleAlpha         // bortle overlay alpha (always red = 200,0,0)
+        // Composite: bortle base layer first, then cloud red overlay on top
+        const cA = baseAlpha    // bortle base alpha
+        const oA = cloudAlpha   // cloud overlay alpha (solid red = 200,0,0)
 
-        // Cloud layer onto transparent background
         let outR = red   * cA
         let outG = green * cA
         let outB = blue  * cA
         let outA = cA
 
-        // Bortle red overlay on top
-        const bR = 200, bG = 0, bBl = 0
-        outR = bR * bA + outR * (1 - bA)
-        outG = bG * bA + outG * (1 - bA)
-        outB = bBl * bA + outB * (1 - bA)
-        outA = bA + outA * (1 - bA)
+        // Cloud red overlay
+        outR = 200 * oA + outR * (1 - oA)
+        outG = 0   * oA + outG * (1 - oA)
+        outB = 0   * oA + outB * (1 - oA)
+        outA = oA + outA * (1 - oA)
 
-        data[idx]     = Math.round(outR / Math.max(outA, 0.001))  // premult → straight
+        data[idx]     = Math.round(outR / Math.max(outA, 0.001))
         data[idx + 1] = Math.round(outG / Math.max(outA, 0.001))
         data[idx + 2] = Math.round(outB / Math.max(outA, 0.001))
         data[idx + 3] = Math.round(outA * 255)
