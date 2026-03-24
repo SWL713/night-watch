@@ -97,7 +97,7 @@ function buildScoreGrid(mode, getCloudAt, selectedHour, bortleLookup) {
     })
   ) : null
 
-  const grid       = gaussianSmooth(raw, lats.length, lons.length)
+  const grid       = gaussianSmooth(raw, lats.length, lons.length, 1.5, 3)
   const bortleGrid = bortleRaw ? gaussianSmooth(bortleRaw, lats.length, lons.length) : null
   return { grid, lats, lons, bortleGrid, mode }
 }
