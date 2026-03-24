@@ -91,9 +91,10 @@ function buildScoreGrid(mode, getCloudAt, selectedHour, bortleLookup) {
       if (mode === 'clouds') return cScore
 
       // Combined: multiply blend with gamma lift to push good sites to vivid green
-      // gamma 0.7 lifts top-end scores without spreading their area
+      // cScore blended toward 1.0 by 15% to make cloud layer slightly more transparent
       if (cScore === null) return bScore * 0.7
-      return Math.pow(cScore * bScore, 0.7)
+      const cSoftened = cScore * 0.85 + 0.15  // 0→0.15, 1→1.0 — softens cloud penalty
+      return Math.pow(cSoftened * bScore, 0.7)
     })
   )
 
