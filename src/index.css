@@ -55,3 +55,13 @@ select {
   background-position: right 8px center;
   padding-right: 24px !important;
 }
+
+/* Brighten Leaflet attribution */
+.leaflet-control-attribution {
+  background: rgba(6, 8, 15, 0.75) !important;
+  color: #556677 !important;
+  font-size: 9px !important;
+}
+.leaflet-control-attribution a {
+  color: #6688aa !important;
+}

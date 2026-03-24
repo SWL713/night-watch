@@ -9,9 +9,9 @@
   "orientation": "portrait-primary",
   "icons": [
     {
-      "src": "/night-watch/moon/5-full.png",
-      "sizes": "400x400",
-      "type": "image/png",
+      "src": "/night-watch/logo.jpg",
+      "sizes": "512x512",
+      "type": "image/jpeg",
       "purpose": "any maskable"
     }
   ]

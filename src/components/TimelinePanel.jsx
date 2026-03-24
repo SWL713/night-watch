@@ -41,7 +41,7 @@ function StatRow({ icon, label, value, color }) {
   return (
     <div style={{ display:'flex', alignItems:'center', gap:6, marginBottom:4 }}>
       <img src={icon} alt="" style={{ width:16, height:16, objectFit:'contain', flexShrink:0 }} />
-      <span style={{ color:'#445566', fontSize:9, letterSpacing:1, width:74, flexShrink:0 }}>{label}</span>
+      <span style={{ color:'#6688aa', fontSize:9, letterSpacing:1, width:74, flexShrink:0 }}>{label}</span>
       <span style={{ color, fontSize:11, fontWeight:'bold' }}>{value}</span>
     </div>
   )
@@ -248,7 +248,7 @@ export default function TimelinePanel({ spaceWeather, selectedHour, onHourSelect
           display:'flex', flexDirection:'column', justifyContent:'center',
         }}>
           <div style={{ marginBottom:8 }}>
-            <div style={{ color:'#2a3a55', fontSize:8, letterSpacing:1, marginBottom:2 }}>
+            <div style={{ color:'#4a6a88', fontSize:8, fontWeight:'bold', letterSpacing:1, marginBottom:2 }}>
               CHASE QUALITY{!isNow ? ` · +${selectedHour}h` : ''}
             </div>
             <div style={{ color:qualityColor, fontSize:18, fontWeight:'bold', letterSpacing:2 }}>

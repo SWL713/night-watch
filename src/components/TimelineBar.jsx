@@ -51,7 +51,7 @@ function LegendStrip() {
             display: 'inline-block', width: 20, height: 2.5,
             background: color, borderRadius: 1, flexShrink: 0,
           }} />
-          <span style={{ color: '#445566', fontSize: 9, fontFamily: FONT, whiteSpace: 'nowrap' }}>
+          <span style={{ color: '#667788', fontSize: 9, fontFamily: FONT, whiteSpace: 'nowrap' }}>
             {label}
           </span>
         </span>
@@ -306,9 +306,18 @@ export default function TimelineBar({ spaceWeather, moonData, selectedHour, onHo
     ctx.setLineDash([]); ctx.globalAlpha = 1.0
 
     // ── 6. VELOCITY TRACE ─────────────────────────────────────────────────────
-    // plasmaTrace is independent of bzTrace — no merge failures possible.
-    // Shift timestamps forward by lagMs so observed data plots at Earth arrival time.
-    const plasma = (plasmaTrace || []).filter(p => p.speed != null || p.density != null)
+    // plasmaTrace = direct NOAA fetch (null if unavailable/all fill values)
+    // spaceWeather.plasma_timeline = pipeline-sourced fallback (always available)
+    // Direct fetch points are already in Earth-arrival time (shifted by lagMs below).
+    // Pipeline points have ISO timestamps already at L1 time — also shift by lagMs.
+    const rawPlasma = plasmaTrace !== null
+      ? (plasmaTrace || [])
+      : (spaceWeather.plasma_timeline || []).map(p => ({
+          time:    new Date(p.time),
+          speed:   p.speed,
+          density: p.density,
+        }))
+    const plasma = rawPlasma.filter(p => p.speed != null || p.density != null)
 
     const enlil = (spaceWeather.enlil_timeline || [])
       .map(p => ({ time: new Date(p.time), speed: p.speed, density: p.density }))
@@ -427,9 +436,9 @@ export default function TimelineBar({ spaceWeather, moonData, selectedHour, onHo
       }
     }
 
-    vLine(sun0.rise, '#ffdd44', 'Sunrise', 0.22, false)
-    vLine(sun0.set,  '#ffdd44', 'Sunset',  0.22, false)
-    vLine(sun1.rise, '#ffdd44', 'Sunrise', 0.22, false)
+    vLine(sun0.rise, '#ffdd44', '☀ Rise', 0.22, false)
+    vLine(sun0.set,  '#ffdd44', '☀ Set',  0.22, false)
+    vLine(sun1.rise, '#ffdd44', '☀ Rise', 0.22, false)
     vLine(moonRise,  '#aabbcc', '☽ Rise',  0.42, true)
     vLine(moonSet,   '#aabbcc', '☽ Set',   0.42, true)
 
@@ -460,7 +469,7 @@ export default function TimelineBar({ spaceWeather, moonData, selectedHour, onHo
     }
 
     // ── 11. HOUR TICK LABELS ──────────────────────────────────────────────────
-    ctx.fillStyle = '#445566'; ctx.font = `8px ${FONT}`
+    ctx.fillStyle = '#445566'; ctx.font = `bold 8px ${FONT}`
     for (let dh = -1; dh <= 8; dh++) {
       const t = new Date(now.getTime() + dh * 3600000)
       if (t < tStart || t > tEnd) continue

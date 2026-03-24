@@ -4,14 +4,13 @@ const FONT = 'DejaVu Sans Mono, Consolas, monospace'
 // Ovation, Pins are independent toggles
 const HEATMAP_MODES = ['heatmap', 'clouds', 'bortle']
 
-export default function LayerControls({ layers, onToggle, enlilActive }) {
+export default function LayerControls({ layers, onToggle }) {
   const LAYER_DEFS = [
-    { key: 'heatmap', label: 'Combined',    group: 'heatmap' },
-    { key: 'clouds',  label: 'Clouds only', group: 'heatmap' },
-    { key: 'bortle',  label: 'Bortle only', group: 'heatmap' },
+    { key: 'heatmap', label: 'Combined',      group: 'heatmap' },
+    { key: 'clouds',  label: 'Clouds only',   group: 'heatmap' },
+    { key: 'bortle',  label: 'Bortle only',   group: 'heatmap' },
     { key: 'ovation', label: 'Ovation Model', group: 'toggle' },
-    { key: 'pins',    label: 'Locations',   group: 'toggle' },
-    ...(enlilActive ? [{ key: 'enlil', label: 'ENLIL', group: 'toggle' }] : []),
+    { key: 'pins',    label: 'Locations',     group: 'toggle' },
   ]
 
   return (
