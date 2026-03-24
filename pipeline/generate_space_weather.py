@@ -651,6 +651,7 @@ def main():
         'enlil_timeline':     enlil_timeline,
         'timeline':           bz_timeline,
         'plasma_timeline':    plasma_timeline,
+    }
 
     os.makedirs(os.path.dirname(OUTPUT_PATH), exist_ok=True)
     with open(OUTPUT_PATH, 'w') as f:
