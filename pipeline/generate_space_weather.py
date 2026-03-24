@@ -28,6 +28,7 @@ DSCOVR_MAG_URL    = 'https://services.swpc.noaa.gov/json/rtsw/rtsw_mag_1m.json'
 DSCOVR_PLASMA_URL = 'https://services.swpc.noaa.gov/json/rtsw/rtsw_plasma_1m.json'
 WIND_URL          = 'https://services.swpc.noaa.gov/json/rtsw/rtsw_wind_1m.json'
 NOAA_ALERTS_URL   = 'https://services.swpc.noaa.gov/products/alerts.json'
+NOAA_FORECAST_URL = 'https://services.swpc.noaa.gov/text/3-day-forecast.txt'
 OVATION_URL       = 'https://services.swpc.noaa.gov/json/ovation_aurora_latest.json'
 ENLIL_BASE        = 'https://nomads.ncep.noaa.gov/pub/data/nccf/com/wsa_enlil/prod/'
 ENLIL_JSON_URL    = 'https://services.swpc.noaa.gov/json/enlil_time_series.json'
@@ -154,26 +155,60 @@ def compute_intensity(bz, v_kms, density_ncc):
 # ── NOAA Alerts ───────────────────────────────────────────────────────────────
 
 def fetch_noaa_alerts():
-    alerts = safe_get(NOAA_ALERTS_URL) or []
+    """
+    G badge: 3-day-forecast.txt for today's predicted max G-scale.
+    HSS badge: rationale text for CH HSS + alerts.json supplement.
+    """
+    import re
     g_level, g_label, hss_active, hss_watch = '', '', False, False
 
-    for alert in alerts:
-        msg = alert.get('message', '') + alert.get('product_id', '')
-        for g in ['G5','G4','G3','G2','G1']:
-            if g in msg and not g_level:
-                g_level = g
-                g_label = g
-                break
-        if 'High Speed Stream' in msg or 'HSS' in msg:
-            if 'Warning' in msg or 'Watch' in msg:
-                hss_watch = True
-            if 'in progress' in msg.lower() or 'geomagnetic activity' in msg.lower():
-                hss_active = True
+    # Primary: 3-day forecast text
+    forecast_text = ''
+    try:
+        r = requests.get(NOAA_FORECAST_URL, timeout=10)
+        if r.ok:
+            forecast_text = r.text
+    except Exception as e:
+        log.warning(f'3-day forecast fetch failed: {e}')
 
+    if forecast_text:
+        # G predicted max for today: "greatest expected ... (NOAA Scale GX)"
+        m = re.search(r'greatest expected 3 hr Kp.*?NOAA Scale (G\d)', forecast_text, re.IGNORECASE)
+        if m:
+            g_level = m.group(1)
+            g_label = g_level
+            log.info(f'G badge from 3-day forecast: {g_level}')
+
+        # HSS: rationale section mentions CH HSS or high speed stream
+        rat = re.search(r'Rationale:(.*?)(?:\n[A-Z]\.|\Z)', forecast_text, re.DOTALL | re.IGNORECASE)
+        if rat:
+            r_text = rat.group(1).lower()
+            if 'hss' in r_text or 'high speed stream' in r_text or 'coronal hole' in r_text:
+                hss_watch = True
+                log.info('HSS watch from 3-day forecast rationale')
+
+    # Supplement: alerts.json for active G alert and HSS in-progress
+    try:
+        alerts = safe_get(NOAA_ALERTS_URL) or []
+        for alert in alerts:
+            msg = (alert.get('message', '') + alert.get('product_id', '')).lower()
+            if not g_level:
+                for g in ['G5', 'G4', 'G3', 'G2', 'G1']:
+                    if g.lower() in msg:
+                        g_level = g
+                        g_label = g
+                        break
+            if 'high speed stream' in msg or ' hss' in msg:
+                if 'in progress' in msg or 'geomagnetic activity' in msg:
+                    hss_active = True
+                if 'warning' in msg or 'watch' in msg:
+                    hss_watch = True
+    except Exception as e:
+        log.warning(f'alerts.json fetch failed: {e}')
+
+    log.info(f'NOAA: G={g_level or "none"}, HSS active={hss_active}, watch={hss_watch}')
     return {'g_level': g_level, 'g_label': g_label, 'hss_active': hss_active, 'hss_watch': hss_watch}
 
-
-# ── Moon data (ported from render_aurora_card.py) ────────────────────────────
 
 def moon_illumination(dt):
     def jd_val(d):
