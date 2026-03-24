@@ -64,11 +64,17 @@ const SmoothHeatmap = L.Layer.extend({
     const map = this._map
     const canvas = this._canvas
     const size = map.getSize()
-    canvas.width  = size.x
-    canvas.height = size.y
+
+    // Account for device pixel ratio — critical for sharp mobile rendering
+    const dpr = Math.min(window.devicePixelRatio || 1, 3)
+    canvas.width  = size.x * dpr
+    canvas.height = size.y * dpr
+    canvas.style.width  = size.x + 'px'
+    canvas.style.height = size.y + 'px'
     L.DomUtil.setPosition(canvas, map.containerPointToLayerPoint([0, 0]))
 
     const ctx = canvas.getContext('2d')
+    ctx.scale(dpr, dpr)
     ctx.clearRect(0, 0, size.x, size.y)
 
     const { grid, lats, lons } = this._scoreData
@@ -79,7 +85,8 @@ const SmoothHeatmap = L.Layer.extend({
     const latMax = lats[0]
     const lonMin = lons[0]
 
-    const STEP = 2
+    // Render pixel by pixel — step 1 on mobile (DPR handles sharpness), 2 on desktop
+    const STEP = 1
     const imageData = ctx.createImageData(size.x, size.y)
     const data = imageData.data
 
@@ -126,10 +133,12 @@ const SmoothHeatmap = L.Layer.extend({
 
     ctx.putImageData(imageData, 0, 0)
 
+    // Gaussian blur — increase radius for smoother gradients on all screens
+    const blurPx = Math.max(6, Math.round(10 / dpr))
     const tmp = document.createElement('canvas')
     tmp.width = size.x; tmp.height = size.y
     const tctx = tmp.getContext('2d')
-    tctx.filter = 'blur(8px)'
+    tctx.filter = `blur(${blurPx}px)`
     tctx.drawImage(canvas, 0, 0)
     ctx.clearRect(0, 0, size.x, size.y)
     ctx.drawImage(tmp, 0, 0)
