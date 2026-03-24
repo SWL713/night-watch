@@ -215,55 +215,65 @@ const SmoothHeatmap = L.Layer.extend({
 
         const idx = (py * W + px) * 4
 
-        // ── Pass 1: cloud layer (red→green gradient) ──────────────────────────
-        const [red, green, blue] = scoreToRGB(Math.max(0, Math.min(1, score)))
-        const baseAlpha = 0.45 * edgeFade
+        if (renderMode === 'combined' && cGrid) {
+          // ── Combined: bortle base (red→green) + cloud red overlay ──────────
+          const [red, green, blue] = scoreToRGB(Math.max(0, Math.min(1, score)))
+          const baseAlpha = 0.45 * edgeFade
 
-        if (renderMode !== 'combined' || !cGrid) {
-          // Bortle-only or clouds-only: single pass
+          const cLatMax = cGrid.lats[0]
+          const cLonMin = cGrid.lons[0]
+          const cRows   = cGrid.lats.length
+          const cCols   = cGrid.lons.length
+          const cSp     = cGrid.lats.length > 1 ? Math.abs(cGrid.lats[0] - cGrid.lats[1]) : CLOUD_SPACING
+
+          const cci = (cLatMax - lat) / cSp
+          const ccj = (lon - cLonMin) / cSp
+          const cr0 = Math.floor(cci), cr1 = cr0 + 1
+          const cc0 = Math.floor(ccj), cc1 = cc0 + 1
+
+          let cloudVal = 0
+          if (cr0 >= 0 && cr1 < cRows && cc0 >= 0 && cc1 < cCols) {
+            const cv = sampleGrid(cGrid.grid, cci, ccj, cr0, cr1, cc0, cc1)
+            cloudVal = cv != null ? cv : 0
+          }
+
+          const oA = cloudVal * 0.75 * edgeFade
+          const cA = baseAlpha
+
+          let outR = red   * cA
+          let outG = green * cA
+          let outB = blue  * cA
+          let outA = cA
+
+          outR = 200 * oA + outR * (1 - oA)
+          outG = 0   * oA + outG * (1 - oA)
+          outB = 0   * oA + outB * (1 - oA)
+          outA = oA + outA * (1 - oA)
+
+          data[idx]     = Math.round(outR / Math.max(outA, 0.001))
+          data[idx + 1] = Math.round(outG / Math.max(outA, 0.001))
+          data[idx + 2] = Math.round(outB / Math.max(outA, 0.001))
+          data[idx + 3] = Math.round(outA * 255)
+
+        } else if (renderMode === 'clouds') {
+          // ── Clouds-only: transparent when clear, red only when cloudy ───────
+          // score = 0 (overcast) to 1 (clear). Invert for cloud opacity.
+          const cloudOpacity = 1 - Math.max(0, Math.min(1, score))
+          if (cloudOpacity < 0.01) continue  // clear — show map underneath
+          const alpha = Math.round(cloudOpacity * 0.75 * edgeFade * 255)
+          data[idx]     = 200
+          data[idx + 1] = 0
+          data[idx + 2] = 0
+          data[idx + 3] = alpha
+
+        } else {
+          // ── Bortle-only: full red→green gradient ─────────────────────────────
+          const [red, green, blue] = scoreToRGB(Math.max(0, Math.min(1, score)))
           data[idx]     = red
           data[idx + 1] = green
           data[idx + 2] = blue
-          data[idx + 3] = Math.round(baseAlpha * 255)
-          continue
+          data[idx + 3] = Math.round(0.45 * edgeFade * 255)
         }
-
-        // ── Pass 2 (combined): cloud red overlay at 0.25° spacing ─────────────
-        const cLatMax = cGrid.lats[0]
-        const cLonMin = cGrid.lons[0]
-        const cRows   = cGrid.lats.length
-        const cCols   = cGrid.lons.length
-        const cSp     = cGrid.lats.length > 1 ? Math.abs(cGrid.lats[0] - cGrid.lats[1]) : CLOUD_SPACING
-
-        const cci = (cLatMax - lat) / cSp
-        const ccj = (lon - cLonMin) / cSp
-        const cr0 = Math.floor(cci), cr1 = cr0 + 1
-        const cc0 = Math.floor(ccj), cc1 = cc0 + 1
-
-        let cloudVal = 0
-        if (cr0 >= 0 && cr1 < cRows && cc0 >= 0 && cc1 < cCols) {
-          const cv = sampleGrid(cGrid.grid, cci, ccj, cr0, cr1, cc0, cc1)
-          cloudVal = cv != null ? cv : 0
-        }
-
-        const cloudAlpha = cloudVal * 0.75 * edgeFade
-
-        const cA = baseAlpha
-        const oA = cloudAlpha
-
-        let outR = red   * cA
-        let outG = green * cA
-        let outB = blue  * cA
-        let outA = cA
-
-        outR = 200 * oA + outR * (1 - oA)
-        outG = 0   * oA + outG * (1 - oA)
-        outB = 0   * oA + outB * (1 - oA)
-        outA = oA + outA * (1 - oA)
-
-        data[idx]     = Math.round(outR / Math.max(outA, 0.001))
-        data[idx + 1] = Math.round(outG / Math.max(outA, 0.001))
-        data[idx + 2] = Math.round(outB / Math.max(outA, 0.001))
         data[idx + 3] = Math.round(outA * 255)
       }
     }
