@@ -41,7 +41,7 @@ function StatRow({ icon, label, value, color }) {
   return (
     <div style={{ display:'flex', alignItems:'center', gap:6, marginBottom:4 }}>
       <img src={icon} alt="" style={{ width:16, height:16, objectFit:'contain', flexShrink:0 }} />
-      <span style={{ color:'#6688aa', fontSize:9, letterSpacing:1, width:74, flexShrink:0 }}>{label}</span>
+      <span style={{ color:'#445566', fontSize:9, letterSpacing:1, width:74, flexShrink:0 }}>{label}</span>
       <span style={{ color, fontSize:11, fontWeight:'bold' }}>{value}</span>
     </div>
   )
@@ -69,35 +69,24 @@ function sunTimesForDate(date) {
 
 // Compute astro dark % for a given time — 0 during day, tapers through twilight
 function computeAstroDark(t, moonIllum, moonRise, moonSet) {
-  const TAPER = 90 * 60000  // 90 min twilight taper
-  const tm = t.getTime()
-
-  // Compute sun times for today, yesterday and tomorrow so we always
-  // find the sunset/sunrise pair that brackets t regardless of selectedHour
-  const candidates = [
-    sunTimesForDate(new Date(t.getTime() - 86400000)),
-    sunTimesForDate(new Date(t)),
-    sunTimesForDate(new Date(t.getTime() + 86400000)),
-  ]
-
-  // Find the sunset that is before t and the sunrise that is after t
-  let ss = null, sr = null
-  for (const day of candidates) {
-    if (day.set.getTime()  <= tm) ss = day.set.getTime()
-    if (day.rise.getTime() >  tm && sr === null) sr = day.rise.getTime()
-  }
+  const sun0    = sunTimesForDate(t)
+  const sun1    = sunTimesForDate(new Date(t.getTime() + 86400000))
+  const TAPER   = 90 * 60000  // 90 min twilight taper
 
   let raw = 0
-  if (ss === null || sr === null) {
-    raw = 0  // can't determine — assume daytime
+  const ss = sun0.set.getTime()
+  const sr = sun1.rise.getTime()
+  const tm = t.getTime()
+
+  if (tm <= ss || tm >= sr) {
+    raw = 0  // daytime
   } else if (tm < ss + TAPER) {
     raw = (tm - ss) / TAPER        // evening taper 0→1
   } else if (tm > sr - TAPER) {
     raw = (sr - tm) / TAPER        // morning taper 1→0
   } else {
-    raw = 1                        // full darkness
+    raw = 1                         // full darkness
   }
-  raw = Math.max(0, raw)
 
   // Moon interference
   let moonUp = false
@@ -133,7 +122,7 @@ export default function TimelinePanel({ spaceWeather, selectedHour, onHourSelect
     enlil_active, enlil_timeline, timeline,
   } = spaceWeather
 
-  const { trace: bzTrace, plasmaTrace } = useBzTrace()
+  const { trace: bzTrace } = useBzTrace()
 
   // ── Issue 3: derive stats for the SELECTED hour ────────────────────────────
   const selectedTime = new Date(now.getTime() + selectedHour * 3600000)
@@ -225,8 +214,16 @@ export default function TimelinePanel({ spaceWeather, selectedHour, onHourSelect
             filter:'drop-shadow(0 0 4px rgba(0,0,0,0.8))',
           }} />
 
+          {/* ── Issue 5: State badge moved ABOVE the G-badge area — stays in aurora image ── */}
           <div style={{
             position:'absolute', top:8, left:8,
+            color: stateColor(state), fontSize:10, fontWeight:'bold', letterSpacing:2,
+          }}>
+            ● {state || 'QUIET'}
+          </div>
+
+          <div style={{
+            position:'absolute', top:26, left:8,
             color:'#445566', fontSize:9, letterSpacing:1,
           }}>
             {timeLabel}
@@ -251,7 +248,7 @@ export default function TimelinePanel({ spaceWeather, selectedHour, onHourSelect
           display:'flex', flexDirection:'column', justifyContent:'center',
         }}>
           <div style={{ marginBottom:8 }}>
-            <div style={{ color:'#4a6a88', fontSize:8, fontWeight:'bold', letterSpacing:1, marginBottom:2 }}>
+            <div style={{ color:'#2a3a55', fontSize:8, letterSpacing:1, marginBottom:2 }}>
               CHASE QUALITY{!isNow ? ` · +${selectedHour}h` : ''}
             </div>
             <div style={{ color:qualityColor, fontSize:18, fontWeight:'bold', letterSpacing:2 }}>
@@ -289,7 +286,6 @@ export default function TimelinePanel({ spaceWeather, selectedHour, onHourSelect
         selectedHour={selectedHour}
         onHourSelect={onHourSelect}
         bzTrace={bzTrace}
-        plasmaTrace={plasmaTrace}
       />
     </div>
   )

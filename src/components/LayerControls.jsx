@@ -61,6 +61,5 @@ export function initLayers() {
     bortle: false,
     ovation: true,
     pins: true,
-    enlil: false,
   }
 }

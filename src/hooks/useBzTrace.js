@@ -1,6 +1,7 @@
 // Fetches real-time L1 data from NOAA for the timeline trace.
-// Mag (Bz) and plasma (V, density) are fetched independently and
-// returned as separate arrays — no timestamp merge required.
+// Bz: minute-by-minute from NOAA mag feed via CORS proxy
+// V/density: from space_weather.json plasma_timeline (pipeline-sourced, no CORS needed)
+//            with direct NOAA WIND fetch as enhancement if available
 
 import { useState, useEffect } from 'react'
 
@@ -9,9 +10,14 @@ const CORS_PROXIES = [
   url => `https://api.allorigins.win/raw?url=${url}`,
 ]
 
-const DSCOVR_MAG    = 'https://services.swpc.noaa.gov/json/rtsw/rtsw_mag_1m.json'
-const WIND_MAG      = 'https://services.swpc.noaa.gov/json/rtsw/rtsw_wind_1m.json'
-const DSCOVR_PLASMA = 'https://services.swpc.noaa.gov/json/rtsw/rtsw_plasma_1m.json'
+const DSCOVR_MAG = 'https://services.swpc.noaa.gov/json/rtsw/rtsw_mag_1m.json'
+const WIND_MAG   = 'https://services.swpc.noaa.gov/json/rtsw/rtsw_wind_1m.json'
+// NOTE: rtsw_plasma_1m.json was removed by NOAA (404). WIND carries plasma too.
+const WIND_URL   = 'https://services.swpc.noaa.gov/json/rtsw/rtsw_wind_1m.json'
+
+// Valid ranges for fill-value filtering
+const SPEED_MIN = 200, SPEED_MAX = 3000
+const DENS_MIN  = 0.5, DENS_MAX  = 200  // <0.5 = WIND sensor gap/fill value
 
 async function fetchWithProxy(url) {
   try {
@@ -27,23 +33,22 @@ async function fetchWithProxy(url) {
   return null
 }
 
+function validSpeed(v)   { const n = parseFloat(v); return isFinite(n) && n >= SPEED_MIN && n <= SPEED_MAX ? n : null }
+function validDensity(d) { const n = parseFloat(d); return isFinite(n) && n >= DENS_MIN  && n <= DENS_MAX  ? n : null }
+
 export function useBzTrace() {
-  const [trace,        setTrace]        = useState([])  // [{time, bz}]
-  const [plasmaTrace,  setPlasmaTrace]  = useState([])  // [{time, speed, density}]
-  const [loading,      setLoading]      = useState(true)
+  const [trace,       setTrace]       = useState([])  // [{time, bz}]
+  const [plasmaTrace, setPlasmaTrace] = useState([])  // [{time, speed, density}]
+  const [loading,     setLoading]     = useState(true)
 
   async function fetchTrace() {
     const now    = new Date()
-    // Fetch 2hrs back so that after shifting by ~40min transit lag
-    // we still have a full 1hr of data visible on the Earth-time axis.
-    const cutoff = new Date(now.getTime() - 120 * 60000)
+    const cutoff = new Date(now.getTime() - 120 * 60000)  // 2hrs back
 
-    const [magData, plasmaData] = await Promise.all([
-      fetchWithProxy(DSCOVR_MAG).then(d => d?.length ? d : fetchWithProxy(WIND_MAG)),
-      fetchWithProxy(DSCOVR_PLASMA),
-    ])
+    // Bz — DSCOVR mag primary, WIND mag fallback
+    const magData = await fetchWithProxy(DSCOVR_MAG)
+      .then(d => d?.length ? d : fetchWithProxy(WIND_MAG))
 
-    // ── Bz trace ─────────────────────────────────────────────────────────────
     if (magData?.length) {
       const bzPoints = magData
         .map(r => {
@@ -57,25 +62,30 @@ export function useBzTrace() {
       setTrace(bzPoints)
     }
 
-    // ── Plasma trace (V, density) — completely independent ───────────────────
+    // Plasma — WIND carries proton_speed and proton_density in same feed as mag
+    // No separate plasma endpoint needed (rtsw_plasma_1m.json was removed by NOAA)
+    const plasmaData = await fetchWithProxy(WIND_URL)
     if (plasmaData?.length) {
       const pPoints = plasmaData
         .map(r => {
           if (!r.time_tag) return null
-          const speed   = r.proton_speed   ?? r.speed   ?? r.V   ?? null
-          const density = r.proton_density ?? r.density ?? r.Np  ?? null
+          const speed   = validSpeed(r.proton_speed   ?? r.speed   ?? r.V)
+          const density = validDensity(r.proton_density ?? r.density ?? r.Np)
           if (speed === null && density === null) return null
-          return {
-            time:    new Date(r.time_tag + 'Z'),
-            speed:   speed   != null ? parseFloat(speed)   : null,
-            density: density != null ? parseFloat(density) : null,
-          }
+          return { time: new Date(r.time_tag + 'Z'), speed, density }
         })
         .filter(p => p && p.time >= cutoff)
         .sort((a, b) => a.time - b.time)
-      setPlasmaTrace(pPoints)
+
+      if (pPoints.length >= 5) {
+        setPlasmaTrace(pPoints)
+        setLoading(false)
+        return
+      }
     }
 
+    // Signal null so TimelineBar uses spaceWeather.plasma_timeline (pipeline data)
+    setPlasmaTrace(null)
     setLoading(false)
   }
 

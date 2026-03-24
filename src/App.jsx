@@ -175,7 +175,6 @@ function App() {
         <LayerControls
           layers={layers}
           onToggle={toggleLayer}
-          enlilActive={sw.enlil_active}
         />
 
         {/* Cloud loading indicator */}

@@ -515,7 +515,7 @@ def build_plasma_timeline(l1_data):
             v = round(float(v), 0)
         else:
             v = None
-        if d is not None and not pd.isna(d) and 0 < float(d) <= 200:
+        if d is not None and not pd.isna(d) and 0.5 <= float(d) <= 200:  # <0.5 n/cc = sensor gap/fill
             d = round(float(d), 2)
         else:
             d = None
@@ -778,15 +778,18 @@ def fetch_ndfd_cloud(grid):
 
     log.info(f'NDFD: {len(messages)} forecast hours parsed')
 
-    # Build KD-tree from the first message's lat/lon grid
-    # (all messages from same sector share the same grid projection)
-    _, lat0, lon0, _ = messages[0]
+    # Build KD-tree from the LARGEST lat/lon grid across all messages.
+    # NDFD GRIB2 files can contain messages from multiple NWS sub-grids
+    # (different WFO domains). Using only messages[0]'s grid misses points
+    # that fall outside that sub-region. Using the largest grid maximises coverage.
+    largest_msg = max(messages, key=lambda m: len(m[1]))
+    _, lat0, lon0, _ = largest_msg
     tree = KDTree(np.column_stack([lat0, lon0]))
 
     # Query tree once per grid point, reuse index across all times
     grid_lats = np.array([p['lat'] for p in grid])
     grid_lons = np.array([p['lon'] for p in grid])
-    _, idxs = tree.query(np.column_stack([grid_lats, grid_lons]))
+    dists, idxs = tree.query(np.column_stack([grid_lats, grid_lons]))
 
     results = {}
     for i, pt in enumerate(grid):
@@ -794,9 +797,17 @@ def fetch_ndfd_cloud(grid):
         ndfd_idx = idxs[i]
         forecast = []
         for vt, lat_f, lon_f, sky_f in sorted(messages, key=lambda x: x[0]):
-            if ndfd_idx >= len(sky_f):
+            # Use this message's own nearest index if its grid is different size
+            if len(sky_f) != len(lat0):
+                # Different sub-grid: do a quick local lookup for this message
+                sub_tree = KDTree(np.column_stack([lat_f, lon_f]))
+                _, sub_idx = sub_tree.query([[pt['lat'], pt['lon']]])
+                idx_to_use = int(sub_idx[0])
+            else:
+                idx_to_use = ndfd_idx
+            if idx_to_use >= len(sky_f):
                 continue
-            cc = sky_f[ndfd_idx]
+            cc = sky_f[idx_to_use]
             if np.isnan(cc) or np.isinf(cc):
                 continue
             forecast.append({'t': vt.isoformat(), 'cc': int(np.clip(round(cc), 0, 100))})

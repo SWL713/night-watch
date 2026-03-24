@@ -6,7 +6,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { GRID_BOUNDS } from '../config.js'
 
-export const GRID_SPACING = 0.5  // matches pipeline grid
+export const GRID_SPACING = 0.25  // matches pipeline grid (NDFD at 0.25°)
 
 const CLOUD_URL = 'https://raw.githubusercontent.com/SWL713/night-watch/main/data/cloud_cover.json'
 const CACHE_KEY = 'nw_cloud_v2'
