@@ -378,8 +378,9 @@ def fetch_enlil_timeline():
 
 def fetch_ovation():
     """
-    Fetch Ovation Prime aurora forecast and extract boundary/viewline for the northeast.
-    Returns dict with oval_boundary and view_line as lists of [lat, lon] pairs.
+    Fetch Ovation Prime aurora forecast and extract boundary/viewline.
+    Covers full northern hemisphere so users can see oval even when far north.
+    Data format: coordinates = [[lon, lat, aurora_probability], ...]
     """
     data = safe_get(OVATION_URL)
     if not data or 'coordinates' not in data:
@@ -388,17 +389,17 @@ def fetch_ovation():
                 'observation_time': None, 'forecast_time': None}
 
     coords = data.get('coordinates', [])
+    log.info(f'Ovation: {len(coords)} raw coordinate entries')
 
-    # Group by longitude bin (2° bins) for the full northern hemisphere
-    # Store full hemisphere so browser can filter to its region
+    # Group by longitude bin for the full northern hemisphere (lat 30-90)
     lon_groups = {}
     for entry in coords:
         if len(entry) < 3:
             continue
-        lon, lat, prob = entry[0], entry[1], entry[2]
-        if lat < 30 or lat > 90:  # northern hemisphere only
+        lon, lat, prob = float(entry[0]), float(entry[1]), float(entry[2])
+        if lat < 30 or lat > 90:
             continue
-        key = round(lon / 2) * 2
+        key = round(lon)  # 1-degree bins
         if key not in lon_groups:
             lon_groups[key] = []
         lon_groups[key].append({'lat': lat, 'prob': prob})
@@ -406,7 +407,9 @@ def fetch_ovation():
     oval_boundary = []
     view_line = []
 
-    for lon_key, points in sorted(lon_groups.items()):
+    for lon_key in sorted(lon_groups.keys()):
+        points = lon_groups[lon_key]
+        # Sort ascending by lat to find southernmost qualifying point
         sorted_pts = sorted(points, key=lambda p: p['lat'])
 
         # Oval boundary: southernmost lat with prob >= 10%
@@ -419,7 +422,11 @@ def fetch_ovation():
         if view_pt:
             view_line.append([view_pt['lat'], lon_key])
 
-    log.info(f'Ovation: {len(oval_boundary)} oval pts, {len(view_line)} view pts')
+    log.info(f'Ovation processed: {len(oval_boundary)} oval pts, {len(view_line)} view pts')
+    if oval_boundary:
+        lats = [p[0] for p in oval_boundary]
+        log.info(f'Oval lat range: {min(lats):.1f} to {max(lats):.1f}')
+
     return {
         'oval_boundary':    oval_boundary,
         'view_line':        view_line,
