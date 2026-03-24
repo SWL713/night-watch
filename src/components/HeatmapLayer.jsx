@@ -90,11 +90,16 @@ function buildScoreGrid(mode, getCloudAt, selectedHour, bortleLookup) {
 
       if (mode === 'clouds') return cScore
 
-      // Combined: multiply blend with gamma lift to push good sites to vivid green
-      // cScore blended toward 1.0 by 15% to make cloud layer slightly more transparent
+      // Combined: multiply blend with gamma lift
+      // Cloud softened 15% toward clear, bortle boosted 20% toward dark
+      // Both keep real penalties but let good sites read greener
       if (cScore === null) return bScore * 0.7
-      const cSoftened = cScore * 0.85 + 0.15  // 0→0.15, 1→1.0 — softens cloud penalty
-      return Math.pow(cSoftened * bScore, 0.7)
+      const cSoftened = cScore * 0.85 + 0.15
+      // Boost only dark sky sites (bScore > 0.5) — worst bortles unchanged
+      // boost scales from 0 at bScore=0.5 to +0.20 at bScore=1.0
+      const bBoost    = Math.max(0, (bScore - 0.5) / 0.5) * 0.20
+      const bBoosted  = Math.min(1, bScore + bBoost)
+      return Math.pow(cSoftened * bBoosted, 0.7)
     })
   )
 
