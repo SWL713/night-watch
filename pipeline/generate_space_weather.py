@@ -529,16 +529,17 @@ def main():
              f'bz={bz_now:.1f} quality={quality_label}')
 
 
-CLOUD_GRID_SPACING = 0.5   # degrees — good balance of detail vs file size
+CLOUD_GRID_SPACING = 0.5
+CLOUD_GRID_BOUNDS  = {'minLat': 38.5, 'maxLat': 47.5, 'minLon': -82, 'maxLon': -66}
 CLOUD_OUTPUT_PATH  = os.path.join(os.path.dirname(__file__), '..', 'data', 'cloud_cover.json')
 
 def build_cloud_grid():
     pad = CLOUD_GRID_SPACING * 2
     grid = []
-    lat = 40 - pad
-    while lat <= 50 + pad:
-        lon = -80 - pad
-        while lon <= -65 + pad:
+    lat = CLOUD_GRID_BOUNDS['minLat'] - pad
+    while lat <= CLOUD_GRID_BOUNDS['maxLat'] + pad:
+        lon = CLOUD_GRID_BOUNDS['minLon'] - pad
+        while lon <= CLOUD_GRID_BOUNDS['maxLon'] + pad:
             grid.append({'lat': round(lat, 2), 'lon': round(lon, 2)})
             lon = round(lon + CLOUD_GRID_SPACING, 2)
         lat = round(lat + CLOUD_GRID_SPACING, 2)

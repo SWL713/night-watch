@@ -21,15 +21,14 @@ export const SPACE_WEATHER_URL = 'https://raw.githubusercontent.com/SWL713/night
 
 // -- Map region bounds (Northeast US + SE Canada) ------------
 export const MAP_BOUNDS = {
-  center: [44.5, -73.5],
+  center: [43.5, -74.5],
   zoom: 7,
   minZoom: 5,
   maxZoom: 12,
 }
 
-// -- Heatmap grid --------------------------------------------
 export const GRID_SPACING = 0.5
-export const GRID_BOUNDS  = { minLat: 40, maxLat: 50, minLon: -80, maxLon: -65 }
+export const GRID_BOUNDS  = { minLat: 38.5, maxLat: 47.5, minLon: -82, maxLon: -66 }
 
 // -- Scoring weights -----------------------------------------
 export const WEIGHT_CLOUDS = 0.70
