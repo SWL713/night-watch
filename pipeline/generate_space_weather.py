@@ -79,11 +79,19 @@ def fetch_l1():
     plasma_rows = []
     for rec in (plasma_data or []):
         t = rec.get('time_tag')
-        v = rec.get('proton_speed') or rec.get('speed') or rec.get('V')
-        d = rec.get('proton_density') or rec.get('density') or rec.get('Np')
-        if t and v is not None:
+        v = rec.get('proton_speed') if rec.get('proton_speed') is not None else \
+            rec.get('speed') if rec.get('speed') is not None else rec.get('V')
+        d = rec.get('proton_density') if rec.get('proton_density') is not None else \
+            rec.get('density') if rec.get('density') is not None else rec.get('Np')
+        if not t: continue
+        # Filter NOAA fill values (-9999.9, -99999, etc)
+        try: v = float(v) if v is not None and float(v) > 0 and float(v) < 5000 else None
+        except: v = None
+        try: d = float(d) if d is not None and float(d) > 0 and float(d) < 500 else None
+        except: d = None
+        if v is not None:  # require at least valid speed
             plasma_rows.append({'time': pd.Timestamp(t, tz='UTC'),
-                                'V': float(v), 'density': float(d or 5)})
+                                'V': v, 'density': d if d is not None else 5.0})
 
     if not mag_rows:
         return None

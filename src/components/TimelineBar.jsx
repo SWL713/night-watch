@@ -327,14 +327,15 @@ export default function TimelineBar({ spaceWeather, moonData, selectedHour, onHo
     if (rawPlasma && rawPlasma.filter(p => p.speed != null || p.density != null).length >= 2) {
       plasma = rawPlasma.filter(p => p.speed != null || p.density != null)
     } else if (speedNow || densNow) {
-      // Synthesize: flat line at current value spanning -1hr to lagEnd
-      // This always gives something visible and anchors the Y scale correctly
+      // Synthesize: flat line at current scalar value spanning -1hr to lagEnd
+      // Use Earth-arrival timestamps directly (NOT L1 timestamps) so no lagMs shift needed
       const synth = []
-      for (let m = -65; m <= 5; m += 5) {
+      for (let m = -60; m <= Math.ceil(lagMs / 60000) + 5; m += 5) {
         synth.push({
-          time:    new Date(now.getTime() + m * 60000),
-          speed:   speedNow,
-          density: densNow,
+          time:      new Date(now.getTime() + m * 60000),
+          speed:     speedNow,
+          density:   densNow,
+          _wallclock: true,   // flag: already Earth time, skip lagMs shift
         })
       }
       plasma = synth
@@ -347,15 +348,22 @@ export default function TimelineBar({ spaceWeather, moonData, selectedHour, onHo
       .filter(p => p.speed != null || p.density != null)
       .sort((a, b) => a.time - b.time)
 
-    // V: auto-range — minimum span of 150 km/s so a flat line is visible mid-canvas
+    // V: scale tightly around actual data — pad ±5% or ±20 km/s whichever larger
+    // This makes real variation visible even when solar wind is stable
     const obsVals   = plasma.map(p => p.speed).filter(v => v != null)
     const enlilVals = enlil.map(p => p.speed).filter(v => v != null)
-    const allV   = [...obsVals, ...enlilVals]
-    const vMid   = allV.length ? allV.reduce((a, b) => a + b, 0) / allV.length : 450
-    const vSpan  = Math.max(150, (Math.max(...allV.concat(vMid)) - Math.min(...allV.concat(vMid))) * 1.3 + 60)
-    const vMin   = Math.max(200,  vMid - vSpan / 2)
-    const vMax   = Math.min(1200, vMid + vSpan / 2)
-    const vRange = Math.max(vMax - vMin, 150)
+    const allV = [...obsVals, ...enlilVals]
+    let vMin, vMax
+    if (allV.length) {
+      const vDataMin = Math.min(...allV)
+      const vDataMax = Math.max(...allV)
+      const vPad = Math.max(20, (vDataMax - vDataMin) * 0.15 + 10)
+      vMin = Math.max(200,  vDataMin - vPad)
+      vMax = Math.min(1200, vDataMax + vPad)
+    } else {
+      vMin = 380; vMax = 520
+    }
+    const vRange = Math.max(vMax - vMin, 20)
     function vY(v) { return PAD_T + pH * (1 - (v - vMin) / vRange) }
 
     // Observed V (solid blue, shifted by lagMs — both CORS and pipeline are L1 timestamps)
@@ -366,7 +374,7 @@ export default function TimelineBar({ spaceWeather, moonData, selectedHour, onHo
       ctx.beginPath()
       let started = false
       for (const p of vPoints) {
-        const tP = new Date(p.time.getTime() + lagMs)
+        const tP = p._wallclock ? p.time : new Date(p.time.getTime() + lagMs)
         if (tP < tStart || tP > tEnd) continue
         const x = tx(tP), y = vY(p.speed)
         if (!started) { ctx.moveTo(x, y); started = true } else ctx.lineTo(x, y)
@@ -397,13 +405,13 @@ export default function TimelineBar({ spaceWeather, moonData, selectedHour, onHo
     ctx.setLineDash([])
 
     // ── 7. DENSITY TRACE ──────────────────────────────────────────────────────
-    // Same source priority as V. Independent Y scale, 0 anchored at bottom.
+    // Tight scale: 0 anchored at bottom, top = max * 1.3 or at least 5 n/cc headroom
     const obsDens   = plasma.map(p => p.density).filter(d => d != null)
     const enlilDens = enlil.map(p => p.density).filter(d => d != null)
-    const allD   = [...obsDens, ...enlilDens]
-    const dMin   = 0
-    const dMax   = allD.length ? Math.max(10, Math.max(...allD) * 1.25) : 20
-    const dRange = Math.max(dMax - dMin, 5)
+    const allD  = [...obsDens, ...enlilDens]
+    const dMin  = 0
+    const dMax  = allD.length ? Math.max(3, Math.max(...allD) * 1.30) : 15
+    const dRange = Math.max(dMax - dMin, 2)
     function dY(d) { return PAD_T + pH * (1 - (d - dMin) / dRange) }
 
     // Observed density (solid purple, shifted by lagMs)
@@ -414,7 +422,7 @@ export default function TimelineBar({ spaceWeather, moonData, selectedHour, onHo
       ctx.beginPath()
       let started = false
       for (const p of dPoints) {
-        const tP = new Date(p.time.getTime() + lagMs)
+        const tP = p._wallclock ? p.time : new Date(p.time.getTime() + lagMs)
         if (tP < tStart || tP > tEnd) continue
         const x = tx(tP), y = dY(p.density)
         if (!started) { ctx.moveTo(x, y); started = true } else ctx.lineTo(x, y)
