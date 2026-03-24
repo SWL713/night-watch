@@ -211,8 +211,14 @@ const SmoothHeatmap = L.Layer.extend({
         // Bortle 1-2 → 0 opacity, each step above 2 adds one unit of red
         // Max opacity at bortle 9 = 7/7 * 0.65 = 0.65 (map always shows through)
         const bortleVal = sampleGrid(bGrid, ci, cj, r0, r1, c0, c1)
+        // Logarithmic curve matching Walker's Law — steepest at bortle 4-5
+        // where aurora hunting transitions from viable to compromised
+        // opacity = ln(1 + t*6) / ln(7) * 0.75  where t = (bortle-2)/7
         const bortleAlpha = bortleVal != null
-          ? Math.max(0, bortleVal - 2) / 7 * 0.65 * edgeFade
+          ? (() => {
+              const t = Math.max(0, bortleVal - 2) / 7
+              return (Math.log(1 + t * 6) / Math.log(7)) * 0.75 * edgeFade
+            })()
           : 0
 
         // Composite: cloud layer first, then bortle red on top

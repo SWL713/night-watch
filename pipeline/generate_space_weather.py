@@ -922,7 +922,7 @@ def fetch_hrrr_cloud(grid):
 
     log.info(f'HRRR: fetching forecast hours {[h[0] for h in hours_needed]}')
 
-    all_messages = []   # list of (valid_time, lat_flat, lon_flat, tcdc_flat)
+    all_messages = []   # list of (valid_time, lat_flat, lon_flat, cloud_flat)
 
     for fh, valid_time in hours_needed:
         try:
@@ -935,72 +935,89 @@ def fetch_hrrr_cloud(grid):
                 log.warning(f'HRRR f{fh:02d}: idx HTTP {idx_resp.status_code}')
                 continue
 
-            # Parse index to find TCDC "entire atmosphere" byte range
-            lines      = idx_resp.text.strip().split('\n')
-            byte_start = None
-            byte_end   = None
+            # Find byte ranges for LCDC (low cloud) and MCDC (mid cloud)
+            # We ignore TCDC "entire atmosphere" — it includes high cirrus that
+            # doesn't block aurora. Low + mid cloud is what actually matters for
+            # aurora visibility from the ground.
+            lines = idx_resp.text.strip().split('\n')
+            ranges = {}  # {'LCDC': (start, end), 'MCDC': (start, end)}
             for i, line in enumerate(lines):
                 parts = line.split(':')
                 if len(parts) < 5:
                     continue
                 var   = parts[3].strip()
                 level = parts[4].strip().lower()
-                if var == 'TCDC' and 'entire' in level:
+                if var in ('LCDC', 'MCDC') and ('cloud' in level or 'low' in level or 'middle' in level or 'high' in level):
                     byte_start = int(parts[1])
+                    byte_end   = None
                     if i + 1 < len(lines):
                         nxt = lines[i + 1].split(':')
                         if len(nxt) >= 2:
                             byte_end = int(nxt[1]) - 1
-                    break
+                    ranges[var] = (byte_start, byte_end)
 
-            if byte_start is None:
-                log.warning(f'HRRR f{fh:02d}: TCDC not found in index')
+            if not ranges:
+                # Fallback: try TCDC at low cloud layer if LCDC/MCDC not found
+                for i, line in enumerate(lines):
+                    parts = line.split(':')
+                    if len(parts) < 5: continue
+                    var   = parts[3].strip()
+                    level = parts[4].strip().lower()
+                    if var == 'TCDC' and ('low' in level or 'middle' in level):
+                        byte_start = int(parts[1])
+                        byte_end = None
+                        if i + 1 < len(lines):
+                            nxt = lines[i + 1].split(':')
+                            if len(nxt) >= 2:
+                                byte_end = int(nxt[1]) - 1
+                        ranges[f'TCDC_{var}_{i}'] = (byte_start, byte_end)
+
+            if not ranges:
+                log.warning(f'HRRR f{fh:02d}: no low/mid cloud variables found in index')
                 continue
 
-            # Byte-range GET for just this variable
-            hdrs      = {'Range': f'bytes={byte_start}-{byte_end if byte_end else ""}'}
-            grib_resp = requests.get(grib_url, headers=hdrs, timeout=30)
-            if grib_resp.status_code not in (200, 206):
-                log.warning(f'HRRR f{fh:02d}: GRIB HTTP {grib_resp.status_code}')
-                continue
+            log.info(f'HRRR f{fh:02d}: fetching {list(ranges.keys())}')
 
-            # Parse with cfgrib
-            with tempfile.NamedTemporaryFile(suffix='.grib2', delete=False) as tmp:
-                tmp.write(grib_resp.content)
-                tmp_path = tmp.name
+            # Fetch and parse each cloud layer, then take the max
+            import eccodes
+            lat_arr = lon_arr = None
+            cloud_layers = []  # list of 1D arrays
 
-            try:
-                # Parse with eccodes directly — no xarray dependency needed
-                import eccodes
-                lat_arr = lon_arr = tcc_arr = None
-                with open(tmp_path, 'rb') as gf:
-                    while True:
+            for var_name, (byte_start, byte_end) in ranges.items():
+                hdrs      = {'Range': f'bytes={byte_start}-{byte_end if byte_end else ""}'}
+                grib_resp = requests.get(grib_url, headers=hdrs, timeout=30)
+                if grib_resp.status_code not in (200, 206):
+                    log.warning(f'HRRR f{fh:02d} {var_name}: GRIB HTTP {grib_resp.status_code}')
+                    continue
+
+                with tempfile.NamedTemporaryFile(suffix='.grib2', delete=False) as tmp:
+                    tmp.write(grib_resp.content)
+                    tmp_path = tmp.name
+
+                try:
+                    with open(tmp_path, 'rb') as gf:
                         h = eccodes.codes_grib_new_from_file(gf)
-                        if h is None:
-                            break
-                        try:
-                            short_name = eccodes.codes_get(h, 'shortName', ktype=str)
-                            level_type = eccodes.codes_get(h, 'typeOfLevel', ktype=str)
-                            # TCDC at entireAtmosphere or entire atmosphere
-                            if short_name in ('tcc', 'TCDC') or \
-                               (level_type in ('entireAtmosphere', 'entire atmosphere')):
-                                lat_arr = eccodes.codes_get_array(h, 'latitudes')
-                                lon_arr = eccodes.codes_get_array(h, 'longitudes')
-                                tcc_arr = eccodes.codes_get_values(h)
-                                # HRRR lons are 0-360 — convert to -180/180
-                                lon_arr = np.where(lon_arr > 180, lon_arr - 360, lon_arr)
-                        finally:
-                            eccodes.codes_release(h)
-                        if lat_arr is not None:
-                            break  # found what we need
+                        if h is not None:
+                            try:
+                                if lat_arr is None:
+                                    lat_arr = eccodes.codes_get_array(h, 'latitudes')
+                                    lon_arr = eccodes.codes_get_array(h, 'longitudes')
+                                    lon_arr = np.where(lon_arr > 180, lon_arr - 360, lon_arr)
+                                cloud_layers.append(eccodes.codes_get_values(h))
+                            finally:
+                                eccodes.codes_release(h)
+                finally:
+                    os.unlink(tmp_path)
 
-                if lat_arr is not None and tcc_arr is not None:
-                    all_messages.append((valid_time, lat_arr, lon_arr, tcc_arr))
-                    log.info(f'HRRR f{fh:02d}: valid={valid_time.strftime("%H:%MZ")}, {len(lat_arr)} pts')
-                else:
-                    log.warning(f'HRRR f{fh:02d}: TCDC not found in GRIB')
-            finally:
-                os.unlink(tmp_path)
+            if lat_arr is not None and cloud_layers:
+                # Take element-wise max across all layers — any low/mid cloud blocks view
+                cloud_arr = np.maximum.reduce(cloud_layers)
+                all_messages.append((valid_time, lat_arr, lon_arr, cloud_arr))
+                log.info(f'HRRR f{fh:02d}: valid={valid_time.strftime("%H:%MZ")}, '
+                         f'{len(lat_arr)} pts, layers={len(cloud_layers)}, '
+                         f'max_cc={cloud_arr.max():.0f}%')
+            else:
+                log.warning(f'HRRR f{fh:02d}: no cloud data parsed')
 
         except Exception as e:
             log.warning(f'HRRR f{fh:02d} error: {e}')
