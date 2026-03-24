@@ -30,8 +30,7 @@ const BORTLE_SPACING = 0.1
 // With HRRR data (3km native, resampled to 0.25°) the source data is already
 // spatially coherent so we use a moderate kernel.
 // Radius 2, sigma 1.0 — creates gradual transitions without destroying real boundaries.
-function gaussianSmooth(grid, rows, cols) {
-  const sigma = 1.0, R = 2
+function gaussianSmooth(grid, rows, cols, sigma = 1.0, R = 2) {
   const raw = []
   let ksum = 0
   for (let i = -R; i <= R; i++) {
@@ -121,6 +120,37 @@ function buildScoreGrid(mode, getCloudAt, selectedHour, bortleLookup) {
 
   const grid = gaussianSmooth(raw, lats.length, lons.length)
   return { grid, lats, lons, cloudGrid, mode }
+}
+
+// Bicubic interpolation kernel (Catmull-Rom)
+// Continuous first derivatives = no visible grid-cell boundaries
+function cubicKernel(t) {
+  const a = -0.5  // Catmull-Rom
+  const at = Math.abs(t)
+  if (at <= 1) return (a + 2) * at * at * at - (a + 3) * at * at + 1
+  if (at < 2)  return a * at * at * at - 5 * a * at * at + 8 * a * at - 4 * a
+  return 0
+}
+
+function bicubicSample(grid, rows, cols, ci, cj) {
+  const r = Math.floor(ci)
+  const c = Math.floor(cj)
+  const dr = ci - r
+  const dc = cj - c
+
+  let value = 0, weight = 0
+  for (let m = -1; m <= 2; m++) {
+    for (let n = -1; n <= 2; n++) {
+      const rr = Math.max(0, Math.min(rows - 1, r + m))
+      const cc = Math.max(0, Math.min(cols - 1, c + n))
+      const v  = grid[rr][cc]
+      if (v == null) continue
+      const w = cubicKernel(m - dr) * cubicKernel(n - dc)
+      value += v * w
+      weight += w
+    }
+  }
+  return weight > 0 ? Math.max(0, Math.min(1, value / weight)) : null
 }
 
 function bilinear(s00, s10, s01, s11, tx, ty) {
@@ -231,7 +261,7 @@ const SmoothHeatmap = L.Layer.extend({
 
           let cloudVal = 0
           if (cr0 >= 0 && cr1 < cRows && cc0 >= 0 && cc1 < cCols) {
-            const cv = sampleGrid(cGrid.grid, cci, ccj, cr0, cr1, cc0, cc1)
+            const cv = bicubicSample(cGrid.grid, cRows, cCols, cci, ccj)
             cloudVal = cv != null ? cv : 0
           }
 
