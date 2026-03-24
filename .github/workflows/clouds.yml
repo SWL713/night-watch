@@ -48,6 +48,7 @@ jobs:
         run: |
           git config user.name  "Night Watch Bot"
           git config user.email "actions@github.com"
+          sleep $((RANDOM % 20 + 5))  # jitter to avoid concurrent amend conflicts
           git add data/space_weather.json || true
           git add data/cloud_cover.json   || true
 
@@ -65,5 +66,9 @@ jobs:
             git commit -m "$MSG"
           fi
 
-          git pull --rebase --autostash origin main
-          git push --force-with-lease
+          # Retry loop — handles rare concurrent amend race condition
+          for attempt in 1 2 3; do
+            git pull --rebase --autostash origin main && git push --force-with-lease && break
+            echo "Push attempt $attempt failed, retrying in 10s..."
+            sleep 10
+          done
