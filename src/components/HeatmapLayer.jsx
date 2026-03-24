@@ -7,10 +7,12 @@ import { loadBortleGrid, getBortle } from '../utils/bortleGrid.js'
 
 const CLOUD_SPACING = 0.25
 
-// Gentle separable gaussian — smooths DATA not pixels, preserves real detail
-// Radius 2, sigma 1.2 — softens hard cell edges without destroying structure
+// Gentle separable gaussian — smooths score grid to remove cell seams.
+// With NDFD data (5km native, resampled to 0.25°) the source data is already
+// spatially coherent so we use a tighter kernel than with Open-Meteo.
+// Radius 1, sigma 0.8 — softens hard grid edges without smearing real boundaries.
 function gaussianSmooth(grid, rows, cols) {
-  const sigma = 1.2, R = 2
+  const sigma = 0.8, R = 1
   const raw = []
   let ksum = 0
   for (let i = -R; i <= R; i++) {
