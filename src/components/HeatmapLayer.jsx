@@ -90,11 +90,10 @@ function buildScoreGrid(mode, getCloudAt, selectedHour, bortleLookup) {
 
       if (mode === 'clouds') return cScore
 
-      // Combined: multiply blend — honest, no fringe artifacts, full contrast range
-      // Perfect site (clear + dark) = 1.0 * 1.0 = 1.0 = full green
-      // Any degradation in either dimension proportionally reduces score
-      if (cScore === null) return bScore * 0.7  // no cloud data — show dim bortle
-      return cScore * bScore
+      // Combined: multiply blend with gamma lift to push good sites to vivid green
+      // gamma 0.7 lifts top-end scores without spreading their area
+      if (cScore === null) return bScore * 0.7
+      return Math.pow(cScore * bScore, 0.7)
     })
   )
 
