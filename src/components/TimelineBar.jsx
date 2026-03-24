@@ -306,38 +306,62 @@ export default function TimelineBar({ spaceWeather, moonData, selectedHour, onHo
     ctx.setLineDash([]); ctx.globalAlpha = 1.0
 
     // ── 6. VELOCITY TRACE ─────────────────────────────────────────────────────
-    // plasmaTrace = direct NOAA fetch (null if unavailable/all fill values)
-    // spaceWeather.plasma_timeline = pipeline-sourced fallback (always available)
-    // Direct fetch points are already in Earth-arrival time (shifted by lagMs below).
-    // Pipeline points have ISO timestamps already at L1 time — also shift by lagMs.
-    const rawPlasma = plasmaTrace !== null
-      ? (plasmaTrace || [])
-      : (spaceWeather.plasma_timeline || []).map(p => ({
-          time:    new Date(p.time),
-          speed:   p.speed,
-          density: p.density,
-        }))
-    const plasma = rawPlasma.filter(p => p.speed != null || p.density != null)
+    // Source priority:
+    //   1. plasmaTrace — direct NOAA CORS fetch (null = failed/all fill values)
+    //   2. spaceWeather.plasma_timeline — pipeline-sourced (available after next hourly run)
+    //   3. Synthesize a flat line from spaceWeather.speed_kms (always available now)
+    const rawPlasma = plasmaTrace !== null && plasmaTrace.length >= 2
+      ? plasmaTrace
+      : (spaceWeather.plasma_timeline || []).length >= 2
+        ? (spaceWeather.plasma_timeline).map(p => ({
+            time:    new Date(p.time),
+            speed:   p.speed,
+            density: p.density,
+          }))
+        : null   // will synthesize below
+
+    // Synthesize flat trace from scalar current values if no timeline available
+    const speedNow   = spaceWeather.speed_kms   || null
+    const densNow    = spaceWeather.density_ncc  || null
+    let plasma
+    if (rawPlasma && rawPlasma.filter(p => p.speed != null || p.density != null).length >= 2) {
+      plasma = rawPlasma.filter(p => p.speed != null || p.density != null)
+    } else if (speedNow || densNow) {
+      // Synthesize: flat line at current value spanning -1hr to lagEnd
+      // This always gives something visible and anchors the Y scale correctly
+      const synth = []
+      for (let m = -65; m <= 5; m += 5) {
+        synth.push({
+          time:    new Date(now.getTime() + m * 60000),
+          speed:   speedNow,
+          density: densNow,
+        })
+      }
+      plasma = synth
+    } else {
+      plasma = []
+    }
 
     const enlil = (spaceWeather.enlil_timeline || [])
       .map(p => ({ time: new Date(p.time), speed: p.speed, density: p.density }))
       .filter(p => p.speed != null || p.density != null)
       .sort((a, b) => a.time - b.time)
 
-    // V: auto-range from observed + ENLIL in the window
+    // V: auto-range — minimum span of 150 km/s so a flat line is visible mid-canvas
     const obsVals   = plasma.map(p => p.speed).filter(v => v != null)
     const enlilVals = enlil.map(p => p.speed).filter(v => v != null)
-    const allV  = [...obsVals, ...enlilVals]
-    const vPad  = 30
-    const vMin  = allV.length ? Math.max(200,  Math.min(...allV) - vPad)  : 300
-    const vMax  = allV.length ? Math.min(1200, Math.max(...allV) + vPad)  : 800
-    const vRange = Math.max(vMax - vMin, 50)
+    const allV   = [...obsVals, ...enlilVals]
+    const vMid   = allV.length ? allV.reduce((a, b) => a + b, 0) / allV.length : 450
+    const vSpan  = Math.max(150, (Math.max(...allV.concat(vMid)) - Math.min(...allV.concat(vMid))) * 1.3 + 60)
+    const vMin   = Math.max(200,  vMid - vSpan / 2)
+    const vMax   = Math.min(1200, vMid + vSpan / 2)
+    const vRange = Math.max(vMax - vMin, 150)
     function vY(v) { return PAD_T + pH * (1 - (v - vMin) / vRange) }
 
-    // Observed V (solid blue, shifted by lagMs)
+    // Observed V (solid blue, shifted by lagMs — both CORS and pipeline are L1 timestamps)
     const vPoints = plasma.filter(p => p.speed != null)
     if (vPoints.length >= 2) {
-      ctx.lineWidth = 1.2; ctx.setLineDash([]); ctx.globalAlpha = 0.75
+      ctx.lineWidth = 1.5; ctx.setLineDash([]); ctx.globalAlpha = 0.80
       ctx.strokeStyle = '#4488ff'
       ctx.beginPath()
       let started = false
@@ -349,16 +373,16 @@ export default function TimelineBar({ spaceWeather, moonData, selectedHour, onHo
       }
       ctx.stroke()
       ctx.globalAlpha = 1.0
-      // Y-axis labels right side
+      // Y-axis labels right side (dim blue)
       ctx.fillStyle = '#2255aa'; ctx.font = `6.5px ${FONT}`
-      ctx.fillText(`${Math.round(vMax)}`, cW - 3, PAD_T + 4)
-      ctx.fillText(`${Math.round(vMin)}`, cW - 3, PAD_T + pH - 1)
+      ctx.fillText(`${Math.round(vMax)}`, cW - 26, PAD_T + 5)
+      ctx.fillText(`${Math.round(vMin)}`, cW - 26, PAD_T + pH - 2)
     }
 
-    // ENLIL V (dashed blue, from lagEnd forward)
+    // ENLIL V forecast (dashed blue, from lagEnd forward)
     const enlilVAfter = enlil.filter(p => p.speed != null && p.time >= lagEnd && p.time <= tEnd)
     if (enlilVAfter.length >= 2) {
-      ctx.lineWidth = 1.2; ctx.setLineDash([4, 3]); ctx.globalAlpha = 0.55
+      ctx.lineWidth = 1.2; ctx.setLineDash([4, 3]); ctx.globalAlpha = 0.60
       ctx.strokeStyle = '#4488ff'
       ctx.beginPath()
       let started = false
@@ -373,19 +397,19 @@ export default function TimelineBar({ spaceWeather, moonData, selectedHour, onHo
     ctx.setLineDash([])
 
     // ── 7. DENSITY TRACE ──────────────────────────────────────────────────────
-    // Independent Y scale — 0 at bottom, auto max at top, full plot height
-    const obsDens    = plasma.map(p => p.density).filter(d => d != null)
-    const enlilDens  = enlil.map(p => p.density).filter(d => d != null)
+    // Same source priority as V. Independent Y scale, 0 anchored at bottom.
+    const obsDens   = plasma.map(p => p.density).filter(d => d != null)
+    const enlilDens = enlil.map(p => p.density).filter(d => d != null)
     const allD   = [...obsDens, ...enlilDens]
     const dMin   = 0
-    const dMax   = allD.length ? Math.max(5, Math.max(...allD) * 1.15) : 20
-    const dRange = Math.max(dMax - dMin, 2)
+    const dMax   = allD.length ? Math.max(10, Math.max(...allD) * 1.25) : 20
+    const dRange = Math.max(dMax - dMin, 5)
     function dY(d) { return PAD_T + pH * (1 - (d - dMin) / dRange) }
 
     // Observed density (solid purple, shifted by lagMs)
     const dPoints = plasma.filter(p => p.density != null)
     if (dPoints.length >= 2) {
-      ctx.lineWidth = 1.2; ctx.setLineDash([]); ctx.globalAlpha = 0.70
+      ctx.lineWidth = 1.5; ctx.setLineDash([]); ctx.globalAlpha = 0.75
       ctx.strokeStyle = '#bb66ff'
       ctx.beginPath()
       let started = false
@@ -397,16 +421,16 @@ export default function TimelineBar({ spaceWeather, moonData, selectedHour, onHo
       }
       ctx.stroke()
       ctx.globalAlpha = 1.0
-      // Y-axis labels left side
+      // Y-axis labels left side (dim purple)
       ctx.fillStyle = '#773399'; ctx.font = `6.5px ${FONT}`
-      ctx.fillText(`${dMax.toFixed(0)}`, 1, PAD_T + 4)
-      ctx.fillText(`0`, 1, PAD_T + pH - 1)
+      ctx.fillText(`${dMax.toFixed(0)}`, 1, PAD_T + 5)
+      ctx.fillText(`0`, 1, PAD_T + pH - 2)
     }
 
-    // ENLIL density (dashed purple, from lagEnd forward)
+    // ENLIL density forecast (dashed purple, from lagEnd forward)
     const enlilDensAfter = enlil.filter(p => p.density != null && p.time >= lagEnd && p.time <= tEnd)
     if (enlilDensAfter.length >= 2) {
-      ctx.lineWidth = 1.2; ctx.setLineDash([4, 3]); ctx.globalAlpha = 0.55
+      ctx.lineWidth = 1.2; ctx.setLineDash([4, 3]); ctx.globalAlpha = 0.60
       ctx.strokeStyle = '#bb66ff'
       ctx.beginPath()
       let started = false

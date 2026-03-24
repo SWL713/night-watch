@@ -254,11 +254,11 @@ function App() {
             )}
           </div>
 
-          <div style={{ color: '#1e2a3a', fontSize: 9, letterSpacing: 1 }}>
+          <div style={{ color: '#3a4f66', fontSize: 9, letterSpacing: 1 }}>
             NIGHT WATCH · SWL713
           </div>
 
-          <div style={{ color: '#1a2535', fontSize: 8, letterSpacing: 0.5, fontFamily: FONT }}>
+          <div style={{ color: '#2a3f55', fontSize: 8, letterSpacing: 0.5, fontFamily: FONT }}>
             developed by Scott W. LeFevre
           </div>
 
