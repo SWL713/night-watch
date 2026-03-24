@@ -5,7 +5,7 @@ import { combinedScore, cloudScore, bortleScore, scoreToRGB } from '../utils/sco
 import { GRID_BOUNDS } from '../config.js'
 import { loadBortleGrid, getBortle } from '../utils/bortleGrid.js'
 
-const CLOUD_SPACING = 0.5  // must match pipeline cloud grid spacing
+const CLOUD_SPACING = 0.25  // must match pipeline cloud grid spacing
 
 function buildScoreGrid(mode, getCloudAt, selectedHour, bortleGrid) {
   const pad = CLOUD_SPACING * 2
@@ -74,7 +74,7 @@ const SmoothHeatmap = L.Layer.extend({
     const zoom       = map.getZoom()
     const pxPerDeg   = 256 * Math.pow(2, zoom) / 360
     const cellCssPx  = CLOUD_SPACING * pxPerDeg
-    const blurCssPx  = Math.round(cellCssPx * 0.7)
+    const blurCssPx  = Math.round(cellCssPx * 0.45)  // 0.25° cells are small — minimal blur needed
     canvas.style.filter = `blur(${Math.max(blurCssPx, 3)}px)`
 
     const ctx = canvas.getContext('2d')
