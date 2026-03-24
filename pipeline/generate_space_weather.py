@@ -379,8 +379,8 @@ def fetch_enlil_timeline():
 def fetch_ovation():
     """
     Fetch Ovation Prime aurora forecast and extract boundary/viewline.
-    Covers full northern hemisphere so users can see oval even when far north.
-    Data format: coordinates = [[lon, lat, aurora_probability], ...]
+    NOAA data uses lon 0-359 (not -180 to 180) — must convert.
+    Full northern hemisphere stored so browser can see oval wherever it is.
     """
     data = safe_get(OVATION_URL)
     if not data or 'coordinates' not in data:
@@ -389,17 +389,22 @@ def fetch_ovation():
                 'observation_time': None, 'forecast_time': None}
 
     coords = data.get('coordinates', [])
-    log.info(f'Ovation: {len(coords)} raw coordinate entries')
+    log.info(f'Ovation: {len(coords)} raw entries')
 
-    # Group by longitude bin for the full northern hemisphere (lat 30-90)
+    # Convert 0-359 longitude to -180 to 180
+    def norm_lon(lon):
+        return lon - 360 if lon > 180 else lon
+
+    # Group by 1-degree longitude bins, northern hemisphere only (lat 30-90)
     lon_groups = {}
     for entry in coords:
         if len(entry) < 3:
             continue
-        lon, lat, prob = float(entry[0]), float(entry[1]), float(entry[2])
+        raw_lon, lat, prob = float(entry[0]), float(entry[1]), float(entry[2])
         if lat < 30 or lat > 90:
             continue
-        key = round(lon)  # 1-degree bins
+        lon = norm_lon(raw_lon)
+        key = round(lon)
         if key not in lon_groups:
             lon_groups[key] = []
         lon_groups[key].append({'lat': lat, 'prob': prob})
@@ -409,20 +414,19 @@ def fetch_ovation():
 
     for lon_key in sorted(lon_groups.keys()):
         points = lon_groups[lon_key]
-        # Sort ascending by lat to find southernmost qualifying point
         sorted_pts = sorted(points, key=lambda p: p['lat'])
 
-        # Oval boundary: southernmost lat with prob >= 10%
+        # Southernmost lat with prob >= 10% = oval boundary
         oval_pt = next((p for p in sorted_pts if p['prob'] >= 10), None)
         if oval_pt:
             oval_boundary.append([oval_pt['lat'], lon_key])
 
-        # Viewline: southernmost lat with prob >= 2%
+        # Southernmost lat with prob >= 2% = viewline
         view_pt = next((p for p in sorted_pts if p['prob'] >= 2), None)
         if view_pt:
             view_line.append([view_pt['lat'], lon_key])
 
-    log.info(f'Ovation processed: {len(oval_boundary)} oval pts, {len(view_line)} view pts')
+    log.info(f'Ovation: {len(oval_boundary)} oval pts, {len(view_line)} view pts')
     if oval_boundary:
         lats = [p[0] for p in oval_boundary]
         log.info(f'Oval lat range: {min(lats):.1f} to {max(lats):.1f}')

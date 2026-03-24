@@ -64,18 +64,19 @@ const SmoothHeatmap = L.Layer.extend({
     const map = this._map
     const canvas = this._canvas
     const size = map.getSize()
-
-    // Account for device pixel ratio — critical for sharp mobile rendering
     const dpr = Math.min(window.devicePixelRatio || 1, 3)
-    canvas.width  = size.x * dpr
-    canvas.height = size.y * dpr
+
+    // Physical pixel dimensions
+    const W = Math.round(size.x * dpr)
+    const H = Math.round(size.y * dpr)
+    canvas.width  = W
+    canvas.height = H
     canvas.style.width  = size.x + 'px'
     canvas.style.height = size.y + 'px'
     L.DomUtil.setPosition(canvas, map.containerPointToLayerPoint([0, 0]))
 
     const ctx = canvas.getContext('2d')
-    ctx.scale(dpr, dpr)
-    ctx.clearRect(0, 0, size.x, size.y)
+    ctx.clearRect(0, 0, W, H)
 
     const { grid, lats, lons } = this._scoreData
     const rows = lats.length
@@ -85,14 +86,15 @@ const SmoothHeatmap = L.Layer.extend({
     const latMax = lats[0]
     const lonMin = lons[0]
 
-    // Render pixel by pixel — step 1 on mobile (DPR handles sharpness), 2 on desktop
-    const STEP = 1
-    const imageData = ctx.createImageData(size.x, size.y)
+    // imageData at full physical resolution — putImageData ignores transforms so NO ctx.scale
+    const imageData = ctx.createImageData(W, H)
     const data = imageData.data
+    const STEP = 2
 
-    for (let py = 0; py < size.y; py += STEP) {
-      for (let px = 0; px < size.x; px += STEP) {
-        const latlng = map.containerPointToLatLng([px, py])
+    for (let py = 0; py < H; py += STEP) {
+      for (let px = 0; px < W; px += STEP) {
+        // Divide by dpr to get CSS pixel coords for lat/lon lookup
+        const latlng = map.containerPointToLatLng([px / dpr, py / dpr])
         const lat = latlng.lat
         const lon = latlng.lng
 
@@ -119,9 +121,9 @@ const SmoothHeatmap = L.Layer.extend({
         const edgeFade = Math.max(0, Math.min(1, distFromEdge / (GRID_SPACING * 2)))
         const alpha = Math.round(0.45 * edgeFade * 255)
 
-        for (let dy = 0; dy < STEP && py + dy < size.y; dy++) {
-          for (let dx = 0; dx < STEP && px + dx < size.x; dx++) {
-            const idx = ((py + dy) * size.x + (px + dx)) * 4
+        for (let dy = 0; dy < STEP && py + dy < H; dy++) {
+          for (let dx = 0; dx < STEP && px + dx < W; dx++) {
+            const idx = ((py + dy) * W + (px + dx)) * 4
             data[idx]     = red
             data[idx + 1] = green
             data[idx + 2] = blue
@@ -133,14 +135,14 @@ const SmoothHeatmap = L.Layer.extend({
 
     ctx.putImageData(imageData, 0, 0)
 
-    // Gaussian blur — increase radius for smoother gradients on all screens
-    const blurPx = Math.max(6, Math.round(10 / dpr))
+    // Blur scaled to physical pixels
+    const blurPx = Math.round(8 * dpr)
     const tmp = document.createElement('canvas')
-    tmp.width = size.x; tmp.height = size.y
+    tmp.width = W; tmp.height = H
     const tctx = tmp.getContext('2d')
     tctx.filter = `blur(${blurPx}px)`
     tctx.drawImage(canvas, 0, 0)
-    ctx.clearRect(0, 0, size.x, size.y)
+    ctx.clearRect(0, 0, W, H)
     ctx.drawImage(tmp, 0, 0)
   },
 })
