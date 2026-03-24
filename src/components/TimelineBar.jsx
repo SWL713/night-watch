@@ -175,29 +175,53 @@ export default function TimelineBar({ spaceWeather, moonData, selectedHour, onHo
     ctx.lineJoin = 'round'
     ctx.lineCap  = 'round'
 
-    // OBSERVED (solid, sign-colored)
-    // KEY FIX: draw L1 timestamps shifted forward by lagMs so solid trace
-    // extends past the NOW line — this data is measured and in transit to Earth.
+    // Split L1 trace into:
+    //   arrived  — L1 readings where arrival time (t + lagMs) <= now  → solid, ends at NOW
+    //   inTransit — L1 readings where arrival time > now              → these feed the propagated segment
+    // This means the solid trace always ends exactly at the NOW line.
+    const l1ArrivalCutoff = new Date(now.getTime() - lagMs)  // L1 timestamp of what's arriving NOW
+
     if (realTrace.length >= 2) {
+      const arrived   = realTrace.filter(p => p.time <= l1ArrivalCutoff)
+      const inTransit = realTrace.filter(p => p.time >  l1ArrivalCutoff)
+
+      // OBSERVED — solid, sign-colored, shifted to Earth arrival time
       ctx.lineWidth = 1.8
       ctx.setLineDash([])
-      for (let i = 0; i < realTrace.length - 1; i++) {
-        const a = realTrace[i], b = realTrace[i + 1]
-        // Shift each L1 timestamp by +lagMs (Earth arrival time)
+      ctx.globalAlpha = 0.92
+      for (let i = 0; i < arrived.length - 1; i++) {
+        const a = arrived[i], b = arrived[i + 1]
         const tA = new Date(a.time.getTime() + lagMs)
         const tB = new Date(b.time.getTime() + lagMs)
         if (tB < tStart || tA > tEnd) continue
         const mid = (a.bz + b.bz) / 2
         ctx.strokeStyle = mid < 0 ? '#ee5577' : '#44ddaa'
-        ctx.globalAlpha = 0.92
         ctx.beginPath()
         ctx.moveTo(tx(tA), bzY(a.bz))
         ctx.lineTo(tx(tB), bzY(b.bz))
         ctx.stroke()
       }
+      // Connect last arrived point to NOW line cleanly
+      if (arrived.length >= 1) {
+        const last = arrived[arrived.length - 1]
+        const tLast = new Date(last.time.getTime() + lagMs)
+        if (tLast < now) {
+          ctx.strokeStyle = last.bz < 0 ? '#ee5577' : '#44ddaa'
+          ctx.beginPath()
+          ctx.moveTo(tx(tLast), bzY(last.bz))
+          ctx.lineTo(tx(now), bzY(last.bz))
+          ctx.stroke()
+        }
+      }
       ctx.globalAlpha = 1.0
+
+      // bzNow = most recent arrived reading (what's hitting Earth right now)
+      // anchorBz = value at lagEnd (extrapolated using in-transit slope)
+      var bzNow = arrived.length
+        ? arrived[arrived.length - 1].bz
+        : (spaceWeather.bz_now ?? 0)
+
     } else if (pipelineTL.length >= 2) {
-      // Fall back to pipeline hourly data
       ctx.lineWidth = 1.8
       ctx.setLineDash([])
       for (let i = 0; i < pipelineTL.length - 1; i++) {
@@ -209,14 +233,15 @@ export default function TimelineBar({ spaceWeather, moonData, selectedHour, onHo
         ctx.strokeStyle = mid < 0 ? '#ee5577' : '#44ddaa'
         ctx.beginPath(); ctx.moveTo(tx(tA), bzY(a.bz)); ctx.lineTo(tx(tB), bzY(b.bz)); ctx.stroke()
       }
+      var bzNow = spaceWeather.bz_now ?? 0
+    } else {
+      var bzNow = spaceWeather.bz_now ?? 0
     }
 
-    // Get values at lagEnd (last L1 reading in Earth-time = current anchor)
-    const bzNow = realTrace.length
-      ? realTrace[realTrace.length - 1].bz
-      : (spaceWeather.bz_now ?? 0)
+    // PROPAGATED (dashed, NOW → lagEnd) — slope from last 30min of L1 data
+    // This represents in-transit solar wind: measured at L1, not yet at Earth
 
-    // PROPAGATED (dashed, dim) — slope-extrapolated from lagEnd
+    // Slope from most recent 30min of L1 data
     let propSlope = 0.0
     if (realTrace.length >= 5 && Math.abs(bzNow) >= 2.0) {
       const cutoff30 = new Date(now.getTime() - 30 * 60000)
@@ -236,17 +261,18 @@ export default function TimelineBar({ spaceWeather, moonData, selectedHour, onHo
       }
     }
 
+    // Propagated: NOW → lagEnd (in-transit solar wind, dashed dim)
+    // Starts at NOW (bzNow = value currently arriving), ends at lagEnd
     const lagHrs  = lagMs / 3600000
-    const anchorV = bzNow + propSlope * lagHrs
-    const propEnd = new Date(lagEnd.getTime() + lagHrs * 3600000)  // one extra lag-width
+    const anchorV = bzNow + propSlope * lagHrs  // value at lagEnd
 
-    if (lagEnd <= tEnd) {
-      const propColor = anchorV < 0 ? '#994466' : '#226644'
+    if (lagEnd > now && lagEnd <= tEnd) {
+      const propColor = bzNow < 0 ? '#994466' : '#226644'
       ctx.lineWidth = 1.4; ctx.setLineDash([4, 3])
       ctx.strokeStyle = propColor; ctx.globalAlpha = 0.50
       ctx.beginPath()
-      ctx.moveTo(tx(lagEnd), bzY(anchorV))
-      ctx.lineTo(Math.min(tx(propEnd), cW), bzY(anchorV + propSlope * lagHrs))
+      ctx.moveTo(tx(now), bzY(bzNow))
+      ctx.lineTo(tx(lagEnd), bzY(anchorV))
       ctx.stroke()
       ctx.globalAlpha = 1.0
     }
@@ -366,7 +392,7 @@ export default function TimelineBar({ spaceWeather, moonData, selectedHour, onHo
     const vRange = Math.max(vMax - vMin, 20)
     function vY(v) { return PAD_T + pH * (1 - (v - vMin) / vRange) }
 
-    // Observed V (solid blue, shifted by lagMs — both CORS and pipeline are L1 timestamps)
+    // Observed V (solid blue) — L1 timestamps shifted to Earth arrival time, clipped at NOW
     const vPoints = plasma.filter(p => p.speed != null)
     if (vPoints.length >= 2) {
       ctx.lineWidth = 1.5; ctx.setLineDash([]); ctx.globalAlpha = 0.80
@@ -375,9 +401,11 @@ export default function TimelineBar({ spaceWeather, moonData, selectedHour, onHo
       let started = false
       for (const p of vPoints) {
         const tP = p._wallclock ? p.time : new Date(p.time.getTime() + lagMs)
-        if (tP < tStart || tP > tEnd) continue
-        const x = tx(tP), y = vY(p.speed)
+        if (tP < tStart) continue
+        const tC = tP > now ? now : tP   // clamp at NOW
+        const x = tx(tC), y = vY(p.speed)
         if (!started) { ctx.moveTo(x, y); started = true } else ctx.lineTo(x, y)
+        if (tP >= now) break
       }
       ctx.stroke()
       ctx.globalAlpha = 1.0
@@ -414,7 +442,7 @@ export default function TimelineBar({ spaceWeather, moonData, selectedHour, onHo
     const dRange = Math.max(dMax - dMin, 2)
     function dY(d) { return PAD_T + pH * (1 - (d - dMin) / dRange) }
 
-    // Observed density (solid purple, shifted by lagMs)
+    // Observed density (solid purple) — clipped at NOW
     const dPoints = plasma.filter(p => p.density != null)
     if (dPoints.length >= 2) {
       ctx.lineWidth = 1.5; ctx.setLineDash([]); ctx.globalAlpha = 0.75
@@ -423,9 +451,11 @@ export default function TimelineBar({ spaceWeather, moonData, selectedHour, onHo
       let started = false
       for (const p of dPoints) {
         const tP = p._wallclock ? p.time : new Date(p.time.getTime() + lagMs)
-        if (tP < tStart || tP > tEnd) continue
-        const x = tx(tP), y = dY(p.density)
+        if (tP < tStart) continue
+        const tC = tP > now ? now : tP
+        const x = tx(tC), y = dY(p.density)
         if (!started) { ctx.moveTo(x, y); started = true } else ctx.lineTo(x, y)
+        if (tP >= now) break
       }
       ctx.stroke()
       ctx.globalAlpha = 1.0
