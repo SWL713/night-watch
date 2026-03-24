@@ -270,7 +270,6 @@ const SmoothHeatmap = L.Layer.extend({
           data[idx + 2] = blue
           data[idx + 3] = Math.round(0.45 * edgeFade * 255)
         }
-        data[idx + 3] = Math.round(outA * 255)
       }
     }
 
