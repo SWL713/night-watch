@@ -9,17 +9,14 @@ function sunTimes(date) {
   const start = Date.UTC(date.getUTCFullYear(), 0, 0)
   const diff  = Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate()) - start
   const doy   = Math.floor(diff / 86400000)
-
-  const B    = (Math.PI * 2 / 365) * (doy - 81)
-  const eot  = 9.87 * Math.sin(2*B) - 7.53 * Math.cos(B) - 1.5 * Math.sin(B)
-  const decl = Math.asin(Math.sin(Math.PI * 2 / 365 * (doy - 81)) * Math.sin(23.45 * Math.PI / 180))
-
-  const latR = NY_LAT * Math.PI / 180
-  let cosHA  = (Math.sin(-0.833 * Math.PI / 180) - Math.sin(latR) * Math.sin(decl)) /
-               (Math.cos(latR) * Math.cos(decl))
-  cosHA      = Math.max(-1, Math.min(1, cosHA))
-  const ha   = Math.acos(cosHA) * 180 / Math.PI
-
+  const B     = (Math.PI * 2 / 365) * (doy - 81)
+  const eot   = 9.87 * Math.sin(2*B) - 7.53 * Math.cos(B) - 1.5 * Math.sin(B)
+  const decl  = Math.asin(Math.sin(Math.PI * 2 / 365 * (doy - 81)) * Math.sin(23.45 * Math.PI / 180))
+  const latR  = NY_LAT * Math.PI / 180
+  let cosHA   = (Math.sin(-0.833 * Math.PI / 180) - Math.sin(latR) * Math.sin(decl)) /
+                (Math.cos(latR) * Math.cos(decl))
+  cosHA       = Math.max(-1, Math.min(1, cosHA))
+  const ha    = Math.acos(cosHA) * 180 / Math.PI
   const noonMin = 720 - 4 * NY_LON - eot
   const base    = Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate())
   return {
@@ -28,22 +25,21 @@ function sunTimes(date) {
   }
 }
 
-// ── Color key legend strip ────────────────────────────────────────────────────
+// ── Legend strip ──────────────────────────────────────────────────────────────
 function LegendStrip() {
   const items = [
-    { color: '#ffdd44',           label: 'Sun' },
-    { color: '#aabbcc',           label: 'Moon' },
-    { color: '#ee5577',           label: '−Bz' },
-    { color: '#44ddaa',           label: '+Bz' },
-    { color: '#4488ff',           label: 'V  (km/s)' },
-    { color: '#bb66ff',           label: 'n  (n/cc)' },
+    { color: '#ffdd44', label: 'Sun' },
+    { color: '#aabbcc', label: 'Moon' },
+    { color: '#ee5577', label: '−Bz' },
+    { color: '#44ddaa', label: '+Bz' },
+    { color: '#4488ff', label: 'V (km/s)' },
+    { color: '#bb66ff', label: 'n (n/cc)' },
   ]
   return (
     <div style={{
       display: 'flex', alignItems: 'center', gap: 12,
       padding: '3px 8px', background: '#04060d',
-      borderTop: '1px solid #0d1225',
-      flexWrap: 'wrap',
+      borderTop: '1px solid #0d1225', flexWrap: 'wrap',
     }}>
       {items.map(({ color, label }) => (
         <span key={label} style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
@@ -60,7 +56,18 @@ function LegendStrip() {
   )
 }
 
-// ── Canvas timeline ───────────────────────────────────────────────────────────
+// ── Linear regression slope helper ────────────────────────────────────────────
+function slope(points, getX, getY) {
+  const n = points.length
+  if (n < 5) return 0
+  const sx  = points.reduce((a, p) => a + getX(p), 0)
+  const sy  = points.reduce((a, p) => a + getY(p), 0)
+  const sxy = points.reduce((a, p) => a + getX(p) * getY(p), 0)
+  const sxx = points.reduce((a, p) => a + getX(p) * getX(p), 0)
+  return (n * sxy - sx * sy) / (n * sxx - sx * sx) || 0
+}
+
+// ── Main component ─────────────────────────────────────────────────────────────
 export default function TimelineBar({ spaceWeather, moonData, selectedHour, onHourSelect, bzTrace, plasmaTrace }) {
   const canvasRef = useRef(null)
 
@@ -72,7 +79,6 @@ export default function TimelineBar({ spaceWeather, moonData, selectedHour, onHo
     const rect = canvas.getBoundingClientRect()
     canvas.width  = rect.width  * dpr
     canvas.height = rect.height * dpr
-    const W = canvas.width, H = canvas.height
     const ctx = canvas.getContext('2d')
     ctx.scale(dpr, dpr)
     const cW = rect.width, cH = rect.height
@@ -80,26 +86,25 @@ export default function TimelineBar({ spaceWeather, moonData, selectedHour, onHo
     ctx.clearRect(0, 0, cW, cH)
 
     const now    = new Date()
-    const tStart = new Date(now.getTime() - 3600000)
-    const tEnd   = new Date(now.getTime() + 8 * 3600000)
+    const tStart = new Date(now.getTime() - 3600000)        // -1hr Earth time
+    const tEnd   = new Date(now.getTime() + 8 * 3600000)   // +8hr Earth time
     const spanMs = tEnd - tStart
-
     function tx(t) { return ((t - tStart) / spanMs) * cW }
 
     const PAD_T = 16, PAD_B = 16
-    const pH    = cH - PAD_T - PAD_B
+    const pH = cH - PAD_T - PAD_B
 
-    // Transit lag: how far ahead of Earth L1 data is
+    // Transit lag: how long solar wind takes from L1 to Earth
     const lagMs  = Math.min((1.5e6 / (spaceWeather.speed_kms || 450)) * 1000, 5400000)
-    const lagEnd = new Date(now.getTime() + lagMs)
+    const lagEnd = new Date(now.getTime() + lagMs)  // when the latest L1 reading arrives at Earth
 
     // ── 1. BACKGROUND ────────────────────────────────────────────────────────
     ctx.fillStyle = '#04060d'
     ctx.fillRect(0, 0, cW, cH)
 
     // ── 2. DAYLIGHT SHADING ───────────────────────────────────────────────────
-    const sun0 = sunTimes(new Date(now))
-    const sun1 = sunTimes(new Date(now.getTime() + 86400000))
+    const sun0  = sunTimes(new Date(now))
+    const sun1  = sunTimes(new Date(now.getTime() + 86400000))
     const TAPER = 45 * 60000
 
     function dayFrac(t) {
@@ -137,9 +142,9 @@ export default function TimelineBar({ spaceWeather, moonData, selectedHour, onHo
       const tm = t.getTime()
       if (!moonRise && !moonSet) return 0
       let up = false
-      if (moonRise && moonSet)   up = moonRise < moonSet ? tm > moonRise.getTime() && tm < moonSet.getTime() : tm > moonRise.getTime() || tm < moonSet.getTime()
-      else if (moonRise)         up = tm > moonRise.getTime()
-      else if (moonSet)          up = tm < moonSet.getTime()
+      if (moonRise && moonSet)  up = moonRise < moonSet ? tm > moonRise.getTime() && tm < moonSet.getTime() : tm > moonRise.getTime() || tm < moonSet.getTime()
+      else if (moonRise)        up = tm > moonRise.getTime()
+      else if (moonSet)         up = tm < moonSet.getTime()
       if (!up) return 0
       let taper = 1.0
       if (moonRise) taper = Math.min(taper, Math.min(1, Math.abs(tm - moonRise.getTime()) / MOON_TAPER))
@@ -158,13 +163,24 @@ export default function TimelineBar({ spaceWeather, moonData, selectedHour, onHo
 
     // ── 4. ZERO LINE ─────────────────────────────────────────────────────────
     const yZero = PAD_T + pH / 2
-    ctx.strokeStyle = '#2a3a4a'
-    ctx.lineWidth   = 1.0
+    ctx.strokeStyle = '#2a3a4a'; ctx.lineWidth = 1.0
     ctx.setLineDash([6, 4])
     ctx.beginPath(); ctx.moveTo(0, yZero); ctx.lineTo(cW, yZero); ctx.stroke()
     ctx.setLineDash([])
 
     // ── 5. BZ TRACE ──────────────────────────────────────────────────────────
+    //
+    // MENTAL MODEL (correct):
+    //   L1 measurement at T_L1 reaches Earth at T_L1 + lagMs
+    //   Most recent L1 reading ≈ taken "now" → reaches Earth at lagEnd (now + ~40min)
+    //   L1 reading taken lagMs ago → reaching Earth RIGHT NOW (aligns with NOW line)
+    //
+    //   SOLID  : all real L1 data shifted by +lagMs
+    //            spans from ~(tStart) to lagEnd, CROSSES the NOW line
+    //            ~40min of solid data is to the RIGHT of the NOW line
+    //   DASHED : slope extrapolation starting at lagEnd (beyond all measured data)
+    //   NOW    : Earth's current clock — sits ~40min before end of solid data
+
     const realTrace  = (bzTrace || []).filter(p => p.bz !== null)
     const pipelineTL = (spaceWeather.timeline || []).filter(p => p?.bz != null)
 
@@ -172,58 +188,23 @@ export default function TimelineBar({ spaceWeather, moonData, selectedHour, onHo
     const bzMax = Math.max(8, ...allBzVals.map(Math.abs)) * 1.3
     function bzY(bz) { return yZero - (bz / bzMax) * (pH * 0.47) }
 
-    ctx.lineJoin = 'round'
-    ctx.lineCap  = 'round'
-
-    // Split L1 trace into:
-    //   arrived  — L1 readings where arrival time (t + lagMs) <= now  → solid, ends at NOW
-    //   inTransit — L1 readings where arrival time > now              → these feed the propagated segment
-    // This means the solid trace always ends exactly at the NOW line.
-    const l1ArrivalCutoff = new Date(now.getTime() - lagMs)  // L1 timestamp of what's arriving NOW
+    ctx.lineJoin = 'round'; ctx.lineCap = 'round'
 
     if (realTrace.length >= 2) {
-      const arrived   = realTrace.filter(p => p.time <= l1ArrivalCutoff)
-      const inTransit = realTrace.filter(p => p.time >  l1ArrivalCutoff)
-
-      // OBSERVED — solid, sign-colored, shifted to Earth arrival time
-      ctx.lineWidth = 1.8
-      ctx.setLineDash([])
-      ctx.globalAlpha = 0.92
-      for (let i = 0; i < arrived.length - 1; i++) {
-        const a = arrived[i], b = arrived[i + 1]
+      // SOLID — all L1 data, shifted by +lagMs, runs past NOW to lagEnd
+      ctx.lineWidth = 1.8; ctx.setLineDash([]); ctx.globalAlpha = 0.92
+      for (let i = 0; i < realTrace.length - 1; i++) {
+        const a = realTrace[i], b = realTrace[i + 1]
         const tA = new Date(a.time.getTime() + lagMs)
         const tB = new Date(b.time.getTime() + lagMs)
         if (tB < tStart || tA > tEnd) continue
         const mid = (a.bz + b.bz) / 2
         ctx.strokeStyle = mid < 0 ? '#ee5577' : '#44ddaa'
-        ctx.beginPath()
-        ctx.moveTo(tx(tA), bzY(a.bz))
-        ctx.lineTo(tx(tB), bzY(b.bz))
-        ctx.stroke()
-      }
-      // Connect last arrived point to NOW line cleanly
-      if (arrived.length >= 1) {
-        const last = arrived[arrived.length - 1]
-        const tLast = new Date(last.time.getTime() + lagMs)
-        if (tLast < now) {
-          ctx.strokeStyle = last.bz < 0 ? '#ee5577' : '#44ddaa'
-          ctx.beginPath()
-          ctx.moveTo(tx(tLast), bzY(last.bz))
-          ctx.lineTo(tx(now), bzY(last.bz))
-          ctx.stroke()
-        }
+        ctx.beginPath(); ctx.moveTo(tx(tA), bzY(a.bz)); ctx.lineTo(tx(tB), bzY(b.bz)); ctx.stroke()
       }
       ctx.globalAlpha = 1.0
-
-      // bzNow = most recent arrived reading (what's hitting Earth right now)
-      // anchorBz = value at lagEnd (extrapolated using in-transit slope)
-      var bzNow = arrived.length
-        ? arrived[arrived.length - 1].bz
-        : (spaceWeather.bz_now ?? 0)
-
     } else if (pipelineTL.length >= 2) {
-      ctx.lineWidth = 1.8
-      ctx.setLineDash([])
+      ctx.lineWidth = 1.8; ctx.setLineDash([])
       for (let i = 0; i < pipelineTL.length - 1; i++) {
         const a = pipelineTL[i], b = pipelineTL[i + 1]
         if (a.offset > 0 || b.offset > 0) continue
@@ -233,140 +214,115 @@ export default function TimelineBar({ spaceWeather, moonData, selectedHour, onHo
         ctx.strokeStyle = mid < 0 ? '#ee5577' : '#44ddaa'
         ctx.beginPath(); ctx.moveTo(tx(tA), bzY(a.bz)); ctx.lineTo(tx(tB), bzY(b.bz)); ctx.stroke()
       }
-      var bzNow = spaceWeather.bz_now ?? 0
-    } else {
-      var bzNow = spaceWeather.bz_now ?? 0
     }
 
-    // PROPAGATED (dashed, NOW → lagEnd) — slope from last 30min of L1 data
-    // This represents in-transit solar wind: measured at L1, not yet at Earth
+    // bzNow = latest L1 reading (what will arrive at Earth at lagEnd)
+    const bzNow = realTrace.length
+      ? realTrace[realTrace.length - 1].bz
+      : (spaceWeather.bz_now ?? 0)
 
-    // Slope from most recent 30min of L1 data
+    // DASHED propagated — starts at lagEnd, slope-extrapolated
+    const lagHrs = lagMs / 3600000
     let propSlope = 0.0
     if (realTrace.length >= 5 && Math.abs(bzNow) >= 2.0) {
       const cutoff30 = new Date(now.getTime() - 30 * 60000)
       const w30 = realTrace.filter(p => p.time >= cutoff30)
       if (w30.length >= 5) {
-        const t0  = w30[0].time.getTime()
-        const xs  = w30.map(p => (p.time.getTime() - t0) / 3600000)
-        const ys  = w30.map(p => p.bz)
-        const n   = xs.length
-        const sx  = xs.reduce((a, b) => a + b, 0)
-        const sy  = ys.reduce((a, b) => a + b, 0)
-        const sxy = xs.reduce((a, x, i) => a + x * ys[i], 0)
-        const sxx = xs.reduce((a, x) => a + x * x, 0)
-        const raw = (n * sxy - sx * sy) / (n * sxx - sx * sx) || 0
+        const t0 = w30[0].time.getTime()
+        const raw = slope(w30, p => (p.time.getTime() - t0) / 3600000, p => p.bz)
         const taper = Math.min(1.0, (Math.abs(bzNow) - 2.0) / 2.0)
         propSlope = Math.max(-10, Math.min(10, raw)) * taper
       }
     }
+    const bzAtLagEnd = bzNow + propSlope * lagHrs
 
-    // Propagated: NOW → lagEnd (in-transit solar wind, dashed dim)
-    // Starts at NOW (bzNow = value currently arriving), ends at lagEnd
-    const lagHrs  = lagMs / 3600000
-    const anchorV = bzNow + propSlope * lagHrs  // value at lagEnd
-
-    if (lagEnd > now && lagEnd <= tEnd) {
+    if (lagEnd > tStart && lagEnd <= tEnd) {
       const propColor = bzNow < 0 ? '#994466' : '#226644'
+      const propEnd   = new Date(lagEnd.getTime() + lagHrs * 3600000)
       ctx.lineWidth = 1.4; ctx.setLineDash([4, 3])
       ctx.strokeStyle = propColor; ctx.globalAlpha = 0.50
       ctx.beginPath()
-      ctx.moveTo(tx(now), bzY(bzNow))
-      ctx.lineTo(tx(lagEnd), bzY(anchorV))
+      ctx.moveTo(tx(lagEnd), bzY(bzNow))
+      ctx.lineTo(Math.min(tx(propEnd), cW), bzY(bzAtLagEnd))
       ctx.stroke()
-      ctx.globalAlpha = 1.0
+      ctx.setLineDash([]); ctx.globalAlpha = 1.0
     }
 
-    // PREDICTION (dashed fading — only if clearly trending)
+    // PREDICTION (fading dashed — only when clearly trending toward zero)
     let slope60 = 0.0, isMono = false
     if (realTrace.length >= 10) {
       const cutoff60 = new Date(now.getTime() - 60 * 60000)
       const w60 = realTrace.filter(p => p.time >= cutoff60)
       if (w60.length >= 10) {
-        const t0  = w60[0].time.getTime()
-        const xs  = w60.map(p => (p.time.getTime() - t0) / 3600000)
-        const ys  = w60.map(p => p.bz)
-        const n   = xs.length
-        const sx  = xs.reduce((a, b) => a + b, 0)
-        const sy  = ys.reduce((a, b) => a + b, 0)
-        const sxy = xs.reduce((a, x, i) => a + x * ys[i], 0)
-        const sxx = xs.reduce((a, x) => a + x * x, 0)
-        slope60 = (n * sxy - sx * sy) / (n * sxx - sx * sx) || 0
-        const meanX   = sx / n
-        const fitted  = xs.map(x => sy / n + slope60 * (x - meanX))
-        const residStd = Math.sqrt(ys.reduce((a, y, i) => a + (y - fitted[i]) ** 2, 0) / n)
-        const signal   = Math.abs(ys[ys.length - 1] - ys[0])
+        const t0 = w60[0].time.getTime()
+        slope60 = slope(w60, p => (p.time.getTime() - t0) / 3600000, p => p.bz)
+        const meanX    = w60.reduce((a, p) => a + (p.time.getTime() - t0) / 3600000, 0) / w60.length
+        const fitted   = w60.map(p => bzNow + slope60 * ((p.time.getTime() - t0) / 3600000 - meanX))
+        const residStd = Math.sqrt(w60.reduce((a, p, i) => a + (p.bz - fitted[i]) ** 2, 0) / w60.length)
+        const signal   = Math.abs(w60[w60.length - 1].bz - w60[0].bz)
         isMono = signal > 2.0 && residStd < signal * 0.55
       }
     }
-
-    const bzSouthLive = bzNow < -2.5, bzNorthLive = bzNow > 2.5
-    const trendingToZero = isMono && ((bzSouthLive && slope60 > 1.5) || (bzNorthLive && slope60 < -1.5))
-
-    if (trendingToZero) {
-      const hrsToZero = Math.min(6, Math.abs(anchorV) / Math.max(Math.abs(slope60), 0.1))
-      const zeroT     = new Date(lagEnd.getTime() + hrsToZero * 3600000)
+    const bzSouth = bzNow < -2.5, bzNorth = bzNow > 2.5
+    if (isMono && ((bzSouth && slope60 > 1.5) || (bzNorth && slope60 < -1.5))) {
+      const hrsToZero = Math.min(6, Math.abs(bzAtLagEnd) / Math.max(Math.abs(slope60), 0.1))
+      const zeroT = new Date(lagEnd.getTime() + hrsToZero * 3600000)
       if (zeroT > lagEnd && zeroT <= tEnd) {
         const STEPS = 40, totalMs = zeroT - lagEnd, fadeStartMs = totalMs * 0.80
         for (let i = 0; i < STEPS - 1; i++) {
           const fracA = i / (STEPS - 1), fracB = (i + 1) / (STEPS - 1)
-          const tA    = new Date(lagEnd.getTime() + fracA * totalMs)
-          const tB    = new Date(lagEnd.getTime() + fracB * totalMs)
-          const cfA   = (1 - Math.cos(Math.PI * fracA)) / 2
-          const cfB   = (1 - Math.cos(Math.PI * fracB)) / 2
-          const vA    = anchorV * (1 - cfA), vB = anchorV * (1 - cfB)
-          const elapsedA = tA - lagEnd
-          let alpha = 0.80
-          if (elapsedA > fadeStartMs)
-            alpha = 0.80 - ((elapsedA - fadeStartMs) / (totalMs - fadeStartMs)) * 0.65
+          const tA = new Date(lagEnd.getTime() + fracA * totalMs)
+          const tB = new Date(lagEnd.getTime() + fracB * totalMs)
+          const cfA = (1 - Math.cos(Math.PI * fracA)) / 2
+          const cfB = (1 - Math.cos(Math.PI * fracB)) / 2
+          const vA = bzAtLagEnd * (1 - cfA), vB = bzAtLagEnd * (1 - cfB)
+          const elapsed = tA - lagEnd
+          let alpha = elapsed > fadeStartMs
+            ? 0.80 - ((elapsed - fadeStartMs) / (totalMs - fadeStartMs)) * 0.65
+            : 0.80
           if (alpha < 0.03) break
           const mid = (vA + vB) / 2
           ctx.lineWidth = 1.6; ctx.setLineDash([5, 3])
           ctx.strokeStyle = mid < 0 ? `rgba(238,85,119,${alpha})` : `rgba(68,221,170,${alpha})`
-          ctx.globalAlpha = 1.0
           ctx.beginPath(); ctx.moveTo(tx(tA), bzY(vA)); ctx.lineTo(tx(tB), bzY(vB)); ctx.stroke()
         }
+        ctx.setLineDash([]); ctx.globalAlpha = 1.0
       }
     }
-
     ctx.setLineDash([]); ctx.globalAlpha = 1.0
 
     // ── 6. VELOCITY TRACE ─────────────────────────────────────────────────────
+    //
+    // Same shift logic as Bz:
+    //   SOLID  : plasma_timeline (L1 timestamps) shifted by +lagMs → spans to lagEnd
+    //   DASHED : ENLIL forecast from lagEnd onward
+    //
     // Source priority:
-    //   1. plasmaTrace — direct NOAA CORS fetch (null = failed/all fill values)
-    //   2. spaceWeather.plasma_timeline — pipeline-sourced (available after next hourly run)
-    //   3. Synthesize a flat line from spaceWeather.speed_kms (always available now)
-    const rawPlasma = plasmaTrace !== null && plasmaTrace.length >= 2
-      ? plasmaTrace
-      : (spaceWeather.plasma_timeline || []).length >= 2
-        ? (spaceWeather.plasma_timeline).map(p => ({
-            time:    new Date(p.time),
-            speed:   p.speed,
-            density: p.density,
-          }))
-        : null   // will synthesize below
+    //   1. plasmaTrace from direct CORS fetch (if ≥5 valid points)
+    //   2. spaceWeather.plasma_timeline from pipeline JSON
+    //   3. Flat line synthesized from current scalar speed_kms/density_ncc
 
-    // Synthesize flat trace from scalar current values if no timeline available
-    const speedNow   = spaceWeather.speed_kms   || null
-    const densNow    = spaceWeather.density_ncc  || null
+    const rawPlasma = (plasmaTrace !== null && plasmaTrace.length >= 5)
+      ? plasmaTrace
+      : (spaceWeather.plasma_timeline || []).length >= 5
+        ? (spaceWeather.plasma_timeline).map(p => ({ time: new Date(p.time), speed: p.speed, density: p.density }))
+        : null
+
     let plasma
-    if (rawPlasma && rawPlasma.filter(p => p.speed != null || p.density != null).length >= 2) {
+    const speedNow = spaceWeather.speed_kms  || null
+    const densNow  = spaceWeather.density_ncc || null
+
+    if (rawPlasma && rawPlasma.filter(p => p.speed != null || p.density != null).length >= 5) {
       plasma = rawPlasma.filter(p => p.speed != null || p.density != null)
-    } else if (speedNow || densNow) {
-      // Synthesize: flat line at current scalar value spanning -1hr to lagEnd
-      // Use Earth-arrival timestamps directly (NOT L1 timestamps) so no lagMs shift needed
-      const synth = []
-      for (let m = -60; m <= Math.ceil(lagMs / 60000) + 5; m += 5) {
-        synth.push({
-          time:      new Date(now.getTime() + m * 60000),
-          speed:     speedNow,
-          density:   densNow,
-          _wallclock: true,   // flag: already Earth time, skip lagMs shift
-        })
-      }
-      plasma = synth
     } else {
+      // Synthesize flat line at current scalar — spans -1hr to lagEnd in Earth time
+      // These are already Earth-arrival times so flagged _wallclock to skip the +lagMs shift
       plasma = []
+      if (speedNow || densNow) {
+        for (let m = -60; m <= Math.ceil(lagMs / 60000) + 5; m += 5) {
+          plasma.push({ time: new Date(now.getTime() + m * 60000), speed: speedNow, density: densNow, _wallclock: true })
+        }
+      }
     }
 
     const enlil = (spaceWeather.enlil_timeline || [])
@@ -374,112 +330,90 @@ export default function TimelineBar({ spaceWeather, moonData, selectedHour, onHo
       .filter(p => p.speed != null || p.density != null)
       .sort((a, b) => a.time - b.time)
 
-    // V: scale tightly around actual data — pad ±5% or ±20 km/s whichever larger
-    // This makes real variation visible even when solar wind is stable
-    const obsVals   = plasma.map(p => p.speed).filter(v => v != null)
-    const enlilVals = enlil.map(p => p.speed).filter(v => v != null)
-    const allV = [...obsVals, ...enlilVals]
-    let vMin, vMax
+    // V scale — tight range around observed mean, minimum 100 km/s span
+    const obsV   = plasma.map(p => p.speed).filter(v => v != null)
+    const enlilV = enlil.map(p => p.speed).filter(v => v != null)
+    const allV   = [...obsV, ...enlilV]
     if (allV.length) {
-      const vDataMin = Math.min(...allV)
-      const vDataMax = Math.max(...allV)
-      const vPad = Math.max(20, (vDataMax - vDataMin) * 0.15 + 10)
-      vMin = Math.max(200,  vDataMin - vPad)
-      vMax = Math.min(1200, vDataMax + vPad)
+      const vMean  = allV.reduce((a, b) => a + b, 0) / allV.length
+      const vSpread = Math.max(50, (Math.max(...allV) - Math.min(...allV)) / 2 + 30)
+      var vMin = Math.max(200,  vMean - vSpread)
+      var vMax = Math.min(1200, vMean + vSpread)
     } else {
-      vMin = 380; vMax = 520
+      var vMin = 350, vMax = 650
     }
-    const vRange = Math.max(vMax - vMin, 20)
+    const vRange = Math.max(vMax - vMin, 100)
     function vY(v) { return PAD_T + pH * (1 - (v - vMin) / vRange) }
 
-    // Observed V (solid blue) — L1 timestamps shifted to Earth arrival time, clipped at NOW
+    // Observed V solid
     const vPoints = plasma.filter(p => p.speed != null)
     if (vPoints.length >= 2) {
       ctx.lineWidth = 1.5; ctx.setLineDash([]); ctx.globalAlpha = 0.80
       ctx.strokeStyle = '#4488ff'
-      ctx.beginPath()
-      let started = false
+      ctx.beginPath(); let started = false
       for (const p of vPoints) {
         const tP = p._wallclock ? p.time : new Date(p.time.getTime() + lagMs)
-        if (tP < tStart) continue
-        const tC = tP > now ? now : tP   // clamp at NOW
-        const x = tx(tC), y = vY(p.speed)
+        if (tP < tStart || tP > tEnd) continue
+        const x = tx(tP), y = vY(p.speed)
         if (!started) { ctx.moveTo(x, y); started = true } else ctx.lineTo(x, y)
-        if (tP >= now) break
       }
-      ctx.stroke()
-      ctx.globalAlpha = 1.0
-      // Y-axis labels right side (dim blue)
+      ctx.stroke(); ctx.globalAlpha = 1.0
       ctx.fillStyle = '#2255aa'; ctx.font = `6.5px ${FONT}`
       ctx.fillText(`${Math.round(vMax)}`, cW - 26, PAD_T + 5)
       ctx.fillText(`${Math.round(vMin)}`, cW - 26, PAD_T + pH - 2)
     }
 
-    // ENLIL V forecast (dashed blue, from lagEnd forward)
+    // ENLIL V dashed from lagEnd
     const enlilVAfter = enlil.filter(p => p.speed != null && p.time >= lagEnd && p.time <= tEnd)
     if (enlilVAfter.length >= 2) {
       ctx.lineWidth = 1.2; ctx.setLineDash([4, 3]); ctx.globalAlpha = 0.60
       ctx.strokeStyle = '#4488ff'
-      ctx.beginPath()
-      let started = false
+      ctx.beginPath(); let started2 = false
       for (const p of enlilVAfter) {
         const x = tx(p.time), y = vY(p.speed)
-        if (!started) { ctx.moveTo(x, y); started = true } else ctx.lineTo(x, y)
+        if (!started2) { ctx.moveTo(x, y); started2 = true } else ctx.lineTo(x, y)
       }
-      ctx.stroke()
-      ctx.globalAlpha = 1.0
+      ctx.stroke(); ctx.globalAlpha = 1.0
     }
-
     ctx.setLineDash([])
 
     // ── 7. DENSITY TRACE ──────────────────────────────────────────────────────
-    // Tight scale: 0 anchored at bottom, top = max * 1.3 or at least 5 n/cc headroom
-    const obsDens   = plasma.map(p => p.density).filter(d => d != null)
-    const enlilDens = enlil.map(p => p.density).filter(d => d != null)
-    const allD  = [...obsDens, ...enlilDens]
-    const dMin  = 0
-    const dMax  = allD.length ? Math.max(3, Math.max(...allD) * 1.30) : 15
-    const dRange = Math.max(dMax - dMin, 2)
+    const obsD   = plasma.map(p => p.density).filter(d => d != null)
+    const enlilD = enlil.map(p => p.density).filter(d => d != null)
+    const allD   = [...obsD, ...enlilD]
+    const dMin   = 0
+    const dMax   = allD.length ? Math.max(10, Math.max(...allD) * 1.25) : 20
+    const dRange = Math.max(dMax, 5)
     function dY(d) { return PAD_T + pH * (1 - (d - dMin) / dRange) }
 
-    // Observed density (solid purple) — clipped at NOW
     const dPoints = plasma.filter(p => p.density != null)
     if (dPoints.length >= 2) {
       ctx.lineWidth = 1.5; ctx.setLineDash([]); ctx.globalAlpha = 0.75
       ctx.strokeStyle = '#bb66ff'
-      ctx.beginPath()
-      let started = false
+      ctx.beginPath(); let started3 = false
       for (const p of dPoints) {
         const tP = p._wallclock ? p.time : new Date(p.time.getTime() + lagMs)
-        if (tP < tStart) continue
-        const tC = tP > now ? now : tP
-        const x = tx(tC), y = dY(p.density)
-        if (!started) { ctx.moveTo(x, y); started = true } else ctx.lineTo(x, y)
-        if (tP >= now) break
+        if (tP < tStart || tP > tEnd) continue
+        const x = tx(tP), y = dY(p.density)
+        if (!started3) { ctx.moveTo(x, y); started3 = true } else ctx.lineTo(x, y)
       }
-      ctx.stroke()
-      ctx.globalAlpha = 1.0
-      // Y-axis labels left side (dim purple)
+      ctx.stroke(); ctx.globalAlpha = 1.0
       ctx.fillStyle = '#773399'; ctx.font = `6.5px ${FONT}`
       ctx.fillText(`${dMax.toFixed(0)}`, 1, PAD_T + 5)
       ctx.fillText(`0`, 1, PAD_T + pH - 2)
     }
 
-    // ENLIL density forecast (dashed purple, from lagEnd forward)
-    const enlilDensAfter = enlil.filter(p => p.density != null && p.time >= lagEnd && p.time <= tEnd)
-    if (enlilDensAfter.length >= 2) {
+    const enlilDAfter = enlil.filter(p => p.density != null && p.time >= lagEnd && p.time <= tEnd)
+    if (enlilDAfter.length >= 2) {
       ctx.lineWidth = 1.2; ctx.setLineDash([4, 3]); ctx.globalAlpha = 0.60
       ctx.strokeStyle = '#bb66ff'
-      ctx.beginPath()
-      let started = false
-      for (const p of enlilDensAfter) {
+      ctx.beginPath(); let started4 = false
+      for (const p of enlilDAfter) {
         const x = tx(p.time), y = dY(p.density)
-        if (!started) { ctx.moveTo(x, y); started = true } else ctx.lineTo(x, y)
+        if (!started4) { ctx.moveTo(x, y); started4 = true } else ctx.lineTo(x, y)
       }
-      ctx.stroke()
-      ctx.globalAlpha = 1.0
+      ctx.stroke(); ctx.globalAlpha = 1.0
     }
-
     ctx.setLineDash([]); ctx.globalAlpha = 1.0
 
     // ── 8. VERTICAL MARKERS ──────────────────────────────────────────────────
@@ -501,12 +435,12 @@ export default function TimelineBar({ spaceWeather, moonData, selectedHour, onHo
     vLine(sun0.rise, '#ffdd44', '☀ Rise', 0.22, false)
     vLine(sun0.set,  '#ffdd44', '☀ Set',  0.22, false)
     vLine(sun1.rise, '#ffdd44', '☀ Rise', 0.22, false)
-    vLine(moonRise,  '#aabbcc', '☽ Rise',  0.42, true)
-    vLine(moonSet,   '#aabbcc', '☽ Set',   0.42, true)
+    vLine(moonRise,  '#aabbcc', '☽ Rise', 0.42, true)
+    vLine(moonSet,   '#aabbcc', '☽ Set',  0.42, true)
 
-    // L1→Earth lag marker (dotted, subtle)
-    if (lagEnd > tStart && lagEnd < tEnd) {
-      ctx.strokeStyle = '#334455'; ctx.lineWidth = 1.0; ctx.globalAlpha = 0.50
+    // L1→Earth lag marker (subtle dotted)
+    if (lagEnd > tStart && lagEnd <= tEnd) {
+      ctx.strokeStyle = '#334455'; ctx.lineWidth = 1.0; ctx.globalAlpha = 0.45
       ctx.setLineDash([2, 4])
       ctx.beginPath(); ctx.moveTo(tx(lagEnd), PAD_T); ctx.lineTo(tx(lagEnd), PAD_T + pH); ctx.stroke()
       ctx.setLineDash([]); ctx.globalAlpha = 1.0
@@ -522,7 +456,7 @@ export default function TimelineBar({ spaceWeather, moonData, selectedHour, onHo
     ctx.fillStyle = '#ffffff'; ctx.font = `bold 8.5px ${FONT}`
     ctx.fillText('NOW', tx(now) + 3, PAD_T + 11)
 
-    // ── 10. SELECTED HOUR HIGHLIGHT ───────────────────────────────────────────
+    // ── 10. SELECTED HOUR HIGHLIGHT ──────────────────────────────────────────
     if (selectedHour !== null && selectedHour !== 0) {
       const hS = new Date(now.getTime() + (selectedHour - 0.5) * 3600000)
       const hE = new Date(now.getTime() + (selectedHour + 0.5) * 3600000)
@@ -539,7 +473,7 @@ export default function TimelineBar({ spaceWeather, moonData, selectedHour, onHo
       ctx.fillText(lbl, tx(t) - 13, PAD_T + pH + 12)
     }
 
-    // ── 12. Y LABELS (Bz) ─────────────────────────────────────────────────────
+    // ── 12. Y LABELS (Bz nT scale) ───────────────────────────────────────────
     ctx.fillStyle = '#2a3a4a'; ctx.font = `7px ${FONT}`
     for (const v of [5, -5, 10, -10]) {
       const y = bzY(v)
@@ -547,22 +481,15 @@ export default function TimelineBar({ spaceWeather, moonData, selectedHour, onHo
       ctx.fillText(`${v > 0 ? '+' : ''}${v}`, 2, y + 3)
     }
 
-    // Current value badges (top-right of canvas)
-    const lastV = plasma.length ? plasma[plasma.length - 1].speed   : spaceWeather.speed_kms
-    const lastD = plasma.length ? plasma[plasma.length - 1].density : spaceWeather.density_ncc
+    // ── 13. CURRENT VALUE BADGES ─────────────────────────────────────────────
+    const lastV = plasma.length ? plasma[plasma.length - 1].speed   : speedNow
+    const lastD = plasma.length ? plasma[plasma.length - 1].density : densNow
     ctx.font = `7.5px ${FONT}`
-    if (lastV) {
-      ctx.fillStyle = '#4488ff'
-      ctx.fillText(`V ${Math.round(lastV)} km/s`, cW - 90, PAD_T + 9)
-    }
-    if (lastD) {
-      ctx.fillStyle = '#bb66ff'
-      ctx.fillText(`n ${lastD.toFixed(1)} /cc`, cW - 90, PAD_T + 20)
-    }
+    if (lastV) { ctx.fillStyle = '#4488ff'; ctx.fillText(`V ${Math.round(lastV)} km/s`, cW - 90, PAD_T + 9) }
+    if (lastD) { ctx.fillStyle = '#bb66ff'; ctx.fillText(`n ${Number(lastD).toFixed(1)} /cc`, cW - 90, PAD_T + 20) }
 
   }, [spaceWeather, moonData, selectedHour, bzTrace, plasmaTrace])
 
-  // Resize observer
   useEffect(() => {
     const canvas = canvasRef.current
     if (!canvas) return
