@@ -58,7 +58,7 @@ def safe_get_bytes(url, timeout=30):
 def fetch_l1():
     """Fetch real-time L1 solar wind. DSCOVR mag + WIND plasma fallback."""
     mag_data = safe_get(DSCOVR_MAG_URL)
-    plasma_data = safe_get(DSCOVR_PLASMA_URL) or safe_get(WIND_URL)
+    plasma_data = safe_get(WIND_URL)  # DSCOVR plasma endpoint (rtsw_plasma_1m) removed by NOAA
 
     if not mag_data:
         log.warning('No mag data available')
@@ -305,20 +305,27 @@ def overall_quality(intensity_label, astro_dark_pct):
 
 # ── ENLIL extraction ──────────────────────────────────────────────────────────
 
+
 def fetch_enlil_timeline():
     """
-    Fetch latest ENLIL suball.nc and extract Earth time-series for next 12 hours.
+    Fetch latest ENLIL suball.nc and extract Earth/L1 time-series for next 12 hours.
     Returns list of {time, speed, density} dicts, or empty list on failure.
+
+    The suball.nc contains scalar Earth-point variables as 1D time series.
+    Variable names vary by ENLIL version — we try multiple patterns and log
+    all available names so they can be identified if lookup fails.
     """
     try:
+        import re, tempfile
+        import netCDF4 as nc4
+
         # Find latest run directory
         index = requests.get(ENLIL_BASE, timeout=15).text
-        import re
         dirs = re.findall(r'wsa_enlil\.\d{8}/', index)
         if not dirs: return []
         latest_dir = sorted(dirs)[-1]
 
-        # Find latest suball.nc in that directory
+        # Find latest suball.nc
         dir_index = requests.get(ENLIL_BASE + latest_dir, timeout=15).text
         nc_files = re.findall(r'wsa_enlil\.mrid\d+\.suball\.nc', dir_index)
         if not nc_files: return []
@@ -327,8 +334,6 @@ def fetch_enlil_timeline():
         nc_url = ENLIL_BASE + latest_dir + latest_nc
         log.info(f'ENLIL: fetching {nc_url}')
 
-        # Download (174MB file — we stream and use netCDF4)
-        import tempfile, netCDF4 as nc4
         nc_bytes = safe_get_bytes(nc_url)
         if not nc_bytes: return []
 
@@ -336,51 +341,98 @@ def fetch_enlil_timeline():
             tmp.write(nc_bytes)
             tmp_path = tmp.name
 
-        ds = nc4.Dataset(tmp_path)
-        os.unlink(tmp_path)
+        try:
+            ds = nc4.Dataset(tmp_path)
+        except Exception as e:
+            log.warning(f'ENLIL: failed to open netCDF: {e}')
+            os.unlink(tmp_path)
+            return []
 
-        # Find Earth time-series variables
-        # ENLIL uses 'Earth' or 'L1' as location identifier
-        times, speeds, densities = [], [], []
-        now = datetime.now(timezone.utc)
+        # Log all variable names for debugging
+        all_vars = list(ds.variables.keys())
+        log.info(f'ENLIL variables available: {all_vars}')
+
+        # Time variable
+        time_var = None
+        for tname in ('time', 'Time', 'TIME', 't'):
+            if tname in ds.variables:
+                time_var = ds.variables[tname]
+                break
+
+        if time_var is None:
+            log.warning(f'ENLIL: no time variable found in {all_vars}')
+            ds.close(); os.unlink(tmp_path); return []
+
+        # Decode times — handle missing units attribute gracefully
+        now    = datetime.now(timezone.utc)
         cutoff = now + timedelta(hours=13)
+        try:
+            units = getattr(time_var, 'units', None)
+            if units:
+                times_raw = nc4.num2date(time_var[:], units)
+                times_dt  = []
+                for t in times_raw:
+                    try:
+                        dt = datetime(t.year, t.month, t.day, t.hour,
+                                      getattr(t, 'minute', 0), tzinfo=timezone.utc)
+                        times_dt.append(dt)
+                    except Exception:
+                        times_dt.append(None)
+            else:
+                log.warning('ENLIL: time variable has no units, interpreting as hours from now')
+                raw = time_var[:]
+                times_dt = [now + timedelta(hours=float(v)) for v in raw]
+        except Exception as e:
+            log.warning(f'ENLIL: time decode failed: {e}')
+            ds.close(); os.unlink(tmp_path); return []
 
-        # Try to find time and Earth-point variables
-        time_var = ds.variables.get('Time') or ds.variables.get('time')
-        if time_var is None: return []
+        # Speed and density — try all known variable name patterns
+        v_var = None
+        for vname in ('SE1Vr', 'V1Vr', 'Vr', 'vel1', 'v_r', 'speed', 'V'):
+            if vname in ds.variables:
+                v_var = ds.variables[vname]
+                log.info(f'ENLIL: using speed variable "{vname}"')
+                break
 
-        # Time units: 'days since YYYY-MM-DD'
-        import netCDF4 as nc4
-        times_raw = nc4.num2date(time_var[:], time_var.units)
+        d_var = None
+        for dname in ('SE1N', 'V1N', 'N', 'den1', 'n_p', 'density', 'rho', 'D'):
+            if dname in ds.variables:
+                d_var = ds.variables[dname]
+                log.info(f'ENLIL: using density variable "{dname}"')
+                break
 
-        # Find speed and density at Earth
-        v_var = (ds.variables.get('SE1Vr') or ds.variables.get('V1Vr') or
-                 ds.variables.get('Vr'))
-        d_var = (ds.variables.get('SE1N') or ds.variables.get('V1N') or
-                 ds.variables.get('N'))
+        if v_var is None:
+            log.warning(f'ENLIL: no speed variable found — tried SE1Vr, V1Vr, Vr, vel1, v_r, speed, V')
+        if d_var is None:
+            log.warning(f'ENLIL: no density variable found — tried SE1N, V1N, N, den1, n_p, density, rho, D')
 
+        # Build timeline
         timeline = []
-        for i, t in enumerate(times_raw):
-            dt = datetime(t.year, t.month, t.day, t.hour, t.minute, tzinfo=timezone.utc)
-            if dt < now or dt > cutoff: continue
+        for i, dt in enumerate(times_dt):
+            if dt is None or dt < now or dt > cutoff: continue
             try:
                 v = float(v_var[i]) if v_var is not None else None
                 d = float(d_var[i]) if d_var is not None else None
-                timeline.append({'time': dt.isoformat(), 'speed': v, 'density': d})
+                # Filter fill values
+                if v is not None and (v <= 0 or v > 5000): v = None
+                if d is not None and (d <= 0 or d > 500):  d = None
+                if v is not None or d is not None:
+                    timeline.append({'time': dt.isoformat(), 'speed': v, 'density': d})
             except Exception:
                 pass
 
         ds.close()
+        os.unlink(tmp_path)
         log.info(f'ENLIL: extracted {len(timeline)} points for next 12hr')
-        return timeline[:13]  # cap at 13 hourly points
+        return timeline[:13]
 
     except ImportError:
         log.warning('netCDF4 not available — ENLIL extraction skipped')
         return []
     except Exception as e:
         log.warning(f'ENLIL extraction failed: {e}')
+        import traceback; log.warning(traceback.format_exc())
         return []
-
 
 # ── Determine pipeline state ──────────────────────────────────────────────────
 
@@ -504,8 +556,8 @@ def build_plasma_timeline(l1_data):
     now    = datetime.now(timezone.utc)
     cutoff = now - timedelta(hours=6)  # wide window — WIND data can be 3-4hrs stale
 
-    # Normalize to pd.Timestamp with UTC to avoid tz comparison errors
-    window = plasma_df[plasma_df.index >= pd.Timestamp(cutoff, tz='UTC')].copy()
+    # cutoff is already tz-aware, use directly
+    window = plasma_df[plasma_df.index >= cutoff].copy()
 
     # If still empty (very stale data), just use whatever we have
     if window.empty:
