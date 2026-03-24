@@ -5,8 +5,7 @@ import { combinedScore, cloudScore, bortleScore, scoreToRGB } from '../utils/sco
 import { GRID_BOUNDS } from '../config.js'
 import { loadBortleGrid, getBortle } from '../utils/bortleGrid.js'
 
-// Cloud grid spacing must match what the pipeline produces
-const CLOUD_SPACING = 0.5    // must match pipeline cloud grid spacing
+const CLOUD_SPACING = 0.5  // must match pipeline cloud grid spacing
 
 function buildScoreGrid(mode, getCloudAt, selectedHour, bortleGrid) {
   const pad = CLOUD_SPACING * 2
@@ -52,10 +51,6 @@ const SmoothHeatmap = L.Layer.extend({
 
   updateData(scoreData) {
     this._scoreData = scoreData
-    if (this._canvas) {
-      const ctx = this._canvas.getContext('2d')
-      ctx.clearRect(0, 0, this._canvas.width, this._canvas.height)
-    }
     this._redraw()
   },
 
@@ -73,6 +68,14 @@ const SmoothHeatmap = L.Layer.extend({
     canvas.style.width  = size.x + 'px'
     canvas.style.height = size.y + 'px'
     L.DomUtil.setPosition(canvas, map.containerPointToLayerPoint([0, 0]))
+
+    // CSS filter on the element — works on ALL browsers including iOS Safari
+    // where ctx.filter is silently ignored
+    const zoom       = map.getZoom()
+    const pxPerDeg   = 256 * Math.pow(2, zoom) / 360
+    const cellCssPx  = CLOUD_SPACING * pxPerDeg
+    const blurCssPx  = Math.round(cellCssPx * 0.7)
+    canvas.style.filter = `blur(${Math.max(blurCssPx, 3)}px)`
 
     const ctx = canvas.getContext('2d')
     ctx.clearRect(0, 0, W, H)
@@ -95,7 +98,6 @@ const SmoothHeatmap = L.Layer.extend({
         const lat    = latlng.lat
         const lon    = latlng.lng
 
-        // Bilinear interpolation — accurate and preserves detail
         const ci = (latMax - lat) / CLOUD_SPACING
         const cj = (lon - lonMin) / CLOUD_SPACING
         const r0 = Math.floor(ci), r1 = r0 + 1
@@ -111,8 +113,8 @@ const SmoothHeatmap = L.Layer.extend({
 
         const [red, green, blue] = scoreToRGB(Math.max(0, Math.min(1, score)))
 
-        // Edge fade — smooth falloff over 2° at each boundary
-        const FADE = CLOUD_SPACING * 8
+        // Edge fade — start at edge, full fade over 3 grid cells
+        const FADE = CLOUD_SPACING * 6
         const distFromEdge = Math.min(
           lat - lats[rows - 1], latMax - lat,
           lon - lonMin, lons[cols - 1] - lon
@@ -133,22 +135,6 @@ const SmoothHeatmap = L.Layer.extend({
     }
 
     ctx.putImageData(imageData, 0, 0)
-
-    // Blur radius derived from zoom level — at zoom z, 1° longitude = 256*2^z/360 CSS px
-    // We need blur >= 0.7 * cellSize in physical pixels to cover bilinear seams
-    const zoom = map.getZoom()
-    const degPerTile = 360 / Math.pow(2, zoom)
-    const pxPerDeg   = 256 / degPerTile                    // CSS px per degree
-    const cellCssPx  = CLOUD_SPACING * pxPerDeg            // CSS px per grid cell
-    const blurPx     = Math.round(cellCssPx * 0.75 * dpr)  // physical pixels
-
-    const tmp  = document.createElement('canvas')
-    tmp.width  = W; tmp.height = H
-    const tctx = tmp.getContext('2d')
-    tctx.filter = `blur(${Math.max(blurPx, 4)}px)`
-    tctx.drawImage(canvas, 0, 0)
-    ctx.clearRect(0, 0, W, H)
-    ctx.drawImage(tmp, 0, 0)
   },
 })
 
@@ -165,7 +151,9 @@ export default function HeatmapLayer({ mode, selectedHour, getCloudAt, cloudLoad
     const layer = new SmoothHeatmap({})
     layer.addTo(map)
     layerRef.current = layer
-    return () => { if (layerRef.current) { map.removeLayer(layerRef.current); layerRef.current = null } }
+    return () => {
+      if (layerRef.current) { map.removeLayer(layerRef.current); layerRef.current = null }
+    }
   }, [map])
 
   useEffect(() => {
