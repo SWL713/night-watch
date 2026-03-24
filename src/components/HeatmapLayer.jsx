@@ -22,23 +22,27 @@ function gaussianSmooth(grid, rows, cols) {
   const k = raw.map(v => v / ksum)
 
   // Horizontal pass
-  const tmp = Array.from({ length: rows }, () => new Float32Array(cols))
+  const tmp = Array.from({ length: rows }, () => new Array(cols).fill(null))
   for (let r = 0; r < rows; r++) {
     for (let c = 0; c < cols; c++) {
+      if (grid[r][c] == null) continue  // preserve nulls — don't fill missing cloud cells
       let s = 0
       for (let i = -R; i <= R; i++) {
-        s += grid[r][Math.max(0, Math.min(cols - 1, c + i))] * k[i + R]
+        const v = grid[r][Math.max(0, Math.min(cols - 1, c + i))]
+        s += (v ?? grid[r][c]) * k[i + R]  // use cell's own value if neighbour is null
       }
       tmp[r][c] = s
     }
   }
   // Vertical pass
-  const out = Array.from({ length: rows }, () => new Float32Array(cols))
+  const out = Array.from({ length: rows }, () => new Array(cols).fill(null))
   for (let r = 0; r < rows; r++) {
     for (let c = 0; c < cols; c++) {
+      if (tmp[r][c] == null) continue
       let s = 0
       for (let i = -R; i <= R; i++) {
-        s += tmp[Math.max(0, Math.min(rows - 1, r + i))][c] * k[i + R]
+        const v = tmp[Math.max(0, Math.min(rows - 1, r + i))][c]
+        s += (v ?? tmp[r][c]) * k[i + R]
       }
       out[r][c] = s
     }
@@ -59,8 +63,8 @@ function buildScoreGrid(mode, getCloudAt, selectedHour, bortleGrid) {
       const bortle = bortleGrid ? getBortle(bortleGrid, lat, lon) : 5
       if (mode === 'bortle') return bortleScore(bortle)
       const cloud = getCloudAt ? getCloudAt(lat, lon, selectedHour) : null
-      if (mode === 'clouds') return cloud !== null ? 1 - cloud / 100 : bortleScore(bortle) * 0.7
-      if (cloud === null) return bortleScore(bortle) * 0.7
+      if (mode === 'clouds') return cloud !== null ? 1 - cloud / 100 : null  // null = skip, no Bortle bleed
+      if (cloud === null) return bortleScore(bortle) * 0.7  // combined mode: fall back to dim Bortle
       return combinedScore(cloud, bortle)
     })
   )
@@ -142,11 +146,14 @@ const SmoothHeatmap = L.Layer.extend({
 
         if (r0 < 0 || r1 >= rows || c0 < 0 || c1 >= cols) continue
 
-        const score = bilinear(
-          grid[r0][c0], grid[r0][c1],
-          grid[r1][c0], grid[r1][c1],
-          cj - c0, ci - r0
-        )
+        const s00 = grid[r0][c0], s10 = grid[r0][c1]
+        const s01 = grid[r1][c0], s11 = grid[r1][c1]
+
+        // In clouds-only mode missing points return null — skip pixel entirely
+        // so Bortle structure doesn't bleed through as blobs
+        if (s00 == null || s10 == null || s01 == null || s11 == null) continue
+
+        const score = bilinear(s00, s10, s01, s11, cj - c0, ci - r0)
 
         const [red, green, blue] = scoreToRGB(Math.max(0, Math.min(1, score)))
 
