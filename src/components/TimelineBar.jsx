@@ -335,14 +335,16 @@ export default function TimelineBar({ spaceWeather, moonData, selectedHour, onHo
     const enlilV = enlil.map(p => p.speed).filter(v => v != null)
     const allV   = [...obsV, ...enlilV]
     if (allV.length) {
-      const vMean  = allV.reduce((a, b) => a + b, 0) / allV.length
-      const vSpread = Math.max(50, (Math.max(...allV) - Math.min(...allV)) / 2 + 30)
-      var vMin = Math.max(200,  vMean - vSpread)
-      var vMax = Math.min(1200, vMean + vSpread)
+      const vDataMin = Math.min(...allV)
+      const vDataMax = Math.max(...allV)
+      const vPad = Math.max(5, (vDataMax - vDataMin) * 0.15 + 8)  // 15% + 8 km/s each side
+      var vMin = Math.max(200,  vDataMin - vPad)
+      var vMax = Math.min(1200, vDataMax + vPad)
+      if (vMax - vMin < 20) { vMin -= 10; vMax += 10 }  // absolute floor: 20 km/s span
     } else {
       var vMin = 350, vMax = 650
     }
-    const vRange = Math.max(vMax - vMin, 100)
+    const vRange = vMax - vMin
     function vY(v) { return PAD_T + pH * (1 - (v - vMin) / vRange) }
 
     // Observed V solid
@@ -381,9 +383,18 @@ export default function TimelineBar({ spaceWeather, moonData, selectedHour, onHo
     const obsD   = plasma.map(p => p.density).filter(d => d != null)
     const enlilD = enlil.map(p => p.density).filter(d => d != null)
     const allD   = [...obsD, ...enlilD]
-    const dMin   = 0
-    const dMax   = allD.length ? Math.max(10, Math.max(...allD) * 1.25) : 20
-    const dRange = Math.max(dMax, 5)
+    let dMin, dMax
+    if (allD.length) {
+      const dDataMin = Math.min(...allD)
+      const dDataMax = Math.max(...allD)
+      const dPad = Math.max(0.5, (dDataMax - dDataMin) * 0.15 + 0.5)
+      dMin = Math.max(0, dDataMin - dPad)
+      dMax = dDataMax + dPad
+      if (dMax - dMin < 2) { dMin = Math.max(0, dMin - 1); dMax += 1 }  // min 2 n/cc span
+    } else {
+      dMin = 0; dMax = 20
+    }
+    const dRange = dMax - dMin
     function dY(d) { return PAD_T + pH * (1 - (d - dMin) / dRange) }
 
     const dPoints = plasma.filter(p => p.density != null)
