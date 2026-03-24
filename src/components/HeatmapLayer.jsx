@@ -7,6 +7,47 @@ import { GRID_SPACING } from '../hooks/useCloudCover.js'
 import { loadBortleGrid, getBortle } from '../utils/bortleGrid.js'
 
 // Build score grid using pre-computed bortle lookup
+// Gaussian smooth the score grid to eliminate bilinear cell-boundary artifacts
+// Each cell gets averaged with its neighbors weighted by distance
+function smoothGrid(grid, rows, cols) {
+  // Two-pass gaussian — first horizontal, then vertical (separable filter)
+  // Kernel radius 3, sigma 1.5 — smooths across ~3 grid cells
+  const sigma = 1.5, R = 3
+  const kernel = []
+  let ksum = 0
+  for (let i = -R; i <= R; i++) {
+    const v = Math.exp(-i*i / (2*sigma*sigma))
+    kernel.push(v); ksum += v
+  }
+  const k = kernel.map(v => v / ksum)
+
+  // Horizontal pass
+  const tmp = Array.from({ length: rows }, () => new Float32Array(cols))
+  for (let r = 0; r < rows; r++) {
+    for (let c = 0; c < cols; c++) {
+      let sum = 0
+      for (let i = -R; i <= R; i++) {
+        const nc = Math.max(0, Math.min(cols-1, c + i))
+        sum += grid[r][nc] * k[i + R]
+      }
+      tmp[r][c] = sum
+    }
+  }
+  // Vertical pass
+  const out = Array.from({ length: rows }, () => new Float32Array(cols))
+  for (let r = 0; r < rows; r++) {
+    for (let c = 0; c < cols; c++) {
+      let sum = 0
+      for (let i = -R; i <= R; i++) {
+        const nr = Math.max(0, Math.min(rows-1, r + i))
+        sum += tmp[nr][c] * k[i + R]
+      }
+      out[r][c] = sum
+    }
+  }
+  return out
+}
+
 function buildScoreGrid(mode, getCloudAt, selectedHour, bortleGrid) {
   // Render bounds match cloud data coverage exactly — no blank ring artifacts
   // Cloud pipeline fetches with pad=2 beyond GRID_BOUNDS, so use same pad here
@@ -28,7 +69,9 @@ function buildScoreGrid(mode, getCloudAt, selectedHour, bortleGrid) {
       return combinedScore(cloud, bortle)
     })
   )
-  return { grid, lats, lons }
+  // Smooth the grid to eliminate bilinear artifacts at cell boundaries
+  const smoothed = smoothGrid(grid, lats.length, lons.length)
+  return { grid: smoothed, lats, lons }
 }
 
 function bilinear(s00, s10, s01, s11, tx, ty) {
@@ -100,18 +143,12 @@ const SmoothHeatmap = L.Layer.extend({
         const lat = latlng.lat
         const lon = latlng.lng
 
-        const ci = (latMax - lat) / GRID_SPACING
-        const cj = (lon - lonMin) / GRID_SPACING
-        const r0 = Math.floor(ci), r1 = r0 + 1
-        const c0 = Math.floor(cj), c1 = c0 + 1
+        const ci = Math.round((latMax - lat) / GRID_SPACING)
+        const cj = Math.round((lon - lonMin) / GRID_SPACING)
 
-        if (r0 < 0 || r1 >= rows || c0 < 0 || c1 >= cols) continue
+        if (ci < 0 || ci >= rows || cj < 0 || cj >= cols) continue
 
-        const score = bilinear(
-          grid[r0][c0], grid[r0][c1],
-          grid[r1][c0], grid[r1][c1],
-          cj - c0, ci - r0
-        )
+        const score = grid[ci][cj]
 
         const [red, green, blue] = scoreToRGB(Math.max(0, Math.min(1, score)))
 
@@ -140,8 +177,8 @@ const SmoothHeatmap = L.Layer.extend({
 
     ctx.putImageData(imageData, 0, 0)
 
-    // Blur scaled to physical pixels
-    const blurPx = Math.round(8 * dpr)
+    // Single blur pass — radius scaled to grid cell size on screen
+    const blurPx = Math.round(16 * dpr)
     const tmp = document.createElement('canvas')
     tmp.width = W; tmp.height = H
     const tctx = tmp.getContext('2d')
