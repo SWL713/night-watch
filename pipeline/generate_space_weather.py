@@ -490,9 +490,10 @@ def build_bz_timeline(l1_data):
 
 
 def build_plasma_timeline(l1_data):
-    """Build minute-resolution plasma timeline for the last 2 hours.
+    """Build minute-resolution plasma timeline for the last 6 hours.
     Returns list of {time, speed, density} dicts with ISO timestamps.
-    Used by frontend so it never needs CORS to fetch plasma directly."""
+    Used by frontend so it never needs CORS to fetch plasma directly.
+    Uses 6hr window (not 2hr) because WIND plasma data can be several hours stale."""
     if l1_data is None:
         return []
 
@@ -501,8 +502,14 @@ def build_plasma_timeline(l1_data):
         return []
 
     now    = datetime.now(timezone.utc)
-    cutoff = now - timedelta(hours=2)
-    window = plasma_df[plasma_df.index >= cutoff].copy()
+    cutoff = now - timedelta(hours=6)  # wide window — WIND data can be 3-4hrs stale
+
+    # Normalize to pd.Timestamp with UTC to avoid tz comparison errors
+    window = plasma_df[plasma_df.index >= pd.Timestamp(cutoff, tz='UTC')].copy()
+
+    # If still empty (very stale data), just use whatever we have
+    if window.empty:
+        window = plasma_df.tail(120).copy()
     if window.empty:
         return []
 
