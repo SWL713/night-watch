@@ -114,8 +114,9 @@ function buildScoreGrid(mode, getCloudAt, selectedHour, bortleLookup) {
         return cloud < 40 ? 0 : (cloud - 40) / 60
       })
     )
-    const smoothed = gaussianSmooth(cloudRaw, cLats.length, cLons.length)
-    cloudGrid = { grid: smoothed, lats: cLats, lons: cLons }
+    // No gaussian pre-smoothing — bicubic interpolation at render time handles
+    // smooth transitions between cells without smearing the underlying data
+    cloudGrid = { grid: cloudRaw, lats: cLats, lons: cLons }
   }
 
   const grid = gaussianSmooth(raw, lats.length, lons.length)
