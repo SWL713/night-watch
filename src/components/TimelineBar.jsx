@@ -306,26 +306,28 @@ export default function TimelineBar({ spaceWeather, moonData, selectedHour, onHo
     ctx.setLineDash([]); ctx.globalAlpha = 1.0
 
     // ── 6. VELOCITY TRACE ─────────────────────────────────────────────────────
-    // Observed: solid blue from realTrace (shifted by +lagMs for Earth arrival)
-    // Forecast: dashed blue from ENLIL after lagEnd
+    // Each trace gets its own Y scale spanning the full plot height (PAD_T → PAD_T+pH)
+    // so they're always visible regardless of magnitude vs Bz.
     const enlil = (spaceWeather.enlil_timeline || [])
       .map(p => ({ time: new Date(p.time), speed: p.speed, density: p.density }))
       .filter(p => p.speed != null || p.density != null)
       .sort((a, b) => a.time - b.time)
 
-    // Build V range from observed + ENLIL
-    const obsVals = realTrace.map(p => p.speed).filter(v => v != null)
+    // V: auto-range from all observed + ENLIL data in the window
+    const obsVals   = realTrace.map(p => p.speed).filter(v => v != null)
     const enlilVals = enlil.map(p => p.speed).filter(v => v != null)
     const allV  = [...obsVals, ...enlilVals]
-    const vMin  = allV.length ? Math.max(200, Math.min(...allV) - 50)  : 300
-    const vMax  = allV.length ? Math.min(1200, Math.max(...allV) + 50) : 800
-    const vRange = Math.max(vMax - vMin, 100)
+    const vPad  = 30  // km/s padding around min/max
+    const vMin  = allV.length ? Math.max(200,  Math.min(...allV) - vPad)  : 300
+    const vMax  = allV.length ? Math.min(1200, Math.max(...allV) + vPad)  : 800
+    const vRange = Math.max(vMax - vMin, 50)
+    // Maps V value to pixel Y — high speed at top, low at bottom, full plot height
     function vY(v) { return PAD_T + pH * (1 - (v - vMin) / vRange) }
 
     // Observed V (solid blue, shifted by lagMs)
     const vPoints = realTrace.filter(p => p.speed != null)
     if (vPoints.length >= 2) {
-      ctx.lineWidth = 1.0; ctx.setLineDash([]); ctx.globalAlpha = 0.70
+      ctx.lineWidth = 1.2; ctx.setLineDash([]); ctx.globalAlpha = 0.75
       ctx.strokeStyle = '#4488ff'
       ctx.beginPath()
       let started = false
@@ -337,16 +339,21 @@ export default function TimelineBar({ spaceWeather, moonData, selectedHour, onHo
       }
       ctx.stroke()
       ctx.globalAlpha = 1.0
+
+      // Y-axis label for V (right side)
+      ctx.fillStyle = '#2255aa'; ctx.font = `6.5px ${FONT}`
+      ctx.fillText(`${Math.round(vMax)}`, cW - 3, PAD_T + 4)
+      ctx.fillText(`${Math.round(vMin)}`, cW - 3, PAD_T + pH - 1)
     }
 
     // ENLIL V (dashed blue, from lagEnd forward)
-    const enlilAfter = enlil.filter(p => p.speed != null && p.time >= lagEnd && p.time <= tEnd)
-    if (enlilAfter.length >= 2) {
-      ctx.lineWidth = 1.0; ctx.setLineDash([4, 3]); ctx.globalAlpha = 0.55
+    const enlilVAfter = enlil.filter(p => p.speed != null && p.time >= lagEnd && p.time <= tEnd)
+    if (enlilVAfter.length >= 2) {
+      ctx.lineWidth = 1.2; ctx.setLineDash([4, 3]); ctx.globalAlpha = 0.55
       ctx.strokeStyle = '#4488ff'
       ctx.beginPath()
       let started = false
-      for (const p of enlilAfter) {
+      for (const p of enlilVAfter) {
         const x = tx(p.time), y = vY(p.speed)
         if (!started) { ctx.moveTo(x, y); started = true } else ctx.lineTo(x, y)
       }
@@ -357,19 +364,19 @@ export default function TimelineBar({ spaceWeather, moonData, selectedHour, onHo
     ctx.setLineDash([])
 
     // ── 7. DENSITY TRACE ──────────────────────────────────────────────────────
-    // Build density range
-    const obsDens   = realTrace.map(p => p.density).filter(d => d != null)
-    const enlilDens = enlil.map(p => p.density).filter(d => d != null)
-    const allD  = [...obsDens, ...enlilDens]
-    const dMin  = 0
-    const dMax  = allD.length ? Math.min(60, Math.max(...allD) * 1.3) : 30
-    const dRange = Math.max(dMax - dMin, 5)
+    // Independent Y scale — 0 at bottom, auto max at top, full plot height
+    const obsDens    = realTrace.map(p => p.density).filter(d => d != null)
+    const enlilDens  = enlil.map(p => p.density).filter(d => d != null)
+    const allD   = [...obsDens, ...enlilDens]
+    const dMin   = 0
+    const dMax   = allD.length ? Math.max(5, Math.max(...allD) * 1.15) : 20
+    const dRange = Math.max(dMax - dMin, 2)
     function dY(d) { return PAD_T + pH * (1 - (d - dMin) / dRange) }
 
     // Observed density (solid purple, shifted by lagMs)
     const dPoints = realTrace.filter(p => p.density != null)
     if (dPoints.length >= 2) {
-      ctx.lineWidth = 1.0; ctx.setLineDash([]); ctx.globalAlpha = 0.65
+      ctx.lineWidth = 1.2; ctx.setLineDash([]); ctx.globalAlpha = 0.70
       ctx.strokeStyle = '#bb66ff'
       ctx.beginPath()
       let started = false
@@ -381,12 +388,16 @@ export default function TimelineBar({ spaceWeather, moonData, selectedHour, onHo
       }
       ctx.stroke()
       ctx.globalAlpha = 1.0
+      // Y-axis labels (left side, dim purple)
+      ctx.fillStyle = '#773399'; ctx.font = `6.5px ${FONT}`
+      ctx.fillText(`${dMax.toFixed(0)}`, 1, PAD_T + 4)
+      ctx.fillText(`0`, 1, PAD_T + pH - 1)
     }
 
     // ENLIL density (dashed purple, from lagEnd forward)
     const enlilDensAfter = enlil.filter(p => p.density != null && p.time >= lagEnd && p.time <= tEnd)
     if (enlilDensAfter.length >= 2) {
-      ctx.lineWidth = 1.0; ctx.setLineDash([4, 3]); ctx.globalAlpha = 0.55
+      ctx.lineWidth = 1.2; ctx.setLineDash([4, 3]); ctx.globalAlpha = 0.55
       ctx.strokeStyle = '#bb66ff'
       ctx.beginPath()
       let started = false

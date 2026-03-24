@@ -40,7 +40,10 @@ export function useBzTrace() {
     if (!magData?.length) { setLoading(false); return }
 
     const now    = new Date()
-    const cutoff = new Date(now.getTime() - 75 * 60000)
+    // Fetch 2hrs back: L1 timestamps get shifted forward by transit lag (~40min)
+    // so to show a full 1hr back on the Earth-time axis we need ~100min of L1 data.
+    // 2hrs gives comfortable margin for any solar wind speed.
+    const cutoff = new Date(now.getTime() - 120 * 60000)
 
     // Build plasma map keyed by minute (round to nearest minute)
     const plasmaMap = new Map()
