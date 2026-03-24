@@ -5,8 +5,26 @@ import { combinedScore, bortleScore, scoreToRGB } from '../utils/scoring.js'
 import { GRID_BOUNDS } from '../config.js'
 import { loadBortleGrid, getBortle } from '../utils/bortleGrid.js'
 
-const CLOUD_SPACING  = 0.25   // matches NDFD pipeline grid
-const BORTLE_SPACING = 0.1    // full resolution of bortle_grid.json (~10km cells)
+// Approximate eastern coastline — points east of this are Atlantic Ocean
+const COAST_MASK = {
+  38.0: -74.5, 38.5: -74.2, 39.0: -74.0, 39.5: -73.8,
+  40.0: -73.5, 40.5: -73.0, 41.0: -71.8, 41.5: -71.2,
+  42.0: -69.9, 42.5: -70.0, 43.0: -70.5, 43.5: -70.2,
+  44.0: -69.2, 44.5: -67.5, 45.0: -67.0, 45.5: -67.0,
+  46.0: -67.5, 46.5: -68.0, 47.0: -68.5, 47.5: -69.0,
+  48.0: -69.5,
+}
+const COAST_LATS = Object.keys(COAST_MASK).map(Number).sort((a,b) => a-b)
+function maxLonForLat(lat) {
+  for (const cl of COAST_LATS) {
+    if (lat <= cl) return COAST_MASK[cl]
+  }
+  return GRID_BOUNDS.maxLon
+}
+function isOcean(lat, lon) { return lon > maxLonForLat(lat) }
+
+const CLOUD_SPACING  = 0.25
+const BORTLE_SPACING = 0.1
 
 // Gentle separable gaussian — smooths score grid to remove cell seams.
 // With NDFD data (5km native, resampled to 0.25°) the source data is already
@@ -26,26 +44,25 @@ function gaussianSmooth(grid, rows, cols) {
   const tmp = Array.from({ length: rows }, () => new Array(cols).fill(null))
   for (let r = 0; r < rows; r++) {
     for (let c = 0; c < cols; c++) {
-      if (grid[r][c] == null) continue  // preserve nulls — don't fill missing cloud cells
-      let s = 0
+      // Collect neighbour values — use available values only, skip nulls
+      let s = 0, w = 0
       for (let i = -R; i <= R; i++) {
         const v = grid[r][Math.max(0, Math.min(cols - 1, c + i))]
-        s += (v ?? grid[r][c]) * k[i + R]  // use cell's own value if neighbour is null
+        if (v != null) { s += v * k[i + R]; w += k[i + R] }
       }
-      tmp[r][c] = s
+      tmp[r][c] = w > 0 ? s / w : null  // null only if ALL neighbours are null
     }
   }
   // Vertical pass
   const out = Array.from({ length: rows }, () => new Array(cols).fill(null))
   for (let r = 0; r < rows; r++) {
     for (let c = 0; c < cols; c++) {
-      if (tmp[r][c] == null) continue
-      let s = 0
+      let s = 0, w = 0
       for (let i = -R; i <= R; i++) {
         const v = tmp[Math.max(0, Math.min(rows - 1, r + i))][c]
-        s += (v ?? tmp[r][c]) * k[i + R]
+        if (v != null) { s += v * k[i + R]; w += k[i + R] }
       }
-      out[r][c] = s
+      out[r][c] = w > 0 ? s / w : null
     }
   }
   return out
@@ -62,6 +79,7 @@ function buildScoreGrid(mode, getCloudAt, selectedHour, bortleGrid) {
 
   const raw = lats.map(lat =>
     lons.map(lon => {
+      if (isOcean(lat, lon)) return null  // ocean — skip entirely
       const bortle = bortleGrid ? getBortle(bortleGrid, lat, lon) : 5
       if (mode === 'bortle') return bortleScore(bortle)
       const cloud = getCloudAt ? getCloudAt(lat, lon, selectedHour) : null
@@ -153,11 +171,19 @@ const SmoothHeatmap = L.Layer.extend({
         const s00 = grid[r0][c0], s10 = grid[r0][c1]
         const s01 = grid[r1][c0], s11 = grid[r1][c1]
 
-        // In clouds-only mode missing points return null — skip pixel entirely
-        // so Bortle structure doesn't bleed through as blobs
-        if (s00 == null || s10 == null || s01 == null || s11 == null) continue
+        // Collect non-null corners
+        const vals = [s00, s10, s01, s11].filter(v => v != null)
+        if (vals.length === 0) continue  // all null — truly no data here, skip
 
-        const score = bilinear(s00, s10, s01, s11, cj - c0, ci - r0)
+        let score
+        if (vals.length === 4) {
+          // All corners present — full bilinear interpolation
+          score = bilinear(s00, s10, s01, s11, cj - c0, ci - r0)
+        } else {
+          // Partial data — simple average of available corners
+          // Better than a hole, slightly less smooth at boundaries
+          score = vals.reduce((a, b) => a + b, 0) / vals.length
+        }
 
         const [red, green, blue] = scoreToRGB(Math.max(0, Math.min(1, score)))
 
