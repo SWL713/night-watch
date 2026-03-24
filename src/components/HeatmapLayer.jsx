@@ -28,10 +28,6 @@ function buildScoreGrid(mode, getCloudAt, selectedHour, bortleGrid) {
   return { grid, lats, lons }
 }
 
-function bilinear(s00, s10, s01, s11, tx, ty) {
-  return s00 + (s10 - s00) * tx + (s01 - s00) * ty + (s00 - s10 - s01 + s11) * tx * ty
-}
-
 const SmoothHeatmap = L.Layer.extend({
   initialize(options) { this._options = options },
 
@@ -67,15 +63,8 @@ const SmoothHeatmap = L.Layer.extend({
     canvas.height = H
     canvas.style.width  = size.x + 'px'
     canvas.style.height = size.y + 'px'
+    canvas.style.filter = 'none'
     L.DomUtil.setPosition(canvas, map.containerPointToLayerPoint([0, 0]))
-
-    // CSS filter on the element — works on ALL browsers including iOS Safari
-    // where ctx.filter is silently ignored
-    const zoom       = map.getZoom()
-    const pxPerDeg   = 256 * Math.pow(2, zoom) / 360
-    const cellCssPx  = CLOUD_SPACING * pxPerDeg
-    const blurCssPx  = Math.round(cellCssPx * 0.45)  // 0.25° cells are small — minimal blur needed
-    canvas.style.filter = `blur(${Math.max(blurCssPx, 3)}px)`
 
     const ctx = canvas.getContext('2d')
     ctx.clearRect(0, 0, W, H)
@@ -85,56 +74,59 @@ const SmoothHeatmap = L.Layer.extend({
     const cols   = lons.length
     if (rows < 2 || cols < 2) return
 
+    // ── Step 1: render score grid into a tiny offscreen canvas (1px per cell)
+    // The browser GPU then upscales this with smooth bilinear interpolation —
+    // guaranteed smooth on every browser/device, no blur artifacts
+    const offW = cols
+    const offH = rows
+    const off  = document.createElement('canvas')
+    off.width  = offW
+    off.height = offH
+    const octx = off.getContext('2d')
+    const offData = octx.createImageData(offW, offH)
+    const od = offData.data
+
     const latMax = lats[0]
     const lonMin = lons[0]
 
-    const imageData = ctx.createImageData(W, H)
-    const data      = imageData.data
-    const STEP      = 2
-
-    for (let py = 0; py < H; py += STEP) {
-      for (let px = 0; px < W; px += STEP) {
-        const latlng = map.containerPointToLatLng([px / dpr, py / dpr])
-        const lat    = latlng.lat
-        const lon    = latlng.lng
-
-        const ci = (latMax - lat) / CLOUD_SPACING
-        const cj = (lon - lonMin) / CLOUD_SPACING
-        const r0 = Math.floor(ci), r1 = r0 + 1
-        const c0 = Math.floor(cj), c1 = c0 + 1
-
-        if (r0 < 0 || r1 >= rows || c0 < 0 || c1 >= cols) continue
-
-        const score = bilinear(
-          grid[r0][c0], grid[r0][c1],
-          grid[r1][c0], grid[r1][c1],
-          cj - c0, ci - r0
-        )
-
+    for (let r = 0; r < rows; r++) {
+      for (let c = 0; c < cols; c++) {
+        const score = grid[r][c]
         const [red, green, blue] = scoreToRGB(Math.max(0, Math.min(1, score)))
 
-        // Edge fade — start at edge, full fade over 3 grid cells
-        const FADE = CLOUD_SPACING * 6
+        // Edge fade
+        const lat = lats[r]
+        const lon = lons[c]
+        const FADE = CLOUD_SPACING * 4
         const distFromEdge = Math.min(
           lat - lats[rows - 1], latMax - lat,
           lon - lonMin, lons[cols - 1] - lon
         )
         const edgeFade = Math.max(0, Math.min(1, distFromEdge / FADE))
-        const alpha    = Math.round(0.45 * edgeFade * 255)
+        const alpha = Math.round(0.45 * edgeFade * 255)
 
-        for (let dy = 0; dy < STEP && py + dy < H; dy++) {
-          for (let dx = 0; dx < STEP && px + dx < W; dx++) {
-            const idx = ((py + dy) * W + (px + dx)) * 4
-            data[idx]     = red
-            data[idx + 1] = green
-            data[idx + 2] = blue
-            data[idx + 3] = alpha
-          }
-        }
+        const idx = (r * offW + c) * 4
+        od[idx]     = red
+        od[idx + 1] = green
+        od[idx + 2] = blue
+        od[idx + 3] = alpha
       }
     }
+    octx.putImageData(offData, 0, 0)
 
-    ctx.putImageData(imageData, 0, 0)
+    // ── Step 2: compute where the grid corners land on screen
+    const topLeft     = map.latLngToContainerPoint([lats[0],        lons[0]])
+    const bottomRight = map.latLngToContainerPoint([lats[rows - 1], lons[cols - 1]])
+
+    const sx = topLeft.x * dpr
+    const sy = topLeft.y * dpr
+    const sw = (bottomRight.x - topLeft.x) * dpr
+    const sh = (bottomRight.y - topLeft.y) * dpr
+
+    // ── Step 3: drawImage with smoothing — browser handles interpolation
+    ctx.imageSmoothingEnabled = true
+    ctx.imageSmoothingQuality = 'high'
+    ctx.drawImage(off, sx, sy, sw, sh)
   },
 })
 
