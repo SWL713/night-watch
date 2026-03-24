@@ -24,7 +24,7 @@ export const MAP_BOUNDS = {
   center: [43.5, -74.5],
   zoom: 7,
   minZoom: 5,
-  maxZoom: 12,
+  maxZoom: 16,
 }
 
 export const GRID_SPACING = 0.5
