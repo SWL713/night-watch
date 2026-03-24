@@ -1,23 +1,33 @@
-name: Night Watch — Space Weather Pipeline
+name: Night Watch — Space Weather
+
+# Schedule (UTC):
+#   Every 30 min during active aurora hours: 21:00–05:00 UTC (5pm–1am EDT / 6pm–2am EST)
+#   Every 60 min during quiet daytime hours: 05:00–21:00 UTC
+#
+# Monthly budget: ~540 min (well under 2000 free tier)
 
 on:
   schedule:
-    - cron: '0 * * * *'   # every hour
-  workflow_dispatch:          # manual trigger
+    # Every 30 min 21:00–05:00 UTC (active hours)
+    - cron: '0,30 21,22,23 * * *'
+    - cron: '0,30 0,1,2,3,4 * * *'
+    # Every 60 min 05:00–21:00 UTC (quiet hours)
+    - cron: '0 5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20 * * *'
+  workflow_dispatch:
 
 permissions:
   contents: write
 
 jobs:
-  pipeline:
+  space_weather:
     runs-on: ubuntu-latest
-    timeout-minutes: 12
+    timeout-minutes: 4
 
     steps:
       - name: Checkout
         uses: actions/checkout@v4
         with:
-          fetch-depth: 0   # full history needed for amend to work correctly
+          fetch-depth: 0
 
       - name: Set up Python
         uses: actions/setup-python@v5
@@ -29,7 +39,7 @@ jobs:
       - name: Install dependencies
         run: pip install -r pipeline/requirements.txt
 
-      - name: Run pipeline
+      - name: Run space weather pipeline
         run: python pipeline/generate_space_weather.py
         env:
           PYTHONUNBUFFERED: '1'
@@ -39,9 +49,7 @@ jobs:
           git config user.name  "Night Watch Bot"
           git config user.email "actions@github.com"
           git add data/space_weather.json || true
-          git add data/cloud_cover.json   || true
 
-          # Exit cleanly if nothing changed
           git diff --staged --quiet && exit 0
 
           SW_INFO=$(python -c \
@@ -49,9 +57,6 @@ jobs:
             print(d["state"], d["intensity_label"], d["bz_now"])' 2>/dev/null || echo '?')
           MSG="sw: $(date -u '+%Y-%m-%d %H:%M UTC') | $SW_INFO"
 
-          # Amend the previous commit if it was also a data-only pipeline commit.
-          # This keeps the repo from growing ~550KB every hour — only the latest
-          # snapshot of the data files is stored in git history.
           LAST_MSG=$(git log -1 --pretty=%s HEAD 2>/dev/null || echo '')
           if echo "$LAST_MSG" | grep -q "^sw:"; then
             git commit --amend -m "$MSG"

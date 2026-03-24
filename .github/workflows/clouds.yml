@@ -1,0 +1,69 @@
+name: Night Watch — Cloud Cover
+
+# Schedule (UTC):
+#   Hourly 22:00–08:00 UTC (6pm–4am EDT / 7pm–5am EST) — active aurora hours
+#   Once at 16:00 UTC (noon EDT) — midday update
+#
+# Monthly budget: ~990 min (well under 2000 free tier combined with space weather)
+
+on:
+  schedule:
+    # Hourly 22:00–08:00 UTC (active hours)
+    - cron: '30 22,23 * * *'
+    - cron: '30 0,1,2,3,4,5,6,7,8 * * *'
+    # Noon EDT update (16:00 UTC)
+    - cron: '30 16 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  clouds:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: pip
+          cache-dependency-path: pipeline/requirements.txt
+
+      - name: Install dependencies
+        run: pip install -r pipeline/requirements.txt
+
+      - name: Run cloud pipeline
+        run: python pipeline/generate_space_weather.py --clouds
+        env:
+          PYTHONUNBUFFERED: '1'
+
+      - name: Commit and push
+        run: |
+          git config user.name  "Night Watch Bot"
+          git config user.email "actions@github.com"
+          git add data/space_weather.json || true
+          git add data/cloud_cover.json   || true
+
+          git diff --staged --quiet && exit 0
+
+          SW_INFO=$(python -c \
+            'import json; d=json.load(open("data/space_weather.json")); \
+            print(d["state"], d["intensity_label"], d["bz_now"])' 2>/dev/null || echo '?')
+          MSG="sw: $(date -u '+%Y-%m-%d %H:%M UTC') | $SW_INFO"
+
+          LAST_MSG=$(git log -1 --pretty=%s HEAD 2>/dev/null || echo '')
+          if echo "$LAST_MSG" | grep -q "^sw:"; then
+            git commit --amend -m "$MSG"
+          else
+            git commit -m "$MSG"
+          fi
+
+          git pull --rebase --autostash origin main
+          git push --force-with-lease

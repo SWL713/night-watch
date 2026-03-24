@@ -1040,5 +1040,8 @@ def main_with_clouds():
 
 
 if __name__ == '__main__':
-    import time
-    main_with_clouds()
+    import sys, time
+    if '--clouds' in sys.argv:
+        main_with_clouds()   # cloud workflow: fetches clouds + space weather
+    else:
+        main()               # space weather workflow: no cloud fetch
