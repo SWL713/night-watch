@@ -30,6 +30,7 @@ WIND_URL          = 'https://services.swpc.noaa.gov/json/rtsw/rtsw_wind_1m.json'
 NOAA_ALERTS_URL   = 'https://services.swpc.noaa.gov/products/alerts.json'
 OVATION_URL       = 'https://services.swpc.noaa.gov/json/ovation_aurora_latest.json'
 ENLIL_BASE        = 'https://nomads.ncep.noaa.gov/pub/data/nccf/com/wsa_enlil/prod/'
+ENLIL_JSON_URL    = 'https://services.swpc.noaa.gov/json/enlil_time_series.json'
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -308,131 +309,68 @@ def overall_quality(intensity_label, astro_dark_pct):
 
 def fetch_enlil_timeline():
     """
-    Fetch latest ENLIL suball.nc and extract Earth/L1 time-series for next 12 hours.
-    Returns list of {time, speed, density} dicts, or empty list on failure.
+    Fetch ENLIL Earth time series from NOAA services JSON — 1.5MB vs 131MB netCDF.
+    Returns list of {time, speed, density} dicts for the next ~12 hours, or [].
 
-    The suball.nc contains scalar Earth-point variables as 1D time series.
-    Variable names vary by ENLIL version — we try multiple patterns and log
-    all available names so they can be identified if lookup fails.
+    Data source: services.swpc.noaa.gov/json/enlil_time_series.json
+    This is the same data that feeds the Earth plots on the SWPC ENLIL animation page.
+    Updated once daily at 00Z for ambient runs, on-demand for CME runs.
     """
     try:
-        import re, tempfile
-        import netCDF4 as nc4
-
-        # Find latest run directory
-        index = requests.get(ENLIL_BASE, timeout=15).text
-        dirs = re.findall(r'wsa_enlil\.\d{8}/', index)
-        if not dirs: return []
-        latest_dir = sorted(dirs)[-1]
-
-        # Find latest suball.nc
-        dir_index = requests.get(ENLIL_BASE + latest_dir, timeout=15).text
-        nc_files = re.findall(r'wsa_enlil\.mrid\d+\.suball\.nc', dir_index)
-        if not nc_files: return []
-        latest_nc = sorted(nc_files)[-1]
-
-        nc_url = ENLIL_BASE + latest_dir + latest_nc
-        log.info(f'ENLIL: fetching {nc_url}')
-
-        nc_bytes = safe_get_bytes(nc_url)
-        if not nc_bytes: return []
-
-        with tempfile.NamedTemporaryFile(suffix='.nc', delete=False) as tmp:
-            tmp.write(nc_bytes)
-            tmp_path = tmp.name
-
-        try:
-            ds = nc4.Dataset(tmp_path)
-        except Exception as e:
-            log.warning(f'ENLIL: failed to open netCDF: {e}')
-            os.unlink(tmp_path)
+        data = safe_get(ENLIL_JSON_URL)
+        if not data:
+            log.warning('ENLIL: enlil_time_series.json fetch failed')
             return []
 
-        # Log all variable names for debugging
-        all_vars = list(ds.variables.keys())
-        log.info(f'ENLIL variables available: {all_vars}')
-
-        # Time variable
-        time_var = None
-        for tname in ('time', 'Time', 'TIME', 't'):
-            if tname in ds.variables:
-                time_var = ds.variables[tname]
-                break
-
-        if time_var is None:
-            log.warning(f'ENLIL: no time variable found in {all_vars}')
-            ds.close(); os.unlink(tmp_path); return []
-
-        # Decode times — handle missing units attribute gracefully
+        # Structure: list of records, each with time_tag plus Earth/STEREO fields
+        # We want Earth (or L1) speed and density for future times only
         now    = datetime.now(timezone.utc)
         cutoff = now + timedelta(hours=13)
-        try:
-            units = getattr(time_var, 'units', None)
-            if units:
-                times_raw = nc4.num2date(time_var[:], units)
-                times_dt  = []
-                for t in times_raw:
-                    try:
-                        dt = datetime(t.year, t.month, t.day, t.hour,
-                                      getattr(t, 'minute', 0), tzinfo=timezone.utc)
-                        times_dt.append(dt)
-                    except Exception:
-                        times_dt.append(None)
-            else:
-                log.warning('ENLIL: time variable has no units, interpreting as hours from now')
-                raw = time_var[:]
-                times_dt = [now + timedelta(hours=float(v)) for v in raw]
-        except Exception as e:
-            log.warning(f'ENLIL: time decode failed: {e}')
-            ds.close(); os.unlink(tmp_path); return []
 
-        # Speed and density — try all known variable name patterns
-        v_var = None
-        for vname in ('SE1Vr', 'V1Vr', 'Vr', 'vel1', 'v_r', 'speed', 'V'):
-            if vname in ds.variables:
-                v_var = ds.variables[vname]
-                log.info(f'ENLIL: using speed variable "{vname}"')
-                break
+        log.info(f'ENLIL JSON: {len(data)} records, keys={list(data[0].keys()) if data else []}')
 
-        d_var = None
-        for dname in ('SE1N', 'V1N', 'N', 'den1', 'n_p', 'density', 'rho', 'D'):
-            if dname in ds.variables:
-                d_var = ds.variables[dname]
-                log.info(f'ENLIL: using density variable "{dname}"')
-                break
-
-        if v_var is None:
-            log.warning(f'ENLIL: no speed variable found — tried SE1Vr, V1Vr, Vr, vel1, v_r, speed, V')
-        if d_var is None:
-            log.warning(f'ENLIL: no density variable found — tried SE1N, V1N, N, den1, n_p, density, rho, D')
-
-        # Build timeline
         timeline = []
-        for i, dt in enumerate(times_dt):
-            if dt is None or dt < now or dt > cutoff: continue
+        for rec in data:
+            t_str = rec.get('time_tag') or rec.get('time') or rec.get('Time')
+            if not t_str:
+                continue
             try:
-                v = float(v_var[i]) if v_var is not None else None
-                d = float(d_var[i]) if d_var is not None else None
-                # Filter fill values
-                if v is not None and (v <= 0 or v > 5000): v = None
-                if d is not None and (d <= 0 or d > 500):  d = None
-                if v is not None or d is not None:
-                    timeline.append({'time': dt.isoformat(), 'speed': v, 'density': d})
+                dt = datetime.fromisoformat(t_str.replace('Z', '+00:00'))
+                if dt.tzinfo is None:
+                    dt = dt.replace(tzinfo=timezone.utc)
             except Exception:
-                pass
+                continue
 
-        ds.close()
-        os.unlink(tmp_path)
-        log.info(f'ENLIL: extracted {len(timeline)} points for next 12hr')
+            if dt <= now or dt > cutoff:
+                continue
+
+            # Field names vary — try Earth/L1 specific fields first, then generic
+            v = (rec.get('speed_earth') or rec.get('v_earth') or rec.get('vel_earth') or
+                 rec.get('speed_l1')    or rec.get('v_l1')    or
+                 rec.get('speed')       or rec.get('V')        or rec.get('vr_earth'))
+            d = (rec.get('density_earth') or rec.get('n_earth') or rec.get('den_earth') or
+                 rec.get('density_l1')    or rec.get('n_l1')    or
+                 rec.get('density')       or rec.get('N')        or rec.get('np_earth'))
+
+            try:
+                v = float(v) if v is not None else None
+                d = float(d) if d is not None else None
+                if v is not None and (v <= 0 or v > 5000): v = None
+                if d is not None and (d <  0 or d > 500):  d = None
+            except Exception:
+                v = d = None
+
+            if v is not None or d is not None:
+                timeline.append({'time': dt.isoformat(), 'speed': v, 'density': d})
+
+        log.info(f'ENLIL: {len(timeline)} future points extracted')
         return timeline[:13]
 
-    except ImportError:
-        log.warning('netCDF4 not available — ENLIL extraction skipped')
-        return []
     except Exception as e:
-        log.warning(f'ENLIL extraction failed: {e}')
+        log.warning(f'ENLIL JSON fetch failed: {e}')
         import traceback; log.warning(traceback.format_exc())
         return []
+
 
 # ── Determine pipeline state ──────────────────────────────────────────────────
 
