@@ -2,7 +2,7 @@ name: Night Watch — Space Weather Pipeline
 
 on:
   schedule:
-    - cron: '0 * * * *'   # every hour (saves ~2000 minutes/month vs every 15min)
+    - cron: '0 * * * *'   # every hour
   workflow_dispatch:          # manual trigger
 
 permissions:
@@ -17,7 +17,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
         with:
-          fetch-depth: 1
+          fetch-depth: 0   # full history needed for amend to work correctly
 
       - name: Set up Python
         uses: actions/setup-python@v5
@@ -39,10 +39,25 @@ jobs:
           git config user.name  "Night Watch Bot"
           git config user.email "actions@github.com"
           git add data/space_weather.json || true
-          git add data/cloud_cover.json || true
-          git diff --staged --quiet || git commit -m \
-            "sw: $(date -u '+%Y-%m-%d %H:%M UTC') | $(python -c \
+          git add data/cloud_cover.json   || true
+
+          # Exit cleanly if nothing changed
+          git diff --staged --quiet && exit 0
+
+          SW_INFO=$(python -c \
             'import json; d=json.load(open("data/space_weather.json")); \
-            print(d["state"], d["intensity_label"], d["bz_now"])' 2>/dev/null || echo '?')"
+            print(d["state"], d["intensity_label"], d["bz_now"])' 2>/dev/null || echo '?')
+          MSG="sw: $(date -u '+%Y-%m-%d %H:%M UTC') | $SW_INFO"
+
+          # Amend the previous commit if it was also a data-only pipeline commit.
+          # This keeps the repo from growing ~550KB every hour — only the latest
+          # snapshot of the data files is stored in git history.
+          LAST_MSG=$(git log -1 --pretty=%s HEAD 2>/dev/null || echo '')
+          if echo "$LAST_MSG" | grep -q "^sw:"; then
+            git commit --amend -m "$MSG"
+          else
+            git commit -m "$MSG"
+          fi
+
           git pull --rebase --autostash origin main
-          git push
+          git push --force-with-lease
