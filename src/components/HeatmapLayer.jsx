@@ -8,8 +8,9 @@ import { loadBortleGrid, getBortle } from '../utils/bortleGrid.js'
 
 // Build score grid using pre-computed bortle lookup
 function buildScoreGrid(mode, getCloudAt, selectedHour, bortleGrid) {
-  // Large padding so the heatmap extends well beyond visible map edges — no rectangular cutoff
-  const pad = GRID_SPACING * 6
+  // Render bounds match cloud data coverage exactly — no blank ring artifacts
+  // Cloud pipeline fetches with pad=2 beyond GRID_BOUNDS, so use same pad here
+  const pad = GRID_SPACING * 2
   const lats = [], lons = []
   for (let lat = GRID_BOUNDS.maxLat + pad; lat >= GRID_BOUNDS.minLat - pad - 0.01; lat -= GRID_SPACING)
     lats.push(parseFloat(lat.toFixed(2)))
@@ -22,11 +23,7 @@ function buildScoreGrid(mode, getCloudAt, selectedHour, bortleGrid) {
       if (mode === 'bortle') return bortleScore(bortle)
 
       const cloud = getCloudAt ? getCloudAt(lat, lon, selectedHour) : null
-      if (mode === 'clouds') {
-        // No cloud data = show bortle-only dimmed, not a fake 50%
-        return cloud !== null ? 1 - cloud / 100 : bortleScore(bortle) * 0.7
-      }
-      // Combined: weight toward bortle when cloud missing, not a hard default
+      if (mode === 'clouds') return cloud !== null ? 1 - cloud / 100 : bortleScore(bortle) * 0.7
       if (cloud === null) return bortleScore(bortle) * 0.7
       return combinedScore(cloud, bortle)
     })
@@ -118,16 +115,15 @@ const SmoothHeatmap = L.Layer.extend({
 
         const [red, green, blue] = scoreToRGB(Math.max(0, Math.min(1, score)))
 
-        // Fade over a wide zone (4 degrees) so edges blend smoothly into the map
-        const FADE_MARGIN = GRID_SPACING * 4   // start fading 2° inside the data boundary
-        const FADE_ZONE   = GRID_SPACING * 8   // full fade width 4°
+        // Fade: start immediately at edge, fade to transparent over 3 degrees
+        const FADE_ZONE = GRID_SPACING * 6
         const distFromEdge = Math.min(
-          lat  - lats[rows-1],   // distance from south edge
-          latMax - lat,          // distance from north edge
-          lon  - lonMin,         // distance from west edge
-          lons[cols-1] - lon     // distance from east edge
+          lat  - lats[rows-1],
+          latMax - lat,
+          lon  - lonMin,
+          lons[cols-1] - lon
         )
-        const edgeFade = Math.max(0, Math.min(1, (distFromEdge - FADE_MARGIN) / FADE_ZONE))
+        const edgeFade = Math.max(0, Math.min(1, distFromEdge / FADE_ZONE))
         const alpha = Math.round(0.45 * edgeFade * 255)
 
         for (let dy = 0; dy < STEP && py + dy < H; dy++) {
