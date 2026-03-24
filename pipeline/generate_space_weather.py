@@ -344,13 +344,13 @@ def fetch_enlil_timeline():
             if dt <= now or dt > cutoff:
                 continue
 
-            # Field names vary — try Earth/L1 specific fields first, then generic
-            v = (rec.get('speed_earth') or rec.get('v_earth') or rec.get('vel_earth') or
-                 rec.get('speed_l1')    or rec.get('v_l1')    or
-                 rec.get('speed')       or rec.get('V')        or rec.get('vr_earth'))
-            d = (rec.get('density_earth') or rec.get('n_earth') or rec.get('den_earth') or
-                 rec.get('density_l1')    or rec.get('n_l1')    or
-                 rec.get('density')       or rec.get('N')        or rec.get('np_earth'))
+            # Field names confirmed from live log 2026-03-24:
+            # keys=['time_tag','earth_particles_per_cm3','temperature',
+            #       'v_r','v_theta','v_phi','b_r','b_theta','b_phi','polarity','cloud']
+            v = (rec.get('v_r') or rec.get('speed_earth') or rec.get('v_earth') or
+                 rec.get('vel_earth') or rec.get('speed_l1') or rec.get('speed') or rec.get('V'))
+            d = (rec.get('earth_particles_per_cm3') or rec.get('density_earth') or
+                 rec.get('n_earth') or rec.get('density_l1') or rec.get('density') or rec.get('N'))
 
             try:
                 v = float(v) if v is not None else None
@@ -675,16 +675,41 @@ CLOUD_OUTPUT_PATH  = os.path.join(os.path.dirname(__file__), '..', 'data', 'clou
 
 
 def build_cloud_grid():
-    """Build list of {lat, lon} dicts covering our bounding box at 0.25° spacing."""
+    """Build list of {lat, lon} dicts covering our bounding box at 0.25° spacing.
+    Ocean points east of the coastline are excluded — no aurora chasers on the Atlantic.
+    Saves ~28% of API calls with zero loss of useful coverage."""
+
+    # Approximate eastern coastline: max useful longitude per latitude band
+    # Points east of this are Atlantic Ocean — skip them
+    COAST_MASK = {
+        38.0: -74.5, 38.5: -74.2, 39.0: -74.0, 39.5: -73.8,
+        40.0: -73.5, 40.5: -73.0, 41.0: -71.8, 41.5: -71.2,
+        42.0: -69.9, 42.5: -70.0, 43.0: -70.5, 43.5: -70.2,
+        44.0: -69.2, 44.5: -67.5, 45.0: -67.0, 45.5: -67.0,
+        46.0: -67.5, 46.5: -68.0, 47.0: -68.5, 47.5: -69.0,
+        48.0: -69.5,
+    }
+    coast_lats = sorted(COAST_MASK.keys())
+
+    def max_lon_for(lat):
+        for cl in coast_lats:
+            if lat <= cl:
+                return COAST_MASK[cl]
+        return CLOUD_GRID_BOUNDS['maxLon']  # no mask above top of table
+
     pad  = CLOUD_GRID_SPACING * 2
     grid = []
     lat  = CLOUD_GRID_BOUNDS['minLat'] - pad
     while lat <= CLOUD_GRID_BOUNDS['maxLat'] + pad:
+        max_lon = max_lon_for(round(lat, 2))
         lon = CLOUD_GRID_BOUNDS['minLon'] - pad
         while lon <= CLOUD_GRID_BOUNDS['maxLon'] + pad:
-            grid.append({'lat': round(lat, 2), 'lon': round(lon, 2)})
+            if lon <= max_lon:  # skip ocean
+                grid.append({'lat': round(lat, 2), 'lon': round(lon, 2)})
             lon = round(lon + CLOUD_GRID_SPACING, 2)
         lat = round(lat + CLOUD_GRID_SPACING, 2)
+
+    log.info(f'Cloud grid: {len(grid)} points (ocean masked)')
     return grid
 
 
@@ -818,6 +843,187 @@ def fetch_ndfd_cloud(grid):
     return results
 
 
+
+
+# ── HRRR Cloud Cover ──────────────────────────────────────────────────────────
+#
+# NOAA HRRR (High-Resolution Rapid Refresh): 3km, hourly, no rate limits, no seams.
+# Uses byte-range HTTP to fetch only the TCDC (total cloud cover) variable
+# from each forecast hour file — ~2-5MB per hour vs ~1GB full file.
+#
+HRRR_BASE = 'https://nomads.ncep.noaa.gov/pub/data/nccf/com/hrrr/prod/'
+
+
+def fetch_hrrr_cloud(grid):
+    """
+    Fetch HRRR total cloud cover for our grid for the next 9 forecast hours.
+    Returns dict matching cloud_cover.json format: {"lat,lon": [{t, cc}, ...]}
+    or None on failure (caller falls back to Open-Meteo).
+
+    Uses .idx byte-range technique: fetch 50KB index, find TCDC offset,
+    byte-range GET only that variable (~2-5MB each forecast hour).
+    Total: ~20-40MB for 10 hours. Runtime: ~15-30 seconds. Zero rate limits.
+    """
+    try:
+        import cfgrib
+        import numpy as np
+        from scipy.spatial import KDTree
+        import tempfile
+    except ImportError as e:
+        log.warning(f'HRRR: missing dependency ({e})')
+        return None
+
+    now = datetime.now(timezone.utc)
+
+    # Most recent HRRR run available (files ready ~20min after the hour)
+    run_dt   = now - timedelta(minutes=20)
+    run_hour = run_dt.hour
+    run_date = run_dt.strftime('%Y%m%d')
+    base_url = f'{HRRR_BASE}hrrr.{run_date}/conus/hrrr.t{run_hour:02d}z'
+    log.info(f'HRRR: using run {run_date} {run_hour:02d}Z')
+
+    # Forecast hours covering now-1hr to now+9hr
+    run_valid = run_dt.replace(minute=0, second=0, microsecond=0)
+    hours_needed = []
+    for fh in range(0, 10):
+        valid_time = run_valid + timedelta(hours=fh)
+        offset_hr  = (valid_time - now).total_seconds() / 3600
+        if -1.5 <= offset_hr <= 9.5:
+            hours_needed.append((fh, valid_time))
+
+    if not hours_needed:
+        log.warning('HRRR: no forecast hours in window')
+        return None
+
+    log.info(f'HRRR: fetching forecast hours {[h[0] for h in hours_needed]}')
+
+    all_messages = []   # list of (valid_time, lat_flat, lon_flat, tcdc_flat)
+
+    for fh, valid_time in hours_needed:
+        try:
+            grib_url = f'{base_url}.wrfsfcf{fh:02d}.grib2'
+            idx_url  = f'{grib_url}.idx'
+
+            # Fetch index file (~50KB)
+            idx_resp = requests.get(idx_url, timeout=10)
+            if not idx_resp.ok:
+                log.warning(f'HRRR f{fh:02d}: idx HTTP {idx_resp.status_code}')
+                continue
+
+            # Parse index to find TCDC "entire atmosphere" byte range
+            lines      = idx_resp.text.strip().split('\n')
+            byte_start = None
+            byte_end   = None
+            for i, line in enumerate(lines):
+                parts = line.split(':')
+                if len(parts) < 5:
+                    continue
+                var   = parts[3].strip()
+                level = parts[4].strip().lower()
+                if var == 'TCDC' and 'entire' in level:
+                    byte_start = int(parts[1])
+                    if i + 1 < len(lines):
+                        nxt = lines[i + 1].split(':')
+                        if len(nxt) >= 2:
+                            byte_end = int(nxt[1]) - 1
+                    break
+
+            if byte_start is None:
+                log.warning(f'HRRR f{fh:02d}: TCDC not found in index')
+                continue
+
+            # Byte-range GET for just this variable
+            hdrs      = {'Range': f'bytes={byte_start}-{byte_end if byte_end else ""}'}
+            grib_resp = requests.get(grib_url, headers=hdrs, timeout=30)
+            if grib_resp.status_code not in (200, 206):
+                log.warning(f'HRRR f{fh:02d}: GRIB HTTP {grib_resp.status_code}')
+                continue
+
+            # Parse with cfgrib
+            with tempfile.NamedTemporaryFile(suffix='.grib2', delete=False) as tmp:
+                tmp.write(grib_resp.content)
+                tmp_path = tmp.name
+
+            try:
+                datasets = cfgrib.open_datasets(tmp_path)
+                parsed   = False
+                for ds in datasets:
+                    tcc = None
+                    for vname in ('tcc', 'TCDC', 'unknown'):
+                        if vname in ds:
+                            tcc = ds[vname]
+                            break
+                    if tcc is None and ds.data_vars:
+                        tcc = ds[list(ds.data_vars)[0]]
+                    if tcc is None:
+                        continue
+
+                    lat_arr = ds.latitude.values.flatten()
+                    lon_arr = ds.longitude.values.flatten()
+                    # HRRR lons are 0-360 — convert to -180/180
+                    lon_arr = np.where(lon_arr > 180, lon_arr - 360, lon_arr)
+                    tcc_arr = tcc.values.flatten()
+
+                    all_messages.append((valid_time, lat_arr, lon_arr, tcc_arr))
+                    log.info(f'HRRR f{fh:02d}: valid={valid_time.strftime("%H:%MZ")}, {len(lat_arr)} grid pts')
+                    parsed = True
+                    break
+                if not parsed:
+                    log.warning(f'HRRR f{fh:02d}: no usable variable in GRIB')
+            finally:
+                os.unlink(tmp_path)
+
+        except Exception as e:
+            log.warning(f'HRRR f{fh:02d} error: {e}')
+            continue
+
+    if not all_messages:
+        log.warning('HRRR: no messages parsed — falling back to Open-Meteo')
+        return None
+
+    log.info(f'HRRR: {len(all_messages)}/{len(hours_needed)} forecast hours parsed')
+
+    # Build KDTree from HRRR native grid, restricted to our bounding box
+    _, lat0, lon0, _ = all_messages[0]
+    mask = (
+        (lat0 >= CLOUD_GRID_BOUNDS['minLat'] - 1) &
+        (lat0 <= CLOUD_GRID_BOUNDS['maxLat'] + 1) &
+        (lon0 >= CLOUD_GRID_BOUNDS['minLon'] - 1) &
+        (lon0 <= CLOUD_GRID_BOUNDS['maxLon'] + 1)
+    )
+    lat_sub  = lat0[mask]
+    lon_sub  = lon0[mask]
+    full_idx = np.where(mask)[0]
+
+    if len(lat_sub) == 0:
+        log.warning('HRRR: no grid points in bounding box')
+        return None
+
+    tree = KDTree(np.column_stack([lat_sub, lon_sub]))
+    grid_lats = np.array([p['lat'] for p in grid])
+    grid_lons = np.array([p['lon'] for p in grid])
+    _, near_idxs = tree.query(np.column_stack([grid_lats, grid_lons]))
+
+    results = {}
+    for gi, pt in enumerate(grid):
+        key      = f"{pt['lat']},{pt['lon']}"
+        hrrr_idx = full_idx[near_idxs[gi]]
+        forecast = []
+        for vt, lat_f, lon_f, tcc_f in sorted(all_messages, key=lambda x: x[0]):
+            if hrrr_idx >= len(tcc_f):
+                continue
+            cc = tcc_f[hrrr_idx]
+            if np.isnan(cc) or np.isinf(cc):
+                continue
+            forecast.append({'t': vt.isoformat(), 'cc': int(np.clip(round(float(cc)), 0, 100))})
+        if forecast:
+            results[key] = forecast
+
+    pct = len(results) / max(len(grid), 1) * 100
+    log.info(f'HRRR: populated {len(results)}/{len(grid)} points ({pct:.0f}%)')
+
+    # Return None if coverage < 80% so Open-Meteo fallback kicks in
+    return results if len(results) >= len(grid) * 0.8 else None
 
 def fetch_cloud_batch(points):
     """Fetch cloud cover for a batch of points from Open-Meteo.
@@ -1015,11 +1221,15 @@ def main_with_clouds():
         json.dump(sw_output, f, indent=2)
     log.info(f'space_weather.json written: {state} {intensity_label} bz={bz_now:.1f}')
 
-    # Cloud cover — Open-Meteo (uniform full coverage, no WFO seams like NDFD neast)
-    # Batch 50 pts per request with 2s delay stays well under rate limits.
-    log.info('Fetching cloud cover grid (Open-Meteo)...')
+    # Cloud cover — HRRR primary (3km, no rate limits, no seams)
+    # Falls back to Open-Meteo if HRRR fails or covers < 80% of grid
+    log.info('Fetching cloud cover grid (HRRR)...')
     grid = build_cloud_grid()
-    cloud_results = fetch_all_cloud_openmeteo(grid)
+
+    cloud_results = fetch_hrrr_cloud(grid)
+    if not cloud_results:
+        log.warning('HRRR failed — falling back to Open-Meteo')
+        cloud_results = fetch_all_cloud_openmeteo(grid)
 
     cloud_output = {
         'last_updated': now.isoformat(),
