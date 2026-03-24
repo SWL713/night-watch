@@ -376,6 +376,58 @@ def fetch_enlil_timeline():
 
 # ── Determine pipeline state ──────────────────────────────────────────────────
 
+def fetch_ovation():
+    """
+    Fetch Ovation Prime aurora forecast and extract boundary/viewline for the northeast.
+    Returns dict with oval_boundary and view_line as lists of [lat, lon] pairs.
+    """
+    data = safe_get(OVATION_URL)
+    if not data or 'coordinates' not in data:
+        log.warning('Ovation fetch failed or no coordinates')
+        return {'oval_boundary': [], 'view_line': [],
+                'observation_time': None, 'forecast_time': None}
+
+    coords = data.get('coordinates', [])
+
+    # Group by longitude bin (2° bins) for the full northern hemisphere
+    # Store full hemisphere so browser can filter to its region
+    lon_groups = {}
+    for entry in coords:
+        if len(entry) < 3:
+            continue
+        lon, lat, prob = entry[0], entry[1], entry[2]
+        if lat < 30 or lat > 90:  # northern hemisphere only
+            continue
+        key = round(lon / 2) * 2
+        if key not in lon_groups:
+            lon_groups[key] = []
+        lon_groups[key].append({'lat': lat, 'prob': prob})
+
+    oval_boundary = []
+    view_line = []
+
+    for lon_key, points in sorted(lon_groups.items()):
+        sorted_pts = sorted(points, key=lambda p: p['lat'])
+
+        # Oval boundary: southernmost lat with prob >= 10%
+        oval_pt = next((p for p in sorted_pts if p['prob'] >= 10), None)
+        if oval_pt:
+            oval_boundary.append([oval_pt['lat'], lon_key])
+
+        # Viewline: southernmost lat with prob >= 2%
+        view_pt = next((p for p in sorted_pts if p['prob'] >= 2), None)
+        if view_pt:
+            view_line.append([view_pt['lat'], lon_key])
+
+    log.info(f'Ovation: {len(oval_boundary)} oval pts, {len(view_line)} view pts')
+    return {
+        'oval_boundary':    oval_boundary,
+        'view_line':        view_line,
+        'observation_time': data.get('Observation Time'),
+        'forecast_time':    data.get('Forecast Time'),
+    }
+
+
 def determine_state(bz, v_kms, noaa):
     """Simplified state for the map — full state machine lives in CME Watch."""
     g_level = noaa.get('g_level', '')
@@ -665,6 +717,9 @@ def main_with_clouds():
     enlil_timeline = fetch_enlil_timeline() if enlil_active else []
     bz_timeline    = build_bz_timeline(l1)
 
+    # Ovation Prime aurora model
+    ovation = fetch_ovation()
+
     sw_output = {
         'last_updated':         now.isoformat(),
         'state':                state,
@@ -692,6 +747,10 @@ def main_with_clouds():
         'enlil_active':         bool(enlil_active),
         'enlil_timeline':       enlil_timeline,
         'timeline':             bz_timeline,
+        'ovation_oval':         ovation.get('oval_boundary', []),
+        'ovation_viewline':     ovation.get('view_line', []),
+        'ovation_obs_time':     ovation.get('observation_time'),
+        'ovation_fcst_time':    ovation.get('forecast_time'),
     }
 
     os.makedirs(os.path.dirname(OUTPUT_PATH), exist_ok=True)

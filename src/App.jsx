@@ -148,7 +148,7 @@ function App() {
           )}
 
           {/* Ovation lines */}
-          {layers.ovation && <OvationLines />}
+          {layers.ovation && <OvationLines spaceWeather={sw} />}
 
           {/* Spot pins */}
           {layers.pins && (

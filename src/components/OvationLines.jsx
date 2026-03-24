@@ -1,49 +1,46 @@
-import { useEffect, useState } from 'react'
 import { Polyline, Tooltip } from 'react-leaflet'
-import { fetchOvationBoundaries } from '../utils/ovation.js'
 
-export default function OvationLines() {
-  const [data, setData] = useState({ ovalBoundary: [], viewLine: [], observationTime: null })
-  const [loading, setLoading] = useState(true)
+// Reads Ovation Prime data from space_weather.json (fetched by pipeline hourly)
+// No CORS issues, no browser-side API calls needed.
 
-  useEffect(() => {
-    fetchOvationBoundaries().then(d => { setData(d); setLoading(false) })
-    // Refresh every 10 minutes — Ovation updates every 10min
-    const interval = setInterval(() => {
-      fetchOvationBoundaries().then(setData)
-    }, 10 * 60 * 1000)
-    return () => clearInterval(interval)
-  }, [])
+export default function OvationLines({ spaceWeather }) {
+  const oval     = spaceWeather?.ovation_oval     || []
+  const viewLine = spaceWeather?.ovation_viewline  || []
+  const obsTime  = spaceWeather?.ovation_obs_time  || null
 
-  if (loading || (!data.ovalBoundary.length && !data.viewLine.length)) return null
+  if (!oval.length && !viewLine.length) return null
+
+  const timeLabel = obsTime
+    ? `Updated: ${new Date(obsTime).toUTCString().slice(17, 22)} UTC`
+    : ''
 
   return (
     <>
-      {/* Oval boundary — where aurora is overhead */}
-      {data.ovalBoundary.length > 1 && (
+      {oval.length > 1 && (
         <Polyline
-          positions={data.ovalBoundary}
-          pathOptions={{ color: '#44ddaa', weight: 2.5, opacity: 0.85, dashArray: null }}
+          positions={oval}
+          pathOptions={{ color: '#44ddaa', weight: 2.5, opacity: 0.85 }}
         >
           <Tooltip sticky>
             <span style={{ fontFamily: 'monospace', fontSize: 11 }}>
-              ● Aurora Oval Boundary<br/>
-              {data.observationTime && `Updated: ${data.observationTime}`}
+              ● Ovation Model — Oval Boundary<br/>
+              Aurora overhead at this line<br/>
+              {timeLabel}
             </span>
           </Tooltip>
         </Polyline>
       )}
 
-      {/* Viewline — equatorward visibility limit */}
-      {data.viewLine.length > 1 && (
+      {viewLine.length > 1 && (
         <Polyline
-          positions={data.viewLine}
+          positions={viewLine}
           pathOptions={{ color: '#44ddaa', weight: 1.5, opacity: 0.45, dashArray: '6 4' }}
         >
           <Tooltip sticky>
             <span style={{ fontFamily: 'monospace', fontSize: 11 }}>
-              ◌ Aurora Viewline (visibility limit)<br/>
-              Aurora visible to the north of this line
+              ◌ Ovation Model — Visibility Limit<br/>
+              Aurora visible on horizon north of this line<br/>
+              {timeLabel}
             </span>
           </Tooltip>
         </Polyline>
