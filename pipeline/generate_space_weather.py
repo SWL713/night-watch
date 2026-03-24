@@ -658,14 +658,27 @@ def main():
              f'bz={bz_now:.1f} quality={quality_label}')
 
 
+
+# ── NDFD Cloud Cover (replaces Open-Meteo) ─────────────────────────────────────
+#
+# NOAA NDFD sky cover: free, no rate limits, hourly for 3 days then 3-hrly to day 7.
+# Northeast sector (AR.neast) covers our full grid at 5km resolution.
+# Files are GRIB2, parsed with cfgrib + scipy nearest-neighbour to our 0.25° grid.
+#
+NDFD_BASE    = 'https://tgftp.nws.noaa.gov/SL.us008001/ST.opnl/DF.gr2/DC.ndfd/AR.neast/'
+# Valid-period dirs that cover -1h to +8h from now (conservative — grab first 3 files)
+NDFD_PERIODS = ['VP.001-003', 'VP.004-007', 'VP.008-013']
+
 CLOUD_GRID_SPACING = 0.25
 CLOUD_GRID_BOUNDS  = {'minLat': 38.5, 'maxLat': 47.5, 'minLon': -82, 'maxLon': -66}
 CLOUD_OUTPUT_PATH  = os.path.join(os.path.dirname(__file__), '..', 'data', 'cloud_cover.json')
 
+
 def build_cloud_grid():
-    pad = CLOUD_GRID_SPACING * 2
+    """Build list of {lat, lon} dicts covering our bounding box at 0.25° spacing."""
+    pad  = CLOUD_GRID_SPACING * 2
     grid = []
-    lat = CLOUD_GRID_BOUNDS['minLat'] - pad
+    lat  = CLOUD_GRID_BOUNDS['minLat'] - pad
     while lat <= CLOUD_GRID_BOUNDS['maxLat'] + pad:
         lon = CLOUD_GRID_BOUNDS['minLon'] - pad
         while lon <= CLOUD_GRID_BOUNDS['maxLon'] + pad:
@@ -675,8 +688,127 @@ def build_cloud_grid():
     return grid
 
 
+def fetch_ndfd_cloud(grid):
+    """
+    Fetch NOAA NDFD sky cover for the northeast US.
+    Returns dict matching cloud_cover.json format: {"lat,lon": [{t, cc}, ...]}
+    or None on complete failure (caller should fall back to Open-Meteo).
+
+    Source: tgftp.nws.noaa.gov NDFD neast sector, ds.sky.bin
+    7-day forecast, hourly for days 1-3, no rate limits, ~2-5 MB per period file.
+    """
+    try:
+        import cfgrib
+        import numpy as np
+        from scipy.spatial import KDTree
+        import tempfile
+    except ImportError as e:
+        log.warning(f'NDFD: missing dependency ({e}) — falling back to Open-Meteo')
+        return None
+
+    now    = datetime.now(timezone.utc)
+    # Collect (valid_datetime, flattened_lats, flattened_lons, flattened_sky%) tuples
+    messages = []
+
+    for period in NDFD_PERIODS:
+        url = f'{NDFD_BASE}{period}/ds.sky.bin'
+        log.info(f'NDFD: fetching {url}')
+        try:
+            data = safe_get_bytes(url)
+            if not data or len(data) < 500:
+                log.warning(f'NDFD: empty response for {period}')
+                continue
+
+            with tempfile.NamedTemporaryFile(suffix='.bin', delete=False) as tmp:
+                tmp.write(data)
+                tmp_path = tmp.name
+
+            try:
+                datasets = cfgrib.open_datasets(tmp_path)
+                for ds in datasets:
+                    # valid_time may be a scalar or array
+                    vt_raw = ds.valid_time.values
+                    vt_list = np.atleast_1d(vt_raw)
+
+                    # Get sky cover array — NDFD uses parameter shortName 'tcc' or 'unknown'
+                    sky_var = None
+                    for vname in ('tcc', 'unknown', 'TCDC'):
+                        if vname in ds:
+                            sky_var = ds[vname]
+                            break
+                    if sky_var is None and len(ds.data_vars) > 0:
+                        sky_var = ds[list(ds.data_vars)[0]]
+                    if sky_var is None:
+                        continue
+
+                    lat_arr = ds.latitude.values   # 2-D (y, x)
+                    lon_arr = ds.longitude.values  # 2-D (y, x)
+                    sky_arr = sky_var.values        # may be 3-D (time, y, x) or 2-D
+
+                    # Handle both 2-D (single time) and 3-D (multiple times)
+                    if sky_arr.ndim == 2:
+                        sky_arr = sky_arr[np.newaxis, :, :]   # → (1, y, x)
+
+                    for i, vt_np in enumerate(vt_list):
+                        try:
+                            vt = pd.Timestamp(vt_np).to_pydatetime().replace(tzinfo=timezone.utc)
+                        except Exception:
+                            continue
+                        offset_hr = (vt - now).total_seconds() / 3600
+                        if not (-2 <= offset_hr <= 9):
+                            continue
+                        sky_2d = sky_arr[i] if i < sky_arr.shape[0] else sky_arr[0]
+                        messages.append((
+                            vt,
+                            lat_arr.flatten(),
+                            lon_arr.flatten(),
+                            sky_2d.flatten(),
+                        ))
+            finally:
+                os.unlink(tmp_path)
+
+        except Exception as e:
+            log.warning(f'NDFD {period} parse error: {e}')
+            import traceback; log.warning(traceback.format_exc())
+            continue
+
+    if not messages:
+        log.warning('NDFD: no valid messages parsed — falling back to Open-Meteo')
+        return None
+
+    log.info(f'NDFD: {len(messages)} forecast hours parsed')
+
+    # Build KD-tree from the first message's lat/lon grid
+    # (all messages from same sector share the same grid projection)
+    _, lat0, lon0, _ = messages[0]
+    tree = KDTree(np.column_stack([lat0, lon0]))
+
+    # Query tree once per grid point, reuse index across all times
+    grid_lats = np.array([p['lat'] for p in grid])
+    grid_lons = np.array([p['lon'] for p in grid])
+    _, idxs = tree.query(np.column_stack([grid_lats, grid_lons]))
+
+    results = {}
+    for i, pt in enumerate(grid):
+        key      = f"{pt['lat']},{pt['lon']}"
+        ndfd_idx = idxs[i]
+        forecast = []
+        for vt, lat_f, lon_f, sky_f in sorted(messages, key=lambda x: x[0]):
+            if ndfd_idx >= len(sky_f):
+                continue
+            cc = sky_f[ndfd_idx]
+            if np.isnan(cc) or np.isinf(cc):
+                continue
+            forecast.append({'t': vt.isoformat(), 'cc': int(np.clip(round(cc), 0, 100))})
+        if forecast:
+            results[key] = forecast
+
+    log.info(f'NDFD: populated {len(results)}/{len(grid)} grid points')
+    return results
+
+
 def fetch_cloud_batch(points):
-    """Fetch cloud cover for up to 100 points in one Open-Meteo call."""
+    """Fetch cloud cover for up to 100 points in one Open-Meteo call (fallback)."""
     lats = ','.join(str(p['lat']) for p in points)
     lons = ','.join(str(p['lon']) for p in points)
     url = (f'https://api.open-meteo.com/v1/forecast'
@@ -699,9 +831,7 @@ def fetch_cloud_batch(points):
         times  = d['hourly'].get('time', [])
         clouds = d['hourly'].get('cloudcover', [])
         key = f"{pt['lat']},{pt['lon']}"
-        # Store 10 hourly values: -1hr to +8hr from now
         forecast = []
-        # Store absolute UTC timestamps so browser lookup works regardless of when page loads
         for t_str, cc in zip(times, clouds):
             if cc is None:
                 continue
@@ -711,12 +841,11 @@ def fetch_cloud_batch(points):
                 forecast.append({'t': t.isoformat(), 'cc': int(cc)})
         if forecast:
             results[key] = forecast
-
     return results
 
 
-def fetch_all_cloud(grid):
-    """Fetch cloud cover for entire grid in batches of 100."""
+def fetch_all_cloud_openmeteo(grid):
+    """Open-Meteo fallback: fetch cloud cover for entire grid in batches of 100."""
     results = {}
     BATCH = 100
     total = len(grid)
@@ -728,10 +857,9 @@ def fetch_all_cloud(grid):
         except Exception as e:
             log.warning(f'Cloud batch {i}–{i+BATCH} failed: {e}')
         pct = min(100, round((i + BATCH) / total * 100))
-        log.info(f'  Cloud grid: {pct}% ({len(results)}/{total} points)')
-        time.sleep(0.3)
+        log.info(f'  Cloud grid (Open-Meteo fallback): {pct}% ({len(results)}/{total} points)')
+        time.sleep(1.0)   # respect rate limit in fallback mode
     return results
-
 
 def main_with_clouds():
     """Extended main that also fetches cloud cover."""
@@ -857,10 +985,14 @@ def main_with_clouds():
         json.dump(sw_output, f, indent=2)
     log.info(f'space_weather.json written: {state} {intensity_label} bz={bz_now:.1f}')
 
-    # Cloud cover grid
-    log.info('Fetching cloud cover grid...')
+    # Cloud cover grid — NDFD primary, Open-Meteo fallback
+    log.info('Fetching cloud cover grid (NDFD)...')
     grid = build_cloud_grid()
-    cloud_results = fetch_all_cloud(grid)
+
+    cloud_results = fetch_ndfd_cloud(grid)
+    if not cloud_results or len(cloud_results) < len(grid) * 0.5:
+        log.warning(f'NDFD returned {len(cloud_results) if cloud_results else 0} points — falling back to Open-Meteo')
+        cloud_results = fetch_all_cloud_openmeteo(grid)
 
     cloud_output = {
         'last_updated': now.isoformat(),
@@ -868,7 +1000,7 @@ def main_with_clouds():
         'points':       cloud_results,
     }
     with open(CLOUD_OUTPUT_PATH, 'w') as f:
-        json.dump(cloud_output, f, separators=(',', ':'))  # compact — saves ~30% size
+        json.dump(cloud_output, f, separators=(',', ':'))
     log.info(f'cloud_cover.json written: {len(cloud_results)} points')
 
 

@@ -2,3 +2,5 @@ requests>=2.31.0
 numpy>=1.26.0
 pandas>=2.1.0
 netCDF4>=1.6.0
+cfgrib>=0.9.10
+scipy>=1.11.0
