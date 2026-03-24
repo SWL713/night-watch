@@ -145,21 +145,28 @@ export function useCloudCover() {
     return () => clearInterval(iv)
   }, [])
 
+  // Use a ref so getCloudAt is always fresh without causing re-renders
+  const cloudDataRef = useRef(null)
+  useEffect(() => { cloudDataRef.current = cloudData }, [cloudData])
+
+  // Stable function reference — reads from ref so always uses latest data
   const getCloudAt = useCallback((lat, lon, hourOffset = 0) => {
-    if (!cloudData?.points) return null
-    const spacing = cloudData.spacing || GRID_SPACING
+    const data = cloudDataRef.current
+    if (!data?.points) return null
+    const spacing = data.spacing || GRID_SPACING
     const key     = makeKey(lat, lon, spacing)
-    const fc      = cloudData.points[key]
+    const fc      = data.points[key]
     if (!fc?.length) return null
 
-    const target = new Date(Date.now() + hourOffset * 3600000)
-    let best = fc[0], bestDiff = Math.abs(fc[0].time - target)
+    const target = Date.now() + hourOffset * 3600000
+    let best = fc[0]
+    let bestDiff = Math.abs(new Date(fc[0].time).getTime() - target)
     for (let i = 1; i < fc.length; i++) {
-      const diff = Math.abs(fc[i].time - target)
+      const diff = Math.abs(new Date(fc[i].time).getTime() - target)
       if (diff < bestDiff) { bestDiff = diff; best = fc[i] }
     }
-    return best ? best.cloudcover : null
-  }, [cloudData])
+    return best ? (best.cloudcover ?? best.cc ?? null) : null
+  }, []) // stable — reads from ref
 
   const coverage = cloudData?.points ? Object.keys(cloudData.points).length : 0
   const total    = cloudData?.points ? Object.keys(cloudData.points).length : 0

@@ -282,9 +282,10 @@ export default function HeatmapLayer({ mode, selectedHour, getCloudAt, cloudLoad
     layerRef.current.updateData(scoreData)
   }, [mode, selectedHour, getCloudAt, cloudLoading])
 
-  // Extra: force redraw on selectedHour even if getCloudAt reference is stable
+  // Force redraw when selectedHour changes — getCloudAt ref stays stable so
+  // we need this dedicated effect to guarantee re-render on hour scrub
   useEffect(() => {
-    if (!layerRef.current || !cloudLoading === false) return
+    if (!layerRef.current || !getCloudAt) return
     const scoreData = buildScoreGrid(mode, getCloudAt, selectedHour)
     layerRef.current.updateData(scoreData)
   }, [selectedHour]) // eslint-disable-line
