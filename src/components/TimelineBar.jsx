@@ -302,7 +302,7 @@ export default function TimelineBar({ spaceWeather, moonData, selectedHour, onHo
     //   2. spaceWeather.plasma_timeline from pipeline JSON
     //   3. Flat line synthesized from current scalar speed_kms/density_ncc
 
-    const rawPlasma = (plasmaTrace !== null && plasmaTrace.length >= 5)
+    const rawPlasma = (plasmaTrace != null && plasmaTrace.length >= 5)  // != catches both null and undefined
       ? plasmaTrace
       : (spaceWeather.plasma_timeline || []).length >= 5
         ? (spaceWeather.plasma_timeline).map(p => ({ time: new Date(p.time), speed: p.speed, density: p.density }))
