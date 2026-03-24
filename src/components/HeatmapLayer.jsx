@@ -27,11 +27,11 @@ const CLOUD_SPACING  = 0.25
 const BORTLE_SPACING = 0.1
 
 // Gentle separable gaussian — smooths score grid to remove cell seams.
-// With NDFD data (5km native, resampled to 0.25°) the source data is already
-// spatially coherent so we use a tighter kernel than with Open-Meteo.
-// Radius 1, sigma 0.8 — softens hard grid edges without smearing real boundaries.
+// With HRRR data (3km native, resampled to 0.25°) the source data is already
+// spatially coherent so we use a moderate kernel.
+// Radius 2, sigma 1.0 — creates gradual transitions without destroying real boundaries.
 function gaussianSmooth(grid, rows, cols) {
-  const sigma = 0.8, R = 1
+  const sigma = 1.0, R = 2
   const raw = []
   let ksum = 0
   for (let i = -R; i <= R; i++) {
@@ -83,9 +83,17 @@ function buildScoreGrid(mode, getCloudAt, selectedHour, bortleLookup) {
       const bortle = bortleLookup ? getBortle(bortleLookup, lat, lon) : 5
       if (mode === 'bortle') return bortleScore(bortle)
       const cloud = getCloudAt ? getCloudAt(lat, lon, selectedHour) : null
-      if (mode === 'clouds') return cloud !== null ? 1 - cloud / 100 : null
-      // Combined: cloud score only — bortle overlay handled separately
-      return cloud !== null ? 1 - cloud / 100 : null
+      if (mode === 'clouds') {
+        if (cloud === null) return null
+        // Thin/scattered clouds (<40%) don't meaningfully block aurora — treat as clear
+        // Scale 40-100% to the full 0-1 penalty range
+        const adjusted = cloud < 40 ? 0 : (cloud - 40) / 60 * 100
+        return 1 - adjusted / 100
+      }
+      // Combined: same threshold applied to cloud layer
+      if (cloud === null) return null
+      const adjusted = cloud < 40 ? 0 : (cloud - 40) / 60 * 100
+      return 1 - adjusted / 100
     })
   )
 
