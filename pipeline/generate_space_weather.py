@@ -819,35 +819,27 @@ def fetch_ndfd_cloud(grid):
 
 
 
-def fetch_cloud_batch(points, retries=3):
+def fetch_cloud_batch(points):
     """Fetch cloud cover for a batch of points from Open-Meteo.
-    Retries on 429 with exponential backoff."""
+    No retries — if rate limited just skip the batch and keep moving.
+    The 2s inter-batch delay prevents most 429s from occurring."""
     lats = ','.join(str(p['lat']) for p in points)
     lons = ','.join(str(p['lon']) for p in points)
     url = (f'https://api.open-meteo.com/v1/forecast'
            f'?latitude={lats}&longitude={lons}'
            f'&hourly=cloudcover&forecast_days=2&timezone=UTC')
 
-    data = None
-    for attempt in range(retries):
-        try:
-            r = requests.get(url, timeout=25)
-            if r.status_code == 429:
-                wait = 30 * (attempt + 1)  # 30s, 60s, 90s
-                log.warning(f'Open-Meteo 429 — waiting {wait}s before retry {attempt+1}/{retries}')
-                time.sleep(wait)
-                continue
-            if r.status_code == 200:
-                data = r.json()
-                break
+    try:
+        r = requests.get(url, timeout=10)  # short timeout — skip slow batches
+        if r.status_code == 429:
+            log.warning('Open-Meteo 429 — skipping batch, will retry next pipeline run')
+            return {}
+        if r.status_code != 200:
             log.warning(f'Open-Meteo HTTP {r.status_code}')
             return {}
-        except Exception as e:
-            log.warning(f'Open-Meteo batch error: {e}')
-            if attempt < retries - 1:
-                time.sleep(10)
-
-    if data is None:
+        data = r.json()
+    except Exception as e:
+        log.warning(f'Open-Meteo batch error: {e}')
         return {}
 
     responses = data if isinstance(data, list) else [data]
