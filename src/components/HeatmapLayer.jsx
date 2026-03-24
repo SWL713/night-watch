@@ -68,7 +68,7 @@ function gaussianSmooth(grid, rows, cols, sigma = 1.0, R = 2) {
 }
 
 function buildScoreGrid(mode, getCloudAt, selectedHour, bortleLookup) {
-  const spacing = mode === 'bortle' ? BORTLE_SPACING : CLOUD_SPACING
+  const spacing = (mode === 'bortle' || mode === 'combined') ? BORTLE_SPACING : CLOUD_SPACING
   const pad = spacing * 2
   const lats = [], lons = []
   for (let lat = GRID_BOUNDS.maxLat + pad; lat >= GRID_BOUNDS.minLat - pad - 0.001; lat -= spacing)
@@ -80,26 +80,26 @@ function buildScoreGrid(mode, getCloudAt, selectedHour, bortleLookup) {
     lons.map(lon => {
       if (isOcean(lat, lon)) return null
       const bortle = bortleLookup ? getBortle(bortleLookup, lat, lon) : 5
-      if (mode === 'bortle') return bortleScore(bortle)
+      const bScore = bortleScore(bortle)
+
+      if (mode === 'bortle') return bScore
+
       const cloud = getCloudAt ? getCloudAt(lat, lon, selectedHour) : null
-      // Cloud score with 40% threshold — applied in both clouds-only and combined
-      if (cloud === null) return mode === 'combined' ? bortleScore(bortle) * 0.7 : null
-      const adjusted = cloud < 40 ? 0 : (cloud - 40) / 60 * 100
-      return 1 - adjusted / 100
+      const adjusted = cloud === null ? null : (cloud < 40 ? 0 : (cloud - 40) / 60 * 100)
+      const cScore = adjusted === null ? null : 1 - adjusted / 100
+
+      if (mode === 'clouds') return cScore
+
+      // Combined: multiply blend — honest, no fringe artifacts, full contrast range
+      // Perfect site (clear + dark) = 1.0 * 1.0 = 1.0 = full green
+      // Any degradation in either dimension proportionally reduces score
+      if (cScore === null) return bScore * 0.7  // no cloud data — show dim bortle
+      return cScore * bScore
     })
   )
 
-  // Bortle overlay grid for combined mode (raw 1-9 values, smooth 0.1° resolution)
-  const bortleRaw = mode === 'combined' ? lats.map(lat =>
-    lons.map(lon => {
-      if (isOcean(lat, lon)) return null
-      return bortleLookup ? getBortle(bortleLookup, lat, lon) : 5
-    })
-  ) : null
-
-  const grid       = gaussianSmooth(raw, lats.length, lons.length, 1.5, 3)
-  const bortleGrid = bortleRaw ? gaussianSmooth(bortleRaw, lats.length, lons.length) : null
-  return { grid, lats, lons, bortleGrid, mode }
+  const grid = gaussianSmooth(raw, lats.length, lons.length, 1.5, 3)
+  return { grid, lats, lons, mode }
 }
 
 function cubicKernel(t) {
@@ -176,7 +176,7 @@ const SmoothHeatmap = L.Layer.extend({
     const ctx = canvas.getContext('2d')
     ctx.clearRect(0, 0, W, H)
 
-    const { grid, lats, lons, bortleGrid: bGrid, mode: renderMode } = this._scoreData
+    const { grid, lats, lons } = this._scoreData
     const rows   = lats.length
     const cols   = lons.length
     if (rows < 2 || cols < 2) return
@@ -222,47 +222,11 @@ const SmoothHeatmap = L.Layer.extend({
         const edgeFade = Math.max(0, Math.min(1, distFromEdge / FADE))
 
         const [red, green, blue] = scoreToRGB(Math.max(0, Math.min(1, score)))
-        const baseAlpha = 0.35 * edgeFade
         const idx = (py * W + px) * 4
-
-        if (renderMode !== 'combined' || !bGrid) {
-          // Bortle-only or clouds-only: single pass, full red→green gradient
-          data[idx]     = red
-          data[idx + 1] = green
-          data[idx + 2] = blue
-          data[idx + 3] = Math.round(baseAlpha * 255)
-          continue
-        }
-
-        // ── Combined: cloud base (red→green) + bortle red overlay ─────────────
-        // Bortle overlay uses log curve matching Walker's Law
-        // Softened: max alpha 0.55 (was 0.75) so even bortle 9 is less aggressive
-        const bortleVal = sampleGrid(bGrid, ci, cj, r0, r1, c0, c1)
-        const bortleAlpha = bortleVal != null
-          ? (() => {
-              const t = Math.max(0, bortleVal - 2) / 7
-              return (Math.log(1 + t * 6) / Math.log(7)) * 0.55 * edgeFade
-            })()
-          : 0
-
-        // Composite: cloud layer first, bortle red overlay on top
-        const cA = baseAlpha
-        const bA = bortleAlpha
-
-        let outR = red   * cA
-        let outG = green * cA
-        let outB = blue  * cA
-        let outA = cA
-
-        outR = 200 * bA + outR * (1 - bA)
-        outG = 0   * bA + outG * (1 - bA)
-        outB = 0   * bA + outB * (1 - bA)
-        outA = bA + outA * (1 - bA)
-
-        data[idx]     = Math.round(outR / Math.max(outA, 0.001))
-        data[idx + 1] = Math.round(outG / Math.max(outA, 0.001))
-        data[idx + 2] = Math.round(outB / Math.max(outA, 0.001))
-        data[idx + 3] = Math.round(outA * 255)
+        data[idx]     = red
+        data[idx + 1] = green
+        data[idx + 2] = blue
+        data[idx + 3] = Math.round(0.45 * edgeFade * 255)
       }
     }
 
