@@ -216,18 +216,16 @@ const SmoothHeatmap = L.Layer.extend({
         const idx = (py * W + px) * 4
 
         if (renderMode === 'combined' && cGrid) {
-          // ── Combined: bortle base (red→green) + cloud red overlay ──────────
+          // ── Combined: bortle base + cloud red overlay at fixed 50% alpha ──
+          // Both layers bilinear interpolated — no boxing
           const [red, green, blue] = scoreToRGB(Math.max(0, Math.min(1, score)))
           const baseAlpha = 0.45 * edgeFade
 
-          const cLatMax = cGrid.lats[0]
-          const cLonMin = cGrid.lons[0]
-          const cRows   = cGrid.lats.length
-          const cCols   = cGrid.lons.length
-          const cSp     = cGrid.lats.length > 1 ? Math.abs(cGrid.lats[0] - cGrid.lats[1]) : CLOUD_SPACING
-
-          const cci = (cLatMax - lat) / cSp
-          const ccj = (lon - cLonMin) / cSp
+          // Sample cloud grid with its own spacing — fully bilinear
+          const cLatMax = cGrid.lats[0], cLonMin = cGrid.lons[0]
+          const cRows = cGrid.lats.length, cCols = cGrid.lons.length
+          const cSp   = cGrid.lats.length > 1 ? Math.abs(cGrid.lats[0] - cGrid.lats[1]) : CLOUD_SPACING
+          const cci = (cLatMax - lat) / cSp, ccj = (lon - cLonMin) / cSp
           const cr0 = Math.floor(cci), cr1 = cr0 + 1
           const cc0 = Math.floor(ccj), cc1 = cc0 + 1
 
@@ -237,14 +235,12 @@ const SmoothHeatmap = L.Layer.extend({
             cloudVal = cv != null ? cv : 0
           }
 
-          const oA = cloudVal * 0.75 * edgeFade
+          // Fixed 50% max alpha for cloud overlay — prevents hard blocking
+          // cloudVal is 0 (clear) to 1 (overcast), scales the overlay
+          const oA = cloudVal * 0.50 * edgeFade
           const cA = baseAlpha
 
-          let outR = red   * cA
-          let outG = green * cA
-          let outB = blue  * cA
-          let outA = cA
-
+          let outR = red * cA, outG = green * cA, outB = blue * cA, outA = cA
           outR = 200 * oA + outR * (1 - oA)
           outG = 0   * oA + outG * (1 - oA)
           outB = 0   * oA + outB * (1 - oA)
