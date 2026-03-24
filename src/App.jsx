@@ -148,7 +148,7 @@ function App() {
           )}
 
           {/* Ovation lines */}
-          {layers.ovation && <OvationLines spaceWeather={sw} />}
+          {layers.ovation && <OvationLines spaceWeather={sw} selectedHour={selectedHour} />}
 
           {/* Spot pins */}
           {layers.pins && (
@@ -198,9 +198,9 @@ function App() {
             <button
               onClick={() => { setPinMode(m => !m); setPendingPin(null) }}
               style={{
-                background: pinMode ? '#0d2a1a' : '#060810',
-                border: `1px solid ${pinMode ? '#44ddaa' : '#1a2a3a'}`,
-                color: pinMode ? '#44ddaa' : '#334455',
+                background: pinMode ? '#0d2a1a' : '#2a0808',
+                border: `1px solid ${pinMode ? '#44ddaa' : '#cc2222'}`,
+                color: pinMode ? '#44ddaa' : '#cc4444',
                 padding: '3px 10px', fontSize: 9, fontFamily: FONT,
                 cursor: 'pointer', letterSpacing: 1, borderRadius: 2,
               }}

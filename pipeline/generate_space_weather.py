@@ -129,11 +129,11 @@ def compute_intensity(bz, v_kms, density_ncc):
 
     BINS = [
         (0,    'Calm',        '#667788'),
-        (-15,  'Weak',        '#5599cc'),
-        (-35,  'Mild',        '#88cc44'),
-        (-75,  'Moderate',    '#ffaa00'),
-        (-125, 'Strong',      '#ff6600'),
-        (-175, 'Very Strong', '#ff2200'),
+        (-25,  'Weak',        '#5599cc'),
+        (-55,  'Mild',        '#88cc44'),
+        (-95,  'Moderate',    '#ffaa00'),
+        (-145, 'Strong',      '#ff6600'),
+        (-200, 'Very Strong', '#ff2200'),
         (-1e9, 'Extreme',     '#cc44ff'),
     ]
     for thresh, label, color in BINS:
@@ -539,7 +539,27 @@ def main():
         moon_up_hours = max(0, (min(ms_dt, sr2_dt) - ss_dt).total_seconds() / 3600)
 
     interference_pct = min(100, moon['illumination'] * (moon_up_hours / dark_hours) * 100)
-    astro_dark_pct   = max(0, 100 - interference_pct)
+
+    # Astro dark: 0% during day, tapers from sunset→astro twilight and back before sunrise
+    # Astronomical twilight = 1.5hr after sunset / before sunrise
+    astro_taper_hrs = 1.5
+    time_since_sunset  = (now - ss_dt).total_seconds()  / 3600
+    time_until_sunrise = (sr2_dt - now).total_seconds() / 3600
+
+    if now < ss_dt or now > sr2_dt:
+        # Daytime — hard 0%
+        raw_dark_pct = 0.0
+    elif time_since_sunset < astro_taper_hrs:
+        # Civil/nautical twilight after sunset — taper 0→100% over 1.5hr
+        raw_dark_pct = (time_since_sunset / astro_taper_hrs) * 100
+    elif time_until_sunrise < astro_taper_hrs:
+        # Approaching sunrise — taper 100→0% over 1.5hr
+        raw_dark_pct = (time_until_sunrise / astro_taper_hrs) * 100
+    else:
+        # Deep astronomical darkness
+        raw_dark_pct = 100.0
+
+    astro_dark_pct = max(0, round(raw_dark_pct - interference_pct * (raw_dark_pct / 100), 1))
 
     # Overall quality
     quality_label, quality_color = overall_quality(intensity_label, astro_dark_pct)
@@ -720,7 +740,27 @@ def main_with_clouds():
         moon_up_hours = max(0, (min(ms_dt, sr2_dt) - ss_dt).total_seconds() / 3600)
 
     interference_pct = min(100, moon['illumination'] * (moon_up_hours / dark_hours) * 100)
-    astro_dark_pct   = max(0, 100 - interference_pct)
+
+    # Astro dark: 0% during day, tapers from sunset→astro twilight and back before sunrise
+    # Astronomical twilight = 1.5hr after sunset / before sunrise
+    astro_taper_hrs = 1.5
+    time_since_sunset  = (now - ss_dt).total_seconds()  / 3600
+    time_until_sunrise = (sr2_dt - now).total_seconds() / 3600
+
+    if now < ss_dt or now > sr2_dt:
+        # Daytime — hard 0%
+        raw_dark_pct = 0.0
+    elif time_since_sunset < astro_taper_hrs:
+        # Civil/nautical twilight after sunset — taper 0→100% over 1.5hr
+        raw_dark_pct = (time_since_sunset / astro_taper_hrs) * 100
+    elif time_until_sunrise < astro_taper_hrs:
+        # Approaching sunrise — taper 100→0% over 1.5hr
+        raw_dark_pct = (time_until_sunrise / astro_taper_hrs) * 100
+    else:
+        # Deep astronomical darkness
+        raw_dark_pct = 100.0
+
+    astro_dark_pct = max(0, round(raw_dark_pct - interference_pct * (raw_dark_pct / 100), 1))
     quality_label, quality_color = overall_quality(intensity_label, astro_dark_pct)
     state = determine_state(bz_now, v_kms, noaa)
 

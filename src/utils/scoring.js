@@ -2,13 +2,12 @@ import { WEIGHT_CLOUDS, WEIGHT_BORTLE, CLOUD_FLOOR_THRESHOLD } from '../config.j
 
 // Bortle 1-9 → normalized 0-1 score (1 = darkest/best)
 // Calibrated so Bortle 2 (best realistic NE sky) → 1.0
-// Bortle 5 (suburban) → ~0.45, Bortle 9 (inner city) → 0.0
+// Steeper falloff at B5+ so light-polluted areas read clearly as bad
 export function bortleScore(bortle) {
   const b = Math.min(9, Math.max(1, bortle))
-  // Remap so Bortle 2 = 1.0 (realistic ceiling for our region)
-  // Bortle 1 also = 1.0 (we don't have any, no point wasting color range)
-  const remapped = Math.max(0, 9 - b) / 7   // 7 = range from B9 to B2
-  return Math.min(1, Math.pow(remapped, 1.4))
+  // Remap B2=1.0, B9=0.0 with power 2.0 for steep urban falloff
+  const remapped = Math.max(0, 9 - b) / 7
+  return Math.min(1, Math.pow(remapped, 2.0))
 }
 
 // Cloud cover 0-100% → 0-1 score

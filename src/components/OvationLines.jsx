@@ -1,6 +1,6 @@
 import { Polyline, Tooltip } from 'react-leaflet'
 
-export default function OvationLines({ spaceWeather }) {
+export default function OvationLines({ spaceWeather, selectedHour }) {
   const oval     = spaceWeather?.ovation_oval     || []
   const viewLine = spaceWeather?.ovation_viewline  || []
   const obsTime  = spaceWeather?.ovation_obs_time  || null
@@ -43,9 +43,10 @@ export default function OvationLines({ spaceWeather }) {
           pathOptions={{ color: '#44ddaa', weight: 2.5, opacity: 0.85 }}
         >
           <Tooltip sticky>
-            <span style={{ fontFamily: 'monospace', fontSize: 11 }}>
+            <span style={{ fontFamily:'monospace', fontSize:11 }}>
               ● Ovation Model — Oval Boundary<br/>
               Aurora overhead at this line<br/>
+              {selectedHour !== 0 && <span style={{color:'#ffcc44'}}>⚠ Current position only — no hourly forecast<br/></span>}
               {timeLabel && `Updated: ${timeLabel}`}
             </span>
           </Tooltip>
