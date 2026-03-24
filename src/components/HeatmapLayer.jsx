@@ -6,7 +6,7 @@ import { GRID_BOUNDS } from '../config.js'
 import { loadBortleGrid, getBortle } from '../utils/bortleGrid.js'
 
 // Cloud grid spacing must match what the pipeline produces
-const CLOUD_SPACING = 0.25   // pipeline now fetches at 0.25° — finer grid, no cell artifacts
+const CLOUD_SPACING = 0.5    // must match pipeline cloud grid spacing
 
 function buildScoreGrid(mode, getCloudAt, selectedHour, bortleGrid) {
   const pad = CLOUD_SPACING * 2
@@ -134,12 +134,18 @@ const SmoothHeatmap = L.Layer.extend({
 
     ctx.putImageData(imageData, 0, 0)
 
-    // Blur just enough to hide pixel stepping, not so much it blurs detail
-    const blurPx = Math.round(6 * dpr)
+    // Blur radius derived from zoom level — at zoom z, 1° longitude = 256*2^z/360 CSS px
+    // We need blur >= 0.7 * cellSize in physical pixels to cover bilinear seams
+    const zoom = map.getZoom()
+    const degPerTile = 360 / Math.pow(2, zoom)
+    const pxPerDeg   = 256 / degPerTile                    // CSS px per degree
+    const cellCssPx  = CLOUD_SPACING * pxPerDeg            // CSS px per grid cell
+    const blurPx     = Math.round(cellCssPx * 0.75 * dpr)  // physical pixels
+
     const tmp  = document.createElement('canvas')
     tmp.width  = W; tmp.height = H
     const tctx = tmp.getContext('2d')
-    tctx.filter = `blur(${blurPx}px)`
+    tctx.filter = `blur(${Math.max(blurPx, 4)}px)`
     tctx.drawImage(canvas, 0, 0)
     ctx.clearRect(0, 0, W, H)
     ctx.drawImage(tmp, 0, 0)
