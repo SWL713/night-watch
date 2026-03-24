@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react'
+import { useState, useCallback, useEffect } from 'react'
 import { MapContainer, TileLayer, ZoomControl, useMapEvents } from 'react-leaflet'
 import 'leaflet/dist/leaflet.css'
 
@@ -18,6 +18,7 @@ import { useSpaceWeather } from './hooks/useSpaceWeather.js'
 import { useSpots } from './hooks/useSpots.js'
 import { useCloudCover } from './hooks/useCloudCover.js'
 import { getMoonData } from './utils/moon.js'
+import { loadBortleGrid } from './utils/bortleGrid.js'
 import { MAP_BOUNDS, PASSPHRASE } from './config.js'
 
 // Fix Leaflet default marker icon path issue with Vite
@@ -55,6 +56,9 @@ function App() {
   const { data: sw } = useSpaceWeather()
   const { spots } = useSpots()
   const { getCloudAt, loading: cloudLoading, progress, coverage, total, phase } = useCloudCover()
+
+  const [bortleGrid, setBortleGrid] = useState(null)
+  useEffect(() => { loadBortleGrid().then(g => { if (g) setBortleGrid(g) }) }, [])
   const moonData = getMoonData()
 
   // Determine active heatmap mode from layer toggles
@@ -158,6 +162,8 @@ function App() {
               getCloudAt={getCloudAt}
               spaceWeather={sw}
               onSubmitPhoto={handleSubmitPhoto}
+              mode={heatmapMode}
+              bortleGrid={bortleGrid}
             />
           )}
         </MapContainer>
