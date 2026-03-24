@@ -258,6 +258,10 @@ function App() {
             NIGHT WATCH · SWL713
           </div>
 
+          <div style={{ color: '#1a2535', fontSize: 8, letterSpacing: 0.5, fontFamily: FONT }}>
+            developed by Scott W. LeFevre
+          </div>
+
           <div style={{ color: sw.last_updated ? '#334455' : '#1e2a3a', fontSize: 9 }}>
             {sw.last_updated
               ? `SW: ${new Date(sw.last_updated).toUTCString().slice(17,22)} UTC`
