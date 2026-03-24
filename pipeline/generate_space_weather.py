@@ -818,15 +818,36 @@ def fetch_ndfd_cloud(grid):
     return results
 
 
-def fetch_cloud_batch(points):
-    """Fetch cloud cover for up to 100 points in one Open-Meteo call (fallback)."""
+
+def fetch_cloud_batch(points, retries=3):
+    """Fetch cloud cover for a batch of points from Open-Meteo.
+    Retries on 429 with exponential backoff."""
     lats = ','.join(str(p['lat']) for p in points)
     lons = ','.join(str(p['lon']) for p in points)
     url = (f'https://api.open-meteo.com/v1/forecast'
            f'?latitude={lats}&longitude={lons}'
            f'&hourly=cloudcover&forecast_days=2&timezone=UTC')
-    data = safe_get(url, timeout=20)
-    if not data:
+
+    data = None
+    for attempt in range(retries):
+        try:
+            r = requests.get(url, timeout=25)
+            if r.status_code == 429:
+                wait = 30 * (attempt + 1)  # 30s, 60s, 90s
+                log.warning(f'Open-Meteo 429 — waiting {wait}s before retry {attempt+1}/{retries}')
+                time.sleep(wait)
+                continue
+            if r.status_code == 200:
+                data = r.json()
+                break
+            log.warning(f'Open-Meteo HTTP {r.status_code}')
+            return {}
+        except Exception as e:
+            log.warning(f'Open-Meteo batch error: {e}')
+            if attempt < retries - 1:
+                time.sleep(10)
+
+    if data is None:
         return {}
 
     responses = data if isinstance(data, list) else [data]
@@ -841,7 +862,7 @@ def fetch_cloud_batch(points):
             continue
         times  = d['hourly'].get('time', [])
         clouds = d['hourly'].get('cloudcover', [])
-        key = f"{pt['lat']},{pt['lon']}"
+        key    = f"{pt['lat']},{pt['lon']}"
         forecast = []
         for t_str, cc in zip(times, clouds):
             if cc is None:
@@ -856,20 +877,26 @@ def fetch_cloud_batch(points):
 
 
 def fetch_all_cloud_openmeteo(grid):
-    """Open-Meteo fallback: fetch cloud cover for entire grid in batches of 100."""
+    """Fetch cloud cover for the full grid using Open-Meteo.
+    Uses batches of 50 with 2s delay between batches to stay well under
+    the free-tier rate limit. On 429 the batch retries with backoff.
+    """
     results = {}
-    BATCH = 100
+    BATCH = 50   # 50 pts/request — safer than 100, still only 57 requests total
     total = len(grid)
+
     for i in range(0, total, BATCH):
         batch = grid[i:i+BATCH]
         try:
             batch_results = fetch_cloud_batch(batch)
             results.update(batch_results)
         except Exception as e:
-            log.warning(f'Cloud batch {i}–{i+BATCH} failed: {e}')
+            log.warning(f'Cloud batch {i}-{i+BATCH} failed: {e}')
         pct = min(100, round((i + BATCH) / total * 100))
-        log.info(f'  Cloud grid (Open-Meteo fallback): {pct}% ({len(results)}/{total} points)')
-        time.sleep(1.0)   # respect rate limit in fallback mode
+        log.info(f'  Cloud grid: {pct}% ({len(results)}/{total} points)')
+        time.sleep(2.0)   # 2s between batches = max 30 req/min, well under limit
+
+    log.info(f'Open-Meteo cloud complete: {len(results)}/{total} points')
     return results
 
 def main_with_clouds():
@@ -996,14 +1023,11 @@ def main_with_clouds():
         json.dump(sw_output, f, indent=2)
     log.info(f'space_weather.json written: {state} {intensity_label} bz={bz_now:.1f}')
 
-    # Cloud cover grid — NDFD primary, Open-Meteo fallback
-    log.info('Fetching cloud cover grid (NDFD)...')
+    # Cloud cover — Open-Meteo (uniform full coverage, no WFO seams like NDFD neast)
+    # Batch 50 pts per request with 2s delay stays well under rate limits.
+    log.info('Fetching cloud cover grid (Open-Meteo)...')
     grid = build_cloud_grid()
-
-    cloud_results = fetch_ndfd_cloud(grid)
-    if not cloud_results or len(cloud_results) < len(grid) * 0.5:
-        log.warning(f'NDFD returned {len(cloud_results) if cloud_results else 0} points — falling back to Open-Meteo')
-        cloud_results = fetch_all_cloud_openmeteo(grid)
+    cloud_results = fetch_all_cloud_openmeteo(grid)
 
     cloud_output = {
         'last_updated': now.isoformat(),
