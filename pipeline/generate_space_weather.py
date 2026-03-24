@@ -131,9 +131,9 @@ def compute_intensity(bz, v_kms, density_ncc):
         (0,    'Calm',        '#667788'),
         (-25,  'Weak',        '#5599cc'),
         (-55,  'Mild',        '#88cc44'),
-        (-95,  'Moderate',    '#ffaa00'),
-        (-145, 'Strong',      '#ff6600'),
-        (-200, 'Very Strong', '#ff2200'),
+        (-75,  'Moderate',    '#ffaa00'),
+        (-125, 'Strong',      '#ff6600'),
+        (-175, 'Very Strong', '#ff2200'),
         (-1e9, 'Extreme',     '#cc44ff'),
     ]
     for thresh, label, color in BINS:
