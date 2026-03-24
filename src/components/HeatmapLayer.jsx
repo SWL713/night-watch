@@ -68,7 +68,7 @@ function gaussianSmooth(grid, rows, cols, sigma = 1.0, R = 2) {
 }
 
 function buildScoreGrid(mode, getCloudAt, selectedHour, bortleLookup) {
-  const spacing = (mode === 'bortle' || mode === 'combined') ? BORTLE_SPACING : CLOUD_SPACING
+  const spacing = mode === 'bortle' ? BORTLE_SPACING : CLOUD_SPACING
   const pad = spacing * 2
   const lats = [], lons = []
   for (let lat = GRID_BOUNDS.maxLat + pad; lat >= GRID_BOUNDS.minLat - pad - 0.001; lat -= spacing)
