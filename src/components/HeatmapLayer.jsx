@@ -69,21 +69,26 @@ function gaussianSmooth(grid, rows, cols) {
 }
 
 function buildScoreGrid(mode, getCloudAt, selectedHour, bortleLookup) {
-  // Combined and bortle-only use BORTLE_SPACING (0.1°) — bortle is the base layer
-  const spacing = (mode === 'bortle' || mode === 'combined') ? BORTLE_SPACING : CLOUD_SPACING
-  const pad = spacing * 2
+  // Bortle base always at 0.1° full resolution
+  // Cloud overlay built separately at 0.25° (matching pipeline data resolution)
+  const bSpacing = BORTLE_SPACING
+  const cSpacing = CLOUD_SPACING
+  const spacing  = mode === 'clouds' ? cSpacing : bSpacing
+  const pad      = spacing * 2
+
   const lats = [], lons = []
   for (let lat = GRID_BOUNDS.maxLat + pad; lat >= GRID_BOUNDS.minLat - pad - 0.001; lat -= spacing)
     lats.push(parseFloat(lat.toFixed(2)))
   for (let lon = GRID_BOUNDS.minLon - pad; lon <= GRID_BOUNDS.maxLon + pad + 0.001; lon += spacing)
     lons.push(parseFloat(lon.toFixed(2)))
 
+  // Base grid: bortle score (or cloud score for clouds-only mode)
   const raw = lats.map(lat =>
     lons.map(lon => {
       if (isOcean(lat, lon)) return null
       const bortle = bortleLookup ? getBortle(bortleLookup, lat, lon) : 5
       if (mode === 'bortle' || mode === 'combined') return bortleScore(bortle)
-      // Clouds-only: cloud score with 40% threshold
+      // Clouds-only
       const cloud = getCloudAt ? getCloudAt(lat, lon, selectedHour) : null
       if (cloud === null) return null
       const adjusted = cloud < 40 ? 0 : (cloud - 40) / 60 * 100
@@ -91,19 +96,30 @@ function buildScoreGrid(mode, getCloudAt, selectedHour, bortleLookup) {
     })
   )
 
-  // Cloud overlay for combined mode: bortle is base, cloud red sits on top
-  // Values are 0 (clear) to 1 (fully overcast) after 40% threshold
-  const cloudRaw = mode === 'combined' ? lats.map(lat =>
-    lons.map(lon => {
-      if (isOcean(lat, lon)) return null
-      const cloud = getCloudAt ? getCloudAt(lat, lon, selectedHour) : null
-      if (cloud === null) return 0  // no data = assume clear
-      return cloud < 40 ? 0 : (cloud - 40) / 60
-    })
-  ) : null
+  // Cloud overlay grid for combined mode — built at CLOUD_SPACING (0.25°)
+  // Separate lats/lons so it doesn't inherit bortle's 0.1° resolution
+  let cloudGrid = null
+  if (mode === 'combined') {
+    const cPad  = cSpacing * 2
+    const cLats = [], cLons = []
+    for (let lat = GRID_BOUNDS.maxLat + cPad; lat >= GRID_BOUNDS.minLat - cPad - 0.001; lat -= cSpacing)
+      cLats.push(parseFloat(lat.toFixed(2)))
+    for (let lon = GRID_BOUNDS.minLon - cPad; lon <= GRID_BOUNDS.maxLon + cPad + 0.001; lon += cSpacing)
+      cLons.push(parseFloat(lon.toFixed(2)))
 
-  const grid      = gaussianSmooth(raw, lats.length, lons.length)
-  const cloudGrid = cloudRaw ? gaussianSmooth(cloudRaw, lats.length, lons.length) : null
+    const cloudRaw = cLats.map(lat =>
+      cLons.map(lon => {
+        if (isOcean(lat, lon)) return null
+        const cloud = getCloudAt ? getCloudAt(lat, lon, selectedHour) : null
+        if (cloud === null) return 0
+        return cloud < 40 ? 0 : (cloud - 40) / 60
+      })
+    )
+    const smoothed = gaussianSmooth(cloudRaw, cLats.length, cLons.length)
+    cloudGrid = { grid: smoothed, lats: cLats, lons: cLons }
+  }
+
+  const grid = gaussianSmooth(raw, lats.length, lons.length)
   return { grid, lats, lons, cloudGrid, mode }
 }
 
@@ -212,22 +228,34 @@ const SmoothHeatmap = L.Layer.extend({
           continue
         }
 
-        // ── Pass 2 (combined only): cloud red overlay on top of bortle base ──
-        // cloudVal is 0 (clear) to 1 (overcast) after 40% threshold
-        // Max cloud overlay alpha = 0.75 so even 100% overcast still shows map
-        const cloudVal   = sampleGrid(cGrid, ci, cj, r0, r1, c0, c1)
-        const cloudAlpha = (cloudVal != null ? cloudVal : 0) * 0.75 * edgeFade
+        // ── Pass 2 (combined): cloud red overlay at 0.25° spacing ─────────────
+        const cLatMax = cGrid.lats[0]
+        const cLonMin = cGrid.lons[0]
+        const cRows   = cGrid.lats.length
+        const cCols   = cGrid.lons.length
+        const cSp     = cGrid.lats.length > 1 ? Math.abs(cGrid.lats[0] - cGrid.lats[1]) : CLOUD_SPACING
 
-        // Composite: bortle base layer first, then cloud red overlay on top
-        const cA = baseAlpha    // bortle base alpha
-        const oA = cloudAlpha   // cloud overlay alpha (solid red = 200,0,0)
+        const cci = (cLatMax - lat) / cSp
+        const ccj = (lon - cLonMin) / cSp
+        const cr0 = Math.floor(cci), cr1 = cr0 + 1
+        const cc0 = Math.floor(ccj), cc1 = cc0 + 1
+
+        let cloudVal = 0
+        if (cr0 >= 0 && cr1 < cRows && cc0 >= 0 && cc1 < cCols) {
+          const cv = sampleGrid(cGrid.grid, cci, ccj, cr0, cr1, cc0, cc1)
+          cloudVal = cv != null ? cv : 0
+        }
+
+        const cloudAlpha = cloudVal * 0.75 * edgeFade
+
+        const cA = baseAlpha
+        const oA = cloudAlpha
 
         let outR = red   * cA
         let outG = green * cA
         let outB = blue  * cA
         let outA = cA
 
-        // Cloud red overlay
         outR = 200 * oA + outR * (1 - oA)
         outG = 0   * oA + outG * (1 - oA)
         outB = 0   * oA + outB * (1 - oA)
