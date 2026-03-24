@@ -1,6 +1,6 @@
-// Fetches real-time Bz, V, and density from NOAA for the timeline trace
-// Minute-by-minute resolution for the past ~75 minutes
-// Merges mag (Bz) and plasma (V, density) feeds by timestamp
+// Fetches real-time L1 data from NOAA for the timeline trace.
+// Mag (Bz) and plasma (V, density) are fetched independently and
+// returned as separate arrays — no timestamp merge required.
 
 import { useState, useEffect } from 'react'
 
@@ -28,55 +28,54 @@ async function fetchWithProxy(url) {
 }
 
 export function useBzTrace() {
-  const [trace, setTrace] = useState([])   // [{time, bz, speed, density}]
-  const [loading, setLoading] = useState(true)
+  const [trace,        setTrace]        = useState([])  // [{time, bz}]
+  const [plasmaTrace,  setPlasmaTrace]  = useState([])  // [{time, speed, density}]
+  const [loading,      setLoading]      = useState(true)
 
   async function fetchTrace() {
+    const now    = new Date()
+    // Fetch 2hrs back so that after shifting by ~40min transit lag
+    // we still have a full 1hr of data visible on the Earth-time axis.
+    const cutoff = new Date(now.getTime() - 120 * 60000)
+
     const [magData, plasmaData] = await Promise.all([
       fetchWithProxy(DSCOVR_MAG).then(d => d?.length ? d : fetchWithProxy(WIND_MAG)),
       fetchWithProxy(DSCOVR_PLASMA),
     ])
 
-    if (!magData?.length) { setLoading(false); return }
-
-    const now    = new Date()
-    // Fetch 2hrs back: L1 timestamps get shifted forward by transit lag (~40min)
-    // so to show a full 1hr back on the Earth-time axis we need ~100min of L1 data.
-    // 2hrs gives comfortable margin for any solar wind speed.
-    const cutoff = new Date(now.getTime() - 120 * 60000)
-
-    // Build plasma map keyed by minute (round to nearest minute)
-    const plasmaMap = new Map()
-    if (plasmaData?.length) {
-      for (const r of plasmaData) {
-        if (!r.time_tag) continue
-        const t = new Date(r.time_tag + 'Z')
-        // Key = minute bucket
-        const key = Math.round(t.getTime() / 60000)
-        plasmaMap.set(key, {
-          speed:   r.proton_speed   ?? r.speed   ?? r.V  ?? null,
-          density: r.proton_density ?? r.density  ?? r.Np ?? null,
+    // ── Bz trace ─────────────────────────────────────────────────────────────
+    if (magData?.length) {
+      const bzPoints = magData
+        .map(r => {
+          if (!r.time_tag) return null
+          const bz = r.bz_gsm ?? r.Bz ?? r.bz ?? null
+          if (bz === null) return null
+          return { time: new Date(r.time_tag + 'Z'), bz: parseFloat(bz) }
         })
-      }
+        .filter(p => p && p.time >= cutoff)
+        .sort((a, b) => a.time - b.time)
+      setTrace(bzPoints)
     }
 
-    const points = magData
-      .map(r => {
-        if (!r.time_tag) return null
-        const t   = new Date(r.time_tag + 'Z')
-        const key = Math.round(t.getTime() / 60000)
-        const pl  = plasmaMap.get(key) || plasmaMap.get(key - 1) || plasmaMap.get(key + 1) || {}
-        return {
-          time:    t,
-          bz:      r.bz_gsm ?? r.Bz ?? r.bz ?? null,
-          speed:   pl.speed   != null ? parseFloat(pl.speed)   : null,
-          density: pl.density != null ? parseFloat(pl.density) : null,
-        }
-      })
-      .filter(p => p && p.bz !== null && p.time >= cutoff)
-      .sort((a, b) => a.time - b.time)
+    // ── Plasma trace (V, density) — completely independent ───────────────────
+    if (plasmaData?.length) {
+      const pPoints = plasmaData
+        .map(r => {
+          if (!r.time_tag) return null
+          const speed   = r.proton_speed   ?? r.speed   ?? r.V   ?? null
+          const density = r.proton_density ?? r.density ?? r.Np  ?? null
+          if (speed === null && density === null) return null
+          return {
+            time:    new Date(r.time_tag + 'Z'),
+            speed:   speed   != null ? parseFloat(speed)   : null,
+            density: density != null ? parseFloat(density) : null,
+          }
+        })
+        .filter(p => p && p.time >= cutoff)
+        .sort((a, b) => a.time - b.time)
+      setPlasmaTrace(pPoints)
+    }
 
-    setTrace(points)
     setLoading(false)
   }
 
@@ -86,5 +85,5 @@ export function useBzTrace() {
     return () => clearInterval(iv)
   }, [])
 
-  return { trace, loading }
+  return { trace, plasmaTrace, loading }
 }

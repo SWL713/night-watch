@@ -61,7 +61,7 @@ function LegendStrip() {
 }
 
 // ── Canvas timeline ───────────────────────────────────────────────────────────
-export default function TimelineBar({ spaceWeather, moonData, selectedHour, onHourSelect, bzTrace }) {
+export default function TimelineBar({ spaceWeather, moonData, selectedHour, onHourSelect, bzTrace, plasmaTrace }) {
   const canvasRef = useRef(null)
 
   useEffect(() => {
@@ -306,26 +306,27 @@ export default function TimelineBar({ spaceWeather, moonData, selectedHour, onHo
     ctx.setLineDash([]); ctx.globalAlpha = 1.0
 
     // ── 6. VELOCITY TRACE ─────────────────────────────────────────────────────
-    // Each trace gets its own Y scale spanning the full plot height (PAD_T → PAD_T+pH)
-    // so they're always visible regardless of magnitude vs Bz.
+    // plasmaTrace is independent of bzTrace — no merge failures possible.
+    // Shift timestamps forward by lagMs so observed data plots at Earth arrival time.
+    const plasma = (plasmaTrace || []).filter(p => p.speed != null || p.density != null)
+
     const enlil = (spaceWeather.enlil_timeline || [])
       .map(p => ({ time: new Date(p.time), speed: p.speed, density: p.density }))
       .filter(p => p.speed != null || p.density != null)
       .sort((a, b) => a.time - b.time)
 
-    // V: auto-range from all observed + ENLIL data in the window
-    const obsVals   = realTrace.map(p => p.speed).filter(v => v != null)
+    // V: auto-range from observed + ENLIL in the window
+    const obsVals   = plasma.map(p => p.speed).filter(v => v != null)
     const enlilVals = enlil.map(p => p.speed).filter(v => v != null)
     const allV  = [...obsVals, ...enlilVals]
-    const vPad  = 30  // km/s padding around min/max
+    const vPad  = 30
     const vMin  = allV.length ? Math.max(200,  Math.min(...allV) - vPad)  : 300
     const vMax  = allV.length ? Math.min(1200, Math.max(...allV) + vPad)  : 800
     const vRange = Math.max(vMax - vMin, 50)
-    // Maps V value to pixel Y — high speed at top, low at bottom, full plot height
     function vY(v) { return PAD_T + pH * (1 - (v - vMin) / vRange) }
 
     // Observed V (solid blue, shifted by lagMs)
-    const vPoints = realTrace.filter(p => p.speed != null)
+    const vPoints = plasma.filter(p => p.speed != null)
     if (vPoints.length >= 2) {
       ctx.lineWidth = 1.2; ctx.setLineDash([]); ctx.globalAlpha = 0.75
       ctx.strokeStyle = '#4488ff'
@@ -339,8 +340,7 @@ export default function TimelineBar({ spaceWeather, moonData, selectedHour, onHo
       }
       ctx.stroke()
       ctx.globalAlpha = 1.0
-
-      // Y-axis label for V (right side)
+      // Y-axis labels right side
       ctx.fillStyle = '#2255aa'; ctx.font = `6.5px ${FONT}`
       ctx.fillText(`${Math.round(vMax)}`, cW - 3, PAD_T + 4)
       ctx.fillText(`${Math.round(vMin)}`, cW - 3, PAD_T + pH - 1)
@@ -365,7 +365,7 @@ export default function TimelineBar({ spaceWeather, moonData, selectedHour, onHo
 
     // ── 7. DENSITY TRACE ──────────────────────────────────────────────────────
     // Independent Y scale — 0 at bottom, auto max at top, full plot height
-    const obsDens    = realTrace.map(p => p.density).filter(d => d != null)
+    const obsDens    = plasma.map(p => p.density).filter(d => d != null)
     const enlilDens  = enlil.map(p => p.density).filter(d => d != null)
     const allD   = [...obsDens, ...enlilDens]
     const dMin   = 0
@@ -374,7 +374,7 @@ export default function TimelineBar({ spaceWeather, moonData, selectedHour, onHo
     function dY(d) { return PAD_T + pH * (1 - (d - dMin) / dRange) }
 
     // Observed density (solid purple, shifted by lagMs)
-    const dPoints = realTrace.filter(p => p.density != null)
+    const dPoints = plasma.filter(p => p.density != null)
     if (dPoints.length >= 2) {
       ctx.lineWidth = 1.2; ctx.setLineDash([]); ctx.globalAlpha = 0.70
       ctx.strokeStyle = '#bb66ff'
@@ -388,7 +388,7 @@ export default function TimelineBar({ spaceWeather, moonData, selectedHour, onHo
       }
       ctx.stroke()
       ctx.globalAlpha = 1.0
-      // Y-axis labels (left side, dim purple)
+      // Y-axis labels left side
       ctx.fillStyle = '#773399'; ctx.font = `6.5px ${FONT}`
       ctx.fillText(`${dMax.toFixed(0)}`, 1, PAD_T + 4)
       ctx.fillText(`0`, 1, PAD_T + pH - 1)
@@ -477,8 +477,8 @@ export default function TimelineBar({ spaceWeather, moonData, selectedHour, onHo
     }
 
     // Current value badges (top-right of canvas)
-    const lastV = realTrace.length ? realTrace[realTrace.length - 1].speed   : spaceWeather.speed_kms
-    const lastD = realTrace.length ? realTrace[realTrace.length - 1].density : spaceWeather.density_ncc
+    const lastV = plasma.length ? plasma[plasma.length - 1].speed   : spaceWeather.speed_kms
+    const lastD = plasma.length ? plasma[plasma.length - 1].density : spaceWeather.density_ncc
     ctx.font = `7.5px ${FONT}`
     if (lastV) {
       ctx.fillStyle = '#4488ff'
@@ -489,7 +489,7 @@ export default function TimelineBar({ spaceWeather, moonData, selectedHour, onHo
       ctx.fillText(`n ${lastD.toFixed(1)} /cc`, cW - 90, PAD_T + 20)
     }
 
-  }, [spaceWeather, moonData, selectedHour, bzTrace])
+  }, [spaceWeather, moonData, selectedHour, bzTrace, plasmaTrace])
 
   // Resize observer
   useEffect(() => {

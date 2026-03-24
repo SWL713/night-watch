@@ -122,7 +122,7 @@ export default function TimelinePanel({ spaceWeather, selectedHour, onHourSelect
     enlil_active, enlil_timeline, timeline,
   } = spaceWeather
 
-  const { trace: bzTrace } = useBzTrace()
+  const { trace: bzTrace, plasmaTrace } = useBzTrace()
 
   // ── Issue 3: derive stats for the SELECTED hour ────────────────────────────
   const selectedTime = new Date(now.getTime() + selectedHour * 3600000)
@@ -286,6 +286,7 @@ export default function TimelinePanel({ spaceWeather, selectedHour, onHourSelect
         selectedHour={selectedHour}
         onHourSelect={onHourSelect}
         bzTrace={bzTrace}
+        plasmaTrace={plasmaTrace}
       />
     </div>
   )
