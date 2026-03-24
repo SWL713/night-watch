@@ -749,7 +749,32 @@ def fetch_ndfd_cloud(grid):
                 tmp_path = tmp.name
 
             try:
-                datasets = cfgrib.open_datasets(tmp_path)
+                # Use eccodes directly — cfgrib.open_datasets not available in this version
+                import eccodes
+                datasets = []
+                # Build a simple dataset-like object using eccodes
+                _lat = _lon = _sky = None
+                with open(tmp_path, 'rb') as gf:
+                    while True:
+                        h = eccodes.codes_grib_new_from_file(gf)
+                        if h is None: break
+                        try:
+                            _lat = eccodes.codes_get_array(h, 'latitudes')
+                            _lon = eccodes.codes_get_array(h, 'longitudes')
+                            _sky = eccodes.codes_get_values(h)
+                        finally:
+                            eccodes.codes_release(h)
+                        break
+                import types
+                if _lat is not None:
+                    _ds = types.SimpleNamespace(
+                        latitude=types.SimpleNamespace(values=_lat.reshape(1,-1) if _lat.ndim==1 else _lat),
+                        longitude=types.SimpleNamespace(values=_lon.reshape(1,-1) if _lon.ndim==1 else _lon),
+                        valid_time=types.SimpleNamespace(values=np.array([np.datetime64(valid_time.replace(tzinfo=None))])),
+                        data_vars={'tcc': types.SimpleNamespace(values=_sky.reshape(1,-1) if _sky.ndim==1 else _sky)},
+                    )
+                    _ds.tcc = _ds.data_vars['tcc']
+                    datasets = [_ds]
                 for ds in datasets:
                     # valid_time may be a scalar or array
                     vt_raw = ds.valid_time.values
@@ -865,7 +890,7 @@ def fetch_hrrr_cloud(grid):
     Total: ~20-40MB for 10 hours. Runtime: ~15-30 seconds. Zero rate limits.
     """
     try:
-        import cfgrib
+        import eccodes
         import numpy as np
         from scipy.spatial import KDTree
         import tempfile
@@ -945,31 +970,35 @@ def fetch_hrrr_cloud(grid):
                 tmp_path = tmp.name
 
             try:
-                datasets = cfgrib.open_datasets(tmp_path)
-                parsed   = False
-                for ds in datasets:
-                    tcc = None
-                    for vname in ('tcc', 'TCDC', 'unknown'):
-                        if vname in ds:
-                            tcc = ds[vname]
+                # Parse with eccodes directly — no xarray dependency needed
+                import eccodes
+                lat_arr = lon_arr = tcc_arr = None
+                with open(tmp_path, 'rb') as gf:
+                    while True:
+                        h = eccodes.codes_grib_new_from_file(gf)
+                        if h is None:
                             break
-                    if tcc is None and ds.data_vars:
-                        tcc = ds[list(ds.data_vars)[0]]
-                    if tcc is None:
-                        continue
+                        try:
+                            short_name = eccodes.codes_get(h, 'shortName', ktype=str)
+                            level_type = eccodes.codes_get(h, 'typeOfLevel', ktype=str)
+                            # TCDC at entireAtmosphere or entire atmosphere
+                            if short_name in ('tcc', 'TCDC') or \
+                               (level_type in ('entireAtmosphere', 'entire atmosphere')):
+                                lat_arr = eccodes.codes_get_array(h, 'latitudes')
+                                lon_arr = eccodes.codes_get_array(h, 'longitudes')
+                                tcc_arr = eccodes.codes_get_values(h)
+                                # HRRR lons are 0-360 — convert to -180/180
+                                lon_arr = np.where(lon_arr > 180, lon_arr - 360, lon_arr)
+                        finally:
+                            eccodes.codes_release(h)
+                        if lat_arr is not None:
+                            break  # found what we need
 
-                    lat_arr = ds.latitude.values.flatten()
-                    lon_arr = ds.longitude.values.flatten()
-                    # HRRR lons are 0-360 — convert to -180/180
-                    lon_arr = np.where(lon_arr > 180, lon_arr - 360, lon_arr)
-                    tcc_arr = tcc.values.flatten()
-
+                if lat_arr is not None and tcc_arr is not None:
                     all_messages.append((valid_time, lat_arr, lon_arr, tcc_arr))
-                    log.info(f'HRRR f{fh:02d}: valid={valid_time.strftime("%H:%MZ")}, {len(lat_arr)} grid pts')
-                    parsed = True
-                    break
-                if not parsed:
-                    log.warning(f'HRRR f{fh:02d}: no usable variable in GRIB')
+                    log.info(f'HRRR f{fh:02d}: valid={valid_time.strftime("%H:%MZ")}, {len(lat_arr)} pts')
+                else:
+                    log.warning(f'HRRR f{fh:02d}: TCDC not found in GRIB')
             finally:
                 os.unlink(tmp_path)
 
