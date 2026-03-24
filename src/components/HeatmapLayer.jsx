@@ -5,7 +5,8 @@ import { combinedScore, bortleScore, scoreToRGB } from '../utils/scoring.js'
 import { GRID_BOUNDS } from '../config.js'
 import { loadBortleGrid, getBortle } from '../utils/bortleGrid.js'
 
-const CLOUD_SPACING = 0.25
+const CLOUD_SPACING  = 0.25   // matches NDFD pipeline grid
+const BORTLE_SPACING = 0.1    // full resolution of bortle_grid.json (~10km cells)
 
 // Gentle separable gaussian — smooths score grid to remove cell seams.
 // With NDFD data (5km native, resampled to 0.25°) the source data is already
@@ -51,11 +52,12 @@ function gaussianSmooth(grid, rows, cols) {
 }
 
 function buildScoreGrid(mode, getCloudAt, selectedHour, bortleGrid) {
-  const pad = CLOUD_SPACING * 2
+  const spacing = mode === 'bortle' ? BORTLE_SPACING : CLOUD_SPACING
+  const pad = spacing * 2
   const lats = [], lons = []
-  for (let lat = GRID_BOUNDS.maxLat + pad; lat >= GRID_BOUNDS.minLat - pad - 0.001; lat -= CLOUD_SPACING)
+  for (let lat = GRID_BOUNDS.maxLat + pad; lat >= GRID_BOUNDS.minLat - pad - 0.001; lat -= spacing)
     lats.push(parseFloat(lat.toFixed(2)))
-  for (let lon = GRID_BOUNDS.minLon - pad; lon <= GRID_BOUNDS.maxLon + pad + 0.001; lon += CLOUD_SPACING)
+  for (let lon = GRID_BOUNDS.minLon - pad; lon <= GRID_BOUNDS.maxLon + pad + 0.001; lon += spacing)
     lons.push(parseFloat(lon.toFixed(2)))
 
   const raw = lats.map(lat =>
@@ -124,9 +126,11 @@ const SmoothHeatmap = L.Layer.extend({
     const cols   = lons.length
     if (rows < 2 || cols < 2) return
 
-    const latMax = lats[0]
-    const lonMin = lons[0]
-    const FADE   = CLOUD_SPACING * 5
+    const latMax  = lats[0]
+    const lonMin  = lons[0]
+    // Derive actual spacing from the grid (works for both 0.1° and 0.25°)
+    const spacing = lats.length > 1 ? Math.abs(lats[0] - lats[1]) : CLOUD_SPACING
+    const FADE    = spacing * 5
 
     const imageData = ctx.createImageData(W, H)
     const data      = imageData.data
@@ -139,8 +143,8 @@ const SmoothHeatmap = L.Layer.extend({
         const lat    = latlng.lat
         const lon    = latlng.lng
 
-        const ci = (latMax - lat) / CLOUD_SPACING
-        const cj = (lon - lonMin) / CLOUD_SPACING
+        const ci = (latMax - lat) / spacing
+        const cj = (lon - lonMin) / spacing
         const r0 = Math.floor(ci), r1 = r0 + 1
         const c0 = Math.floor(cj), c1 = c0 + 1
 
