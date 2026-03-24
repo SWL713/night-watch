@@ -76,14 +76,14 @@ export function useCloudCover() {
           throw new Error('Pipeline data empty or stale')
         }
 
-        // Convert pipeline format {offset, cc} to {time, cloudcover}
-        const now   = new Date()
+        // Convert pipeline format {t, cc} to {time, cloudcover}
+        // 't' is an absolute ISO timestamp — not relative to pipeline run time
         const results = {}
         for (const [key, forecast] of Object.entries(json.points)) {
           results[key] = forecast.map(p => ({
-            time:       new Date(now.getTime() + p.offset * 3600000),
-            cloudcover: p.cc,
-          }))
+            time:       new Date(p.t || p.time),
+            cloudcover: p.cc ?? p.cloudcover,
+          })).filter(p => !isNaN(p.time) && p.cloudcover !== null)
         }
 
         const data = {

@@ -572,13 +572,14 @@ def fetch_cloud_batch(points):
         key = f"{pt['lat']},{pt['lon']}"
         # Store 10 hourly values: -1hr to +8hr from now
         forecast = []
+        # Store absolute UTC timestamps so browser lookup works regardless of when page loads
         for t_str, cc in zip(times, clouds):
             if cc is None:
                 continue
             t = datetime.fromisoformat(t_str).replace(tzinfo=timezone.utc)
-            offset_hr = round((t - now).total_seconds() / 3600)
+            offset_hr = (t - now).total_seconds() / 3600
             if -2 <= offset_hr <= 9:
-                forecast.append({'offset': offset_hr, 'cc': int(cc)})
+                forecast.append({'t': t.isoformat(), 'cc': int(cc)})
         if forecast:
             results[key] = forecast
 
