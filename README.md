@@ -1,204 +1,238 @@
-# Night Watch
+# 🌌 Night Watch
 
-Aurora hunting map for the Northeast US and Southeast Canada.  
-Live heatmap combining cloud cover + Bortle darkness, aurora oval overlay, and space weather panel.
+**Aurora hunting app for the Northeast US and Southeast Canada.**  
+Real-time space weather, HRRR cloud forecasts, and light pollution mapping — built for the Substorm Society community.
 
-**URL:** https://SWL713.github.io/night-watch/
-
----
-
-## First-Time Setup (do this once)
-
-### 1. Create the GitHub repo
-
-1. Go to github.com → New repository
-2. Name: `night-watch`
-3. Public (required for GitHub Pages free tier)
-4. Don't initialize with README (you'll push this code)
-
-```bash
-git init
-git add .
-git commit -m "initial commit"
-git remote add origin https://github.com/SWL713/night-watch.git
-git push -u origin main
-```
-
-### 2. Enable GitHub Pages
-
-1. Repo → Settings → Pages
-2. Source: **GitHub Actions**
-3. Save
-
-The deploy workflow will run automatically on every push to main.
-
-### 3. Set up Supabase (free)
-
-1. Go to [supabase.com](https://supabase.com) → New Project
-2. Database → SQL Editor → New query
-3. Paste contents of `supabase_schema.sql` → Run
-4. Settings → API → copy:
-   - **Project URL** → paste into `src/config.js` as `SUPABASE_URL`
-   - **anon/public key** → paste into `src/config.js` as `SUPABASE_ANON`
-
-### 4. Seed your spots into Supabase
-
-```bash
-pip install supabase
-export SUPABASE_URL=your_project_url
-export SUPABASE_SERVICE_KEY=your_service_role_key   # Settings → API → service_role
-python pipeline/seed_supabase.py
-```
-
-### 5. Set up Cloudinary (free, for photo uploads)
-
-1. Go to [cloudinary.com](https://cloudinary.com) → Create account
-2. Dashboard → Cloud name → paste into `src/config.js` as `CLOUDINARY_CLOUD`
-3. Settings → Upload → Add upload preset:
-   - Name: `night_watch_unsigned`
-   - Signing mode: **Unsigned**
-   - Save
-
-### 6. Push config changes
-
-```bash
-git add src/config.js
-git commit -m "configure credentials"
-git push
-```
-
-The deploy workflow builds and publishes automatically.
+**Live:** [swl713.github.io/night-watch](https://swl713.github.io/night-watch)
 
 ---
 
-## Monthly Passphrase Rotation
+## What it does
 
-1. Open `src/config.js`
-2. Change `PASSPHRASE` to a new value
-3. Commit and push
-4. Post new phrase in your Telegram/Facebook group
+Night Watch combines three data sources on a single map to answer one question: *where should I drive tonight to see the aurora?*
 
-Members who visit the site after the push will be prompted for the new phrase.  
-Old phrase stops working immediately.
+- **Space weather** — live Bz, solar wind speed, Kp index, NOAA geomagnetic alerts, HSS detection, and an Ovation auroral oval overlay updated every 30 minutes
+- **Cloud cover** — HRRR model TCDC forecasts updated hourly, showing a 9-hour forecast you can scrub through with the time slider
+- **Light pollution** — NASA GIBS VIIRS night light tiles at ~500m resolution, recolored so dark sky is transparent (base map shows through) and light-polluted areas glow orange to red
 
----
-
-## Admin Access
-
-The approval queue for spot and photo submissions is behind a separate admin passphrase.  
-To access it:
-
-1. Open the app on any device
-2. Type your admin password into the small password field in the bottom bar
-3. Press Enter — the QUEUE button appears
-4. Review pending spots and photos, approve or reject
-
-To change the admin password: edit `ADMIN_PHRASE` in `src/App.jsx`.
+The three layers are independently toggleable. Combined mode stacks the light pollution tiles with a red cloud overlay — clear dark sky stays transparent, clouds push areas toward red regardless of bortle class.
 
 ---
 
-## Pipeline
+## Map layers
 
-The space weather pipeline runs every 15 minutes via GitHub Actions (free).  
-It fetches:
-- DSCOVR/WIND L1 solar wind (Bz, speed, density)
-- NOAA alerts (G-level, HSS status)
-- Moon phase and timing
-- ENLIL solar wind forecast (only when CME/HSS active — avoids 174MB download on quiet days)
-
-Output: `data/space_weather.json` — committed to repo, read by the web app.
+| Button | What it shows |
+|--------|--------------|
+| **Combined** | VIIRS light pollution tiles + red cloud overlay |
+| **Clouds only** | Cloud cover as a red opacity layer — transparent=clear, solid red=overcast |
+| **Bortle only** | VIIRS night light tiles only — transparent=dark sky, orange/red=light polluted |
+| **Ovation Model** | NOAA Ovation auroral oval for current and forecast hours |
+| **Locations** | Community-submitted dark sky spots with cloud-adjusted pin colors |
 
 ---
 
-## Architecture
+## Tech stack
+
+| Layer | Technology |
+|-------|-----------|
+| Frontend | React + Leaflet (react-leaflet) |
+| Base map | CARTO Dark Matter tiles |
+| Light pollution | NASA GIBS VIIRS SNPP DayNightBand ENCC tiles |
+| Cloud data | HRRR TCDC via NOMADS byte-range fetch |
+| Space weather | NOAA SWPC REST APIs |
+| Community spots | Supabase (PostgreSQL + Row Level Security) |
+| Photo hosting | Cloudinary |
+| Hosting | GitHub Pages (Vite build) |
+| Pipeline | GitHub Actions + Python |
+
+---
+
+## Data pipeline
+
+Two GitHub Actions workflows keep the data fresh:
+
+### Space weather (`space_weather.yml`)
+- **Every 30 min** during active aurora hours (9pm–1am EDT)
+- **Every 60 min** during quiet hours
+- Fetches from NOAA SWPC: real-time solar wind, Bz trace, plasma timeline, ENLIL solar wind model, Ovation oval boundaries, 3-day forecast, active alerts
+- Outputs `data/space_weather.json`
+- ~540 GitHub Actions minutes/month
+
+### Cloud cover (`clouds.yml`)
+- **Every hour** during active aurora hours (6pm–4am EDT)
+- **Once at noon** EDT for daytime update
+- Fetches HRRR GRIB2 TCDC (total cloud cover, entire atmosphere) from NOMADS via byte-range requests — no full GRIB download
+- Bilinearly interpolates HRRR's Lambert conformal native grid to a 0.1° lat/lon grid (~12,000 points)
+- Applies pipeline-level Gaussian smoothing to remove grid projection artifacts
+- Outputs `data/cloud_cover.json` with 9-hour forecasts per grid point
+- ~990 GitHub Actions minutes/month
+
+Both workflows use an amend-commit strategy so the repo doesn't accumulate thousands of data commits.
+
+---
+
+## Repository structure
 
 ```
 night-watch/
-├── src/                    # React web app
-│   ├── App.jsx             # Main layout, modal management
-│   ├── config.js           # All credentials and settings
+├── src/
+│   ├── App.jsx                    # Root app, map setup, layer state
+│   ├── config.js                  # Passphrase, Supabase keys, map bounds
 │   ├── components/
-│   │   ├── Auth.jsx        # Passphrase gate
-│   │   ├── Badges.jsx      # G + HSS badges (CME Watch style)
-│   │   ├── TimelinePanel.jsx  # Top panel with hour-by-hour timeline
-│   │   ├── TimeSlider.jsx  # 0-8hr forecast scrubber
-│   │   ├── HeatmapLayer.jsx   # Canvas heatmap (Bortle + clouds)
-│   │   ├── OvationLines.jsx   # Aurora oval + viewline
-│   │   ├── SpotPins.jsx    # Map pins for curated spots
-│   │   ├── SpotCard.jsx    # Spot detail popup (info/forecast/photos)
-│   │   ├── SubmitSpot.jsx  # Community spot submission form
-│   │   ├── SubmitPhoto.jsx # Photo upload form (Cloudinary)
-│   │   └── AdminQueue.jsx  # Approval queue
+│   │   ├── HeatmapLayer.jsx       # VIIRS tiles + cloud canvas overlay
+│   │   ├── SpotPins.jsx           # Community spot markers
+│   │   ├── SpotCard.jsx           # Spot popup with forecast
+│   │   ├── LayerControls.jsx      # Toggle buttons
+│   │   ├── Badges.jsx             # G-storm / HSS / Kp badges
+│   │   ├── TimelinePanel.jsx      # Space weather timeline
+│   │   ├── TimeSlider.jsx         # Forecast hour scrubber
+│   │   ├── OvationLines.jsx       # Auroral oval overlay
+│   │   ├── AdminQueue.jsx         # Spot/photo approval queue
+│   │   ├── SubmitSpot.jsx         # Community spot submission
+│   │   └── SubmitPhoto.jsx        # Aurora photo submission
 │   ├── hooks/
-│   │   ├── useSpaceWeather.js  # Reads pipeline JSON
-│   │   ├── useCloudCover.js    # Open-Meteo grid queries
-│   │   └── useSpots.js         # Supabase + local JSON fallback
+│   │   ├── useCloudCover.js       # HRRR data fetch, bilinear interpolation
+│   │   ├── useSpaceWeather.js     # Space weather data fetch
+│   │   └── useSpots.js            # Supabase spots query
 │   └── utils/
-│       ├── moon.js         # Moon math (ported from CME Watch)
-│       ├── ovation.js      # Ovation Prime aurora boundary
-│       └── scoring.js      # Heatmap scoring (Bortle + cloud)
+│       ├── bortleApi.js           # Auto-fetch bortle via lightpollutionmap API
+│       ├── bortleGrid.js          # Bortle JSON grid lookup (spot pin scoring)
+│       ├── scoring.js             # Bortle score curves, color scales
+│       ├── moon.js                # Moon phase and illumination
+│       └── ovation.js             # Oval geometry utilities
 ├── pipeline/
-│   ├── generate_space_weather.py  # Main pipeline script
-│   ├── seed_supabase.py           # One-time spots import
+│   ├── generate_space_weather.py  # Main pipeline: space weather + cloud cover
+│   ├── seed_supabase.py           # One-time spot data seeder
 │   └── requirements.txt
 ├── data/
-│   ├── spots.json          # 35 curated spots (local fallback)
-│   └── space_weather.json  # Pipeline output (updated every 15min)
-├── public/
-│   ├── moon/               # 8 moon phase photos
-│   └── manifest.json       # PWA config
-└── .github/workflows/
-    ├── pipeline.yml        # Space weather data (every 15min)
-    └── deploy.yml          # Build + deploy to GitHub Pages (on push)
+│   ├── space_weather.json         # Updated every 30–60 min by pipeline
+│   ├── cloud_cover.json           # Updated hourly by pipeline
+│   ├── bortle_grid.json           # Static 0.1° bortle grid (spot scoring)
+│   └── spots.json                 # Seed data for Supabase
+├── .github/workflows/
+│   ├── space_weather.yml
+│   ├── clouds.yml
+│   └── deploy.yml
+└── supabase_schema.sql            # Run once to set up Supabase tables
 ```
 
 ---
 
-## Scoring
+## Setup
 
-**Heatmap score = Cloud (70%) + Bortle (30%)**
+### Prerequisites
+- Node.js 18+
+- Python 3.11+
+- Supabase project (free tier sufficient)
+- Cloudinary account (free tier sufficient)
+- GitHub repository with Pages enabled
 
-| Color  | Score | Meaning |
-|--------|-------|---------|
-| Green  | ≥70   | Clear + dark skies |
-| Yellow-green | ≥50 | Good |
-| Amber  | ≥35   | Fair |
-| Orange | ≥20   | Poor |
-| Red    | <20   | Very poor |
+### 1. Clone and install
 
-**Hard rule:** ≥95% cloud cover floors the score to red regardless of Bortle.
+```bash
+git clone https://github.com/SWL713/night-watch.git
+cd night-watch
+npm install
+```
 
-**Spot scoring** shows two separate scores side by side:
-- **Location score** — permanent (Bortle + horizon quality)
-- **Chase score** — tonight-specific (cloud cover at that exact coordinate)
+### 2. Configure
+
+Edit `src/config.js`:
+
+```js
+export const PASSPHRASE        = 'your-passphrase'     // App access passphrase
+export const SUPABASE_URL      = 'https://xxx.supabase.co'
+export const SUPABASE_ANON     = 'your-anon-key'
+export const CLOUDINARY_CLOUD  = 'your-cloud-name'
+export const CLOUDINARY_PRESET = 'night_watch_unsigned'
+```
+
+### 3. Set up Supabase
+
+Run `supabase_schema.sql` in your Supabase SQL editor to create the `spots` and `photos` tables with Row Level Security.
+
+### 4. Seed spots
+
+```bash
+pip install -r pipeline/requirements.txt
+python pipeline/seed_supabase.py
+```
+
+### 5. Run locally
+
+```bash
+npm run dev
+```
+
+### 6. Deploy
+
+Push to `main` — the deploy workflow builds and publishes to GitHub Pages automatically.
 
 ---
 
-## Adding / Editing Spots
+## GitHub Actions budget
 
-Option A — Supabase dashboard: Database → Table Editor → spots → Insert row  
-Option B — Edit `data/spots.json` directly (used as fallback when Supabase is down)
+| Workflow | Frequency | Monthly minutes |
+|----------|-----------|----------------|
+| Space weather | Every 30–60 min | ~540 |
+| Cloud cover | Every 60 min + noon | ~990 |
+| Deploy | On src changes | ~30 |
+| **Total** | | **~1,560** |
 
-Fields:
-- `name` — display name
-- `lat`, `lon` — decimal coordinates
-- `bortle` — 1-9
-- `view_direction` — N, NW, 360, etc.
-- `access_notes` — parking/hiking info
-- `horizon_rating` — 1-5
-- `approved` — true to show on map
+GitHub Free tier provides 2,000 minutes/month — comfortably within budget.
 
 ---
 
-## Stack
+## Data sources & attribution
 
-| Service | Purpose | Cost |
-|---------|---------|------|
-| GitHub Pages | Host web app | Free |
-| GitHub Actions | Pipeline + deploy | Free (2000 min/mo) |
-| Supabase | Database (spots, photos) | Free (500MB) |
-| Cloudinary | Photo storage | Free (25GB) |
-| Open-Meteo | Cloud cover forecasts | Free, no key |
-| NOAA SWPC | Space weather data | Free, public |
-| CartoDB | Dark map tiles | Free |
-| Ovation Prime | Aurora oval | Free, NOAA |
+| Source | Data | License |
+|--------|------|---------|
+| [NOAA SWPC](https://www.swpc.noaa.gov) | Space weather, Kp, alerts, Ovation | Public domain |
+| [NCEP NOMADS](https://nomads.ncep.noaa.gov) | HRRR cloud cover forecasts | Public domain |
+| [NASA GIBS](https://earthdata.nasa.gov) | VIIRS night light tiles | Public domain |
+| [CARTO](https://carto.com) | Dark base map tiles | © CARTO |
+| [Supabase](https://supabase.com) | Community spot database | — |
+
+---
+
+## Community features
+
+### Submitting a spot
+1. Tap **+ PLACE PIN** in the bottom bar
+2. Tap the map at the location
+3. Fill in the name, bortle class, view direction, access notes, horizon rating
+4. Submit — goes into the admin approval queue
+
+### Submitting a photo
+Open any spot pin → tap **📷 Submit Photo** — uploads to Cloudinary with the current space weather conditions snapshot attached.
+
+### Admin queue
+Enter the admin passphrase in the bottom bar to access the approval queue for pending spots and photos.
+
+---
+
+## Tuning the light pollution overlay
+
+The VIIRS tile recoloring is controlled by three constants in `HeatmapLayer.jsx`:
+
+```js
+const GLOBAL_CEIL = 0.75       // Absolute brightness ceiling for normalization
+// Per-tile: cutoff = minLum + (GLOBAL_CEIL - minLum) * 0.32
+const intensity = Math.pow(remapped, 1.3)   // Curve steepness — higher = only cities show
+d[i+3] = Math.round(intensity * 130)        // Max alpha — lower = more transparent
+```
+
+- **Raise `0.32`** → more areas show (lower bortle visible)
+- **Lower `0.32`** → fewer areas show (only cities)
+- **Lower `1.3` gamma** → gentler curve, mid-range more visible
+- **Lower `130` alpha** → everything more transparent
+
+---
+
+## Credits
+
+Built by **Scott W. LeFevre** for the **Substorm Society** aurora hunting community.
+
+Night light data: NASA GIBS VIIRS SNPP (Suomi National Polar-orbiting Partnership satellite).  
+Cloud forecasts: NOAA High-Resolution Rapid Refresh (HRRR) model via NCEP NOMADS.  
+Space weather: NOAA Space Weather Prediction Center.
