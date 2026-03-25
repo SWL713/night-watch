@@ -71,7 +71,7 @@ const GibsRedLayer = L.GridLayer.extend({
           d[i]   = r
           d[i+1] = g
           d[i+2] = b
-          d[i+3] = Math.round(intensity * 130) // reduced opacity — midtones less aggressive
+          d[i+3] = Math.round(intensity * 90)  // subtle overlay — light pollution hint not dominant
         }
       }
 
