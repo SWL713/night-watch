@@ -32,38 +32,45 @@ const GibsRedLayer = L.GridLayer.extend({
       const imageData = ctx.getImageData(0, 0, 256, 256)
       const d = imageData.data
 
+      // Per-tile normalization: find the luminance range actually in this tile.
+      // VIIRS JPEGs have a non-zero floor even in pristine dark sky — the encoding
+      // lifts all values. By treating the darkest 40% of each tile as transparent
+      // we self-calibrate regardless of absolute pixel values.
+      let minLum = 1, maxLum = 0
       for (let i = 0; i < d.length; i += 4) {
-        // Luminance of original pixel (VIIRS: black=dark, white=bright city)
+        const lum = (d[i] * 0.299 + d[i+1] * 0.587 + d[i+2] * 0.114) / 255
+        if (lum < minLum) minLum = lum
+        if (lum > maxLum) maxLum = lum
+      }
+      const range  = maxLum - minLum
+      const cutoff = minLum + range * 0.45  // darkest 45% → transparent
+
+      for (let i = 0; i < d.length; i += 4) {
         const lum = (d[i] * 0.299 + d[i+1] * 0.587 + d[i+2] * 0.114) / 255
 
-        if (lum <= 0.15) {
-          // Pure black = pristine dark sky → fully transparent
-          d[i+3] = 0
+        if (lum <= cutoff || range < 0.05) {
+          d[i+3] = 0  // transparent
         } else {
-          // Remap [0.06..1] → [0..1] so scale starts above dark sky cutoff
-          const remapped = (lum - 0.15) / (1 - 0.15)
-          const intensity = Math.pow(remapped, 0.8)
+          const remapped  = (lum - cutoff) / (maxLum - cutoff)
+          const intensity = Math.pow(remapped, 1.2)  // steep: only bright areas
 
-          // Color ramp: dark-red → orange → red
-          //   intensity 0.0–0.5 : interpolate dark-red (180,30,0) → orange (255,140,0)
-          //   intensity 0.5–1.0 : interpolate orange (255,140,0) → red (220,0,20)
           let r, g, b
           if (intensity < 0.5) {
             const t = intensity / 0.5
-            r = Math.round(180 + (255 - 180) * t)   // 180 → 255
-            g = Math.round(30  + (140 - 30)  * t)   // 30  → 140
+            r = Math.round(200 + (255 - 200) * t)
+            g = Math.round(60  + (130 - 60)  * t)
             b = 0
           } else {
             const t = (intensity - 0.5) / 0.5
-            r = Math.round(255 + (220 - 255) * t)   // 255 → 220
-            g = Math.round(140 + (0   - 140) * t)   // 140 → 0
-            b = Math.round(t * 20)                   // 0   → 20
+            r = Math.round(255 + (220 - 255) * t)
+            g = Math.round(130 + (0   - 130) * t)
+            b = Math.round(t * 20)
           }
 
           d[i]   = r
           d[i+1] = g
           d[i+2] = b
-          d[i+3] = Math.round(intensity * 225)       // alpha follows brightness
+          d[i+3] = Math.round(intensity * 210)
         }
       }
 
