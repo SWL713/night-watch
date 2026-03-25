@@ -100,15 +100,12 @@ function buildScoreGrid(mode, getCloudAt, selectedHour, bortleLookup) {
     })
   )
 
-  // No gaussian pre-smooth for clouds/combined — bilinear interpolation at
-  // render time naturally smooths between 0.25° grid cells without creating
-  // the flat plateaus that cause visible block edges
-  // Bortle still gets gentle smooth since it's at 0.1° native resolution
-  const smoothSigma = mode === 'bortle' ? 1.0 : 0
-  const smoothR     = mode === 'bortle' ? 2   : 0
-  const grid = smoothR > 0
-    ? gaussianSmooth(raw, lats.length, lons.length, smoothSigma, smoothR)
-    : raw
+  // Light gaussian to blend hard cell boundaries without destroying cloud structure
+  // sigma=1.5 R=3 covers ~0.75° — enough to soften edges, not enough to smear fronts
+  // Bortle at 0.1° gets tighter smooth
+  const smoothSigma = mode === 'bortle' ? 1.0 : 1.5
+  const smoothR     = mode === 'bortle' ? 2   : 3
+  const grid = gaussianSmooth(raw, lats.length, lons.length, smoothSigma, smoothR)
   return { grid, lats, lons, mode }
 }
 
@@ -201,7 +198,7 @@ const SmoothHeatmap = L.Layer.extend({
       const s00 = g[r0][c0], s10 = g[r0][c1]
       const s01 = g[r1][c0], s11 = g[r1][c1]
       const vals = [s00, s10, s01, s11].filter(v => v != null)
-      if (vals.length === 0) return null
+      if (vals.length < 3) return null  // require 3+ land corners — prevents coast bleed
       if (vals.length === 4) return bilinear(s00, s10, s01, s11, cj - c0, ci - r0)
       return vals.reduce((a, b) => a + b, 0) / vals.length
     }
