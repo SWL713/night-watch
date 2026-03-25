@@ -36,13 +36,13 @@ const GibsRedLayer = L.GridLayer.extend({
         // Luminance of original pixel (VIIRS: black=dark, white=bright city)
         const lum = (d[i] * 0.299 + d[i+1] * 0.587 + d[i+2] * 0.114) / 255
 
-        if (lum <= 0.06) {
+        if (lum <= 0.15) {
           // Pure black = pristine dark sky → fully transparent
           d[i+3] = 0
         } else {
           // Remap [0.06..1] → [0..1] so scale starts above dark sky cutoff
-          const remapped = (lum - 0.06) / (1 - 0.06)
-          const intensity = Math.pow(remapped, 0.45)
+          const remapped = (lum - 0.15) / (1 - 0.15)
+          const intensity = Math.pow(remapped, 0.8)
 
           // Color ramp: dark-red → orange → red
           //   intensity 0.0–0.5 : interpolate dark-red (180,30,0) → orange (255,140,0)
