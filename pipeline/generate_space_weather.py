@@ -1032,12 +1032,12 @@ def fetch_hrrr_cloud(grid):
                     os.unlink(tmp_path)
 
             if lat_arr is not None and layer_data:
-                # Weighted combination: TCDC smooth base + LCDC/MCDC precise blocking + HCDC light penalty
-                combined = np.zeros(len(lat_arr))
-                for vn, arr in layer_data.items():
-                    combined = np.clip(combined + arr * LAYER_TARGETS[vn]['weight'], 0, 100)
-                max_possible = sum(LAYER_TARGETS[v]['weight'] for v in layer_data)
-                cloud_arr = np.clip(combined / max_possible * 100, 0, 100)
+                # Weighted average across all fetched layers
+                # TCDC provides smooth continuous base, LCDC/MCDC add precise blocking
+                # All layers at 100% = 100% cloud, all at 0% = 0% cloud
+                total_weight = sum(LAYER_TARGETS[v]['weight'] for v in layer_data)
+                weighted_sum = sum(layer_data[v] * LAYER_TARGETS[v]['weight'] for v in layer_data)
+                cloud_arr = np.clip(weighted_sum / total_weight, 0, 100)
                 all_messages.append((valid_time, lat_arr, lon_arr, cloud_arr))
                 log.info(f'HRRR f{fh:02d}: valid={valid_time.strftime("%H:%MZ")}, '
                          f'{len(lat_arr)} pts, layers={list(layer_data.keys())}, '
