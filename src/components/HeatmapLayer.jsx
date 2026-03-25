@@ -101,7 +101,11 @@ function buildScoreGrid(mode, getCloudAt, selectedHour, bortleLookup) {
     })
   )
 
-  const grid = gaussianSmooth(raw, lats.length, lons.length, 1.5, 3)
+  // Cloud data (HRRR LCDC/MCDC) is often binary 0/100% — use wider kernel
+  // to smooth hard cell boundaries without destroying real cloud patterns
+  const smoothSigma = (mode === 'clouds' || mode === 'combined') ? 2.0 : 1.0
+  const smoothR     = (mode === 'clouds' || mode === 'combined') ? 4   : 2
+  const grid = gaussianSmooth(raw, lats.length, lons.length, smoothSigma, smoothR)
   return { grid, lats, lons, mode }
 }
 

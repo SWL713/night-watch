@@ -191,17 +191,20 @@ def fetch_noaa_alerts():
     try:
         alerts = safe_get(NOAA_ALERTS_URL) or []
         for alert in alerts:
-            msg = (alert.get('message', '') + alert.get('product_id', '')).lower()
+            product_id = alert.get('product_id', '')
+            msg = (alert.get('message', '') + product_id).lower()
             if not g_level:
                 for g in ['G5', 'G4', 'G3', 'G2', 'G1']:
                     if g.lower() in msg:
                         g_level = g
                         g_label = g
                         break
-            if 'high speed stream' in msg or ' hss' in msg:
-                if 'in progress' in msg or 'geomagnetic activity' in msg:
+            hss_signal = ('high speed stream' in msg or ' hss' in msg or
+                          'coronal hole' in msg or 'ch hss' in msg)
+            if hss_signal:
+                if any(x in msg for x in ['in progress', 'geomagnetic activity', 'arrival', 'arrived']):
                     hss_active = True
-                if 'warning' in msg or 'watch' in msg:
+                if any(x in msg for x in ['warning', 'watch', 'expected', 'likely', 'anticipated']):
                     hss_watch = True
     except Exception as e:
         log.warning(f'alerts.json fetch failed: {e}')
@@ -970,53 +973,39 @@ def fetch_hrrr_cloud(grid):
                 log.warning(f'HRRR f{fh:02d}: idx HTTP {idx_resp.status_code}')
                 continue
 
-            # Find byte ranges for LCDC (low cloud) and MCDC (mid cloud)
-            # We ignore TCDC "entire atmosphere" — it includes high cirrus that
-            # doesn't block aurora. Low + mid cloud is what actually matters for
-            # aurora visibility from the ground.
+            # Fetch all cloud layers with aurora-visibility weights:
+            # TCDC entire atmosphere — smooth continuous base
+            # LCDC — low cloud deck, direct blocker (highest weight)
+            # MCDC — mid cloud deck, direct blocker
+            # HCDC — high cloud deck, semi-transparent cirrus (lowest weight)
+            LAYER_TARGETS = {
+                'TCDC': {'level_keyword': 'entire', 'weight': 0.4},
+                'LCDC': {'level_keyword': 'low',    'weight': 0.5},
+                'MCDC': {'level_keyword': 'middle', 'weight': 0.4},
+                'HCDC': {'level_keyword': 'high',   'weight': 0.15},
+            }
+
             lines = idx_resp.text.strip().split('\n')
-            ranges = {}  # {'LCDC': (start, end), 'MCDC': (start, end)}
+            ranges = {}
             for i, line in enumerate(lines):
                 parts = line.split(':')
-                if len(parts) < 5:
-                    continue
+                if len(parts) < 5: continue
                 var   = parts[3].strip()
                 level = parts[4].strip().lower()
-                if var in ('LCDC', 'MCDC') and ('cloud' in level or 'low' in level or 'middle' in level or 'high' in level):
+                if var in LAYER_TARGETS and LAYER_TARGETS[var]['level_keyword'] in level:
                     byte_start = int(parts[1])
-                    byte_end   = None
-                    if i + 1 < len(lines):
-                        nxt = lines[i + 1].split(':')
-                        if len(nxt) >= 2:
-                            byte_end = int(nxt[1]) - 1
+                    byte_end   = int(lines[i+1].split(':')[1]) - 1 if i+1 < len(lines) else None
                     ranges[var] = (byte_start, byte_end)
 
             if not ranges:
-                # Fallback: try TCDC at low cloud layer if LCDC/MCDC not found
-                for i, line in enumerate(lines):
-                    parts = line.split(':')
-                    if len(parts) < 5: continue
-                    var   = parts[3].strip()
-                    level = parts[4].strip().lower()
-                    if var == 'TCDC' and ('low' in level or 'middle' in level):
-                        byte_start = int(parts[1])
-                        byte_end = None
-                        if i + 1 < len(lines):
-                            nxt = lines[i + 1].split(':')
-                            if len(nxt) >= 2:
-                                byte_end = int(nxt[1]) - 1
-                        ranges[f'TCDC_{var}_{i}'] = (byte_start, byte_end)
-
-            if not ranges:
-                log.warning(f'HRRR f{fh:02d}: no low/mid cloud variables found in index')
+                log.warning(f'HRRR f{fh:02d}: no cloud variables found in index')
                 continue
 
             log.info(f'HRRR f{fh:02d}: fetching {list(ranges.keys())}')
 
-            # Fetch and parse each cloud layer, then take the max
             import eccodes
             lat_arr = lon_arr = None
-            cloud_layers = []  # list of 1D arrays
+            layer_data = {}
 
             for var_name, (byte_start, byte_end) in ranges.items():
                 hdrs      = {'Range': f'bytes={byte_start}-{byte_end if byte_end else ""}'}
@@ -1024,11 +1013,9 @@ def fetch_hrrr_cloud(grid):
                 if grib_resp.status_code not in (200, 206):
                     log.warning(f'HRRR f{fh:02d} {var_name}: GRIB HTTP {grib_resp.status_code}')
                     continue
-
                 with tempfile.NamedTemporaryFile(suffix='.grib2', delete=False) as tmp:
                     tmp.write(grib_resp.content)
                     tmp_path = tmp.name
-
                 try:
                     with open(tmp_path, 'rb') as gf:
                         h = eccodes.codes_grib_new_from_file(gf)
@@ -1038,18 +1025,22 @@ def fetch_hrrr_cloud(grid):
                                     lat_arr = eccodes.codes_get_array(h, 'latitudes')
                                     lon_arr = eccodes.codes_get_array(h, 'longitudes')
                                     lon_arr = np.where(lon_arr > 180, lon_arr - 360, lon_arr)
-                                cloud_layers.append(eccodes.codes_get_values(h))
+                                layer_data[var_name] = eccodes.codes_get_values(h)
                             finally:
                                 eccodes.codes_release(h)
                 finally:
                     os.unlink(tmp_path)
 
-            if lat_arr is not None and cloud_layers:
-                # Take element-wise max across all layers — any low/mid cloud blocks view
-                cloud_arr = np.maximum.reduce(cloud_layers)
+            if lat_arr is not None and layer_data:
+                # Weighted combination: TCDC smooth base + LCDC/MCDC precise blocking + HCDC light penalty
+                combined = np.zeros(len(lat_arr))
+                for vn, arr in layer_data.items():
+                    combined = np.clip(combined + arr * LAYER_TARGETS[vn]['weight'], 0, 100)
+                max_possible = sum(LAYER_TARGETS[v]['weight'] for v in layer_data)
+                cloud_arr = np.clip(combined / max_possible * 100, 0, 100)
                 all_messages.append((valid_time, lat_arr, lon_arr, cloud_arr))
                 log.info(f'HRRR f{fh:02d}: valid={valid_time.strftime("%H:%MZ")}, '
-                         f'{len(lat_arr)} pts, layers={len(cloud_layers)}, '
+                         f'{len(lat_arr)} pts, layers={list(layer_data.keys())}, '
                          f'max_cc={cloud_arr.max():.0f}%')
             else:
                 log.warning(f'HRRR f{fh:02d}: no cloud data parsed')
