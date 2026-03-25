@@ -4,7 +4,7 @@
 
 import { useState, useEffect, useRef, useCallback } from 'react'
 
-export const GRID_SPACING = 0.25  // matches pipeline grid (NDFD at 0.25°)
+export const GRID_SPACING = 0.1   // matches pipeline grid (0.1° for better HRRR resolution)
 
 const CLOUD_URL = 'https://raw.githubusercontent.com/SWL713/night-watch/main/data/cloud_cover.json'
 const CACHE_KEY = 'nw_cloud_v2'
