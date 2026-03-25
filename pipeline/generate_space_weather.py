@@ -1055,7 +1055,11 @@ def fetch_hrrr_cloud(grid):
 
     log.info(f'HRRR: {len(all_messages)}/{len(hours_needed)} forecast hours parsed')
 
-    # Build KDTree from HRRR native grid, restricted to our bounding box
+    # Resample from HRRR native Lambert grid to our lat/lon query points
+    # using scipy griddata bilinear interpolation — much smoother than KDTree
+    # nearest-neighbour which caused visible cell boundaries at projection seams
+    from scipy.interpolate import griddata
+
     _, lat0, lon0, _ = all_messages[0]
     mask = (
         (lat0 >= CLOUD_GRID_BOUNDS['minLat'] - 1) &
@@ -1063,38 +1067,45 @@ def fetch_hrrr_cloud(grid):
         (lon0 >= CLOUD_GRID_BOUNDS['minLon'] - 1) &
         (lon0 <= CLOUD_GRID_BOUNDS['maxLon'] + 1)
     )
-    lat_sub  = lat0[mask]
-    lon_sub  = lon0[mask]
-    full_idx = np.where(mask)[0]
+    lat_sub = lat0[mask]
+    lon_sub = lon0[mask]
+    native_pts = np.column_stack([lat_sub, lon_sub])
 
     if len(lat_sub) == 0:
         log.warning('HRRR: no grid points in bounding box')
         return None
 
-    tree = KDTree(np.column_stack([lat_sub, lon_sub]))
     grid_lats = np.array([p['lat'] for p in grid])
     grid_lons = np.array([p['lon'] for p in grid])
-    _, near_idxs = tree.query(np.column_stack([grid_lats, grid_lons]))
+    query_pts = np.column_stack([grid_lats, grid_lons])
 
     results = {}
-    for gi, pt in enumerate(grid):
-        key      = f"{pt['lat']},{pt['lon']}"
-        hrrr_idx = full_idx[near_idxs[gi]]
-        forecast = []
-        for vt, lat_f, lon_f, tcc_f in sorted(all_messages, key=lambda x: x[0]):
-            if hrrr_idx >= len(tcc_f):
-                continue
-            cc = tcc_f[hrrr_idx]
+    for vt, lat_f, lon_f, tcc_f in sorted(all_messages, key=lambda x: x[0]):
+        tcc_sub = tcc_f[mask]
+
+        # Bilinear interpolation from native HRRR grid to our lat/lon points
+        interp = griddata(native_pts, tcc_sub, query_pts, method='linear')
+
+        # Fill any remaining NaN (outside convex hull) with nearest
+        nan_mask = np.isnan(interp)
+        if nan_mask.any():
+            interp_nn = griddata(native_pts, tcc_sub, query_pts[nan_mask], method='nearest')
+            interp[nan_mask] = interp_nn
+
+        t_str = vt.isoformat()
+        for gi, pt in enumerate(grid):
+            key = f"{pt['lat']},{pt['lon']}"
+            cc = interp[gi]
             if np.isnan(cc) or np.isinf(cc):
                 continue
-            forecast.append({'t': vt.isoformat(), 'cc': int(np.clip(round(float(cc)), 0, 100))})
-        if forecast:
-            results[key] = forecast
+            entry = {'t': t_str, 'cc': int(np.clip(round(float(cc)), 0, 100))}
+            if key not in results:
+                results[key] = []
+            results[key].append(entry)
 
     pct = len(results) / max(len(grid), 1) * 100
-    log.info(f'HRRR: populated {len(results)}/{len(grid)} points ({pct:.0f}%)')
+    log.info(f'HRRR: populated {len(results)}/{len(grid)} points ({pct:.0f}%) via bilinear interpolation')
 
-    # Return None if coverage < 80% so Open-Meteo fallback kicks in
     return results if len(results) >= len(grid) * 0.8 else None
 
 def fetch_cloud_batch(points):
