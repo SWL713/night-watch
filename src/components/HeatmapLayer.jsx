@@ -32,19 +32,19 @@ const GibsRedLayer = L.GridLayer.extend({
       const imageData = ctx.getImageData(0, 0, 256, 256)
       const d = imageData.data
 
-      // Percentile-based normalization: use 5th/95th percentile instead of min/max.
-      // Per-tile min/max breaks on mixed tiles (e.g. one Vermont town on an otherwise
-      // wilderness tile) — a few bright pixels pull the max up and make dark wilderness
-      // look polluted relative to adjacent all-city tiles that normalize differently.
-      const lums = []
+      // Hybrid normalization:
+      //   Floor = per-tile minimum (removes JPEG encoding offset, ~same across tiles)
+      //   Ceiling = fixed global value (keeps all tiles on the same absolute scale)
+      // This fixes mixed VT tiles where one small town was pulling min/max apart,
+      // making dark wilderness look artificially bright relative to pure-city tiles.
+      let minLum = 1
       for (let i = 0; i < d.length; i += 4) {
-        lums.push((d[i] * 0.299 + d[i+1] * 0.587 + d[i+2] * 0.114) / 255)
+        const lum = (d[i] * 0.299 + d[i+1] * 0.587 + d[i+2] * 0.114) / 255
+        if (lum < minLum) minLum = lum
       }
-      lums.sort((a, b) => a - b)
-      const p05  = lums[Math.floor(lums.length * 0.05)]
-      const p95  = lums[Math.floor(lums.length * 0.95)]
-      const range  = p95 - p05
-      const cutoff = p05 + range * 0.32  // darkest 32% of the core range → transparent
+      const GLOBAL_CEIL = 0.75  // cities ~0.8-1.0, this clips nothing meaningful
+      const cutoff = minLum + (GLOBAL_CEIL - minLum) * 0.32
+      const range  = GLOBAL_CEIL - minLum
 
       for (let i = 0; i < d.length; i += 4) {
         const lum = (d[i] * 0.299 + d[i+1] * 0.587 + d[i+2] * 0.114) / 255
@@ -52,7 +52,7 @@ const GibsRedLayer = L.GridLayer.extend({
         if (lum <= cutoff || range < 0.05) {
           d[i+3] = 0  // transparent
         } else {
-          const remapped  = (lum - cutoff) / (p95 - cutoff)
+          const remapped  = Math.min(1, (lum - cutoff) / (GLOBAL_CEIL - cutoff))
           const intensity = Math.pow(remapped, 0.75) // bortle 4+ visible, cities semi-transparent
 
           let r, g, b
