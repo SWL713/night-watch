@@ -32,18 +32,19 @@ const GibsRedLayer = L.GridLayer.extend({
       const imageData = ctx.getImageData(0, 0, 256, 256)
       const d = imageData.data
 
-      // Per-tile normalization: find the luminance range actually in this tile.
-      // VIIRS JPEGs have a non-zero floor even in pristine dark sky — the encoding
-      // lifts all values. By treating the darkest 40% of each tile as transparent
-      // we self-calibrate regardless of absolute pixel values.
-      let minLum = 1, maxLum = 0
+      // Percentile-based normalization: use 5th/95th percentile instead of min/max.
+      // Per-tile min/max breaks on mixed tiles (e.g. one Vermont town on an otherwise
+      // wilderness tile) — a few bright pixels pull the max up and make dark wilderness
+      // look polluted relative to adjacent all-city tiles that normalize differently.
+      const lums = []
       for (let i = 0; i < d.length; i += 4) {
-        const lum = (d[i] * 0.299 + d[i+1] * 0.587 + d[i+2] * 0.114) / 255
-        if (lum < minLum) minLum = lum
-        if (lum > maxLum) maxLum = lum
+        lums.push((d[i] * 0.299 + d[i+1] * 0.587 + d[i+2] * 0.114) / 255)
       }
-      const range  = maxLum - minLum
-      const cutoff = minLum + range * 0.32  // darkest 32% → transparent
+      lums.sort((a, b) => a - b)
+      const p05  = lums[Math.floor(lums.length * 0.05)]
+      const p95  = lums[Math.floor(lums.length * 0.95)]
+      const range  = p95 - p05
+      const cutoff = p05 + range * 0.32  // darkest 32% of the core range → transparent
 
       for (let i = 0; i < d.length; i += 4) {
         const lum = (d[i] * 0.299 + d[i+1] * 0.587 + d[i+2] * 0.114) / 255
@@ -51,7 +52,7 @@ const GibsRedLayer = L.GridLayer.extend({
         if (lum <= cutoff || range < 0.05) {
           d[i+3] = 0  // transparent
         } else {
-          const remapped  = (lum - cutoff) / (maxLum - cutoff)
+          const remapped  = (lum - cutoff) / (p95 - cutoff)
           const intensity = Math.pow(remapped, 0.75) // bortle 4+ visible, cities semi-transparent
 
           let r, g, b
