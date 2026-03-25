@@ -5,9 +5,13 @@ import { WEIGHT_CLOUDS, WEIGHT_BORTLE, CLOUD_FLOOR_THRESHOLD } from '../config.j
 // Steeper falloff at B5+ so light-polluted areas read clearly as bad
 export function bortleScore(bortle) {
   const b = Math.min(9, Math.max(1, bortle))
-  // Remap B2=1.0, B9=0.0 with power 1.4 — gentler on mid-range (4-7)
-  const remapped = Math.max(0, 9 - b) / 7
-  return Math.min(1, Math.pow(remapped, 1.4))
+  // Bortle 1-7: gentle curve (power 1.4), bortle 8-9: heavy penalty
+  if (b <= 7) {
+    const remapped = (8 - b) / 7  // b1=1.0, b7=0.143
+    return Math.min(1, Math.pow(remapped, 1.4))
+  }
+  // B8=0.04, B9=0.00 — deep red, cities always penalized heavily
+  return Math.max(0, (9 - b) * 0.04)
 }
 
 // Cloud cover 0-100% → 0-1 score
