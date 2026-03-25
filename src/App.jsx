@@ -20,6 +20,7 @@ import { useCloudCover } from './hooks/useCloudCover.js'
 import { getMoonData } from './utils/moon.js'
 
 import { MAP_BOUNDS, PASSPHRASE } from './config.js'
+import { loadBortleGrid } from './utils/bortleGrid.js'
 
 // Fix Leaflet default marker icon path issue with Vite
 import L from 'leaflet'
@@ -58,6 +59,8 @@ function App() {
   const { getCloudAt, loading: cloudLoading, progress, coverage, total, phase, cloudData } = useCloudCover()
 
   const moonData = getMoonData()
+  const [bortleGrid, setBortleGrid] = useState(null)
+  useEffect(() => { loadBortleGrid().then(g => { if (g) setBortleGrid(g) }) }, [])
 
   // Determine active heatmap mode from layer toggles
   const heatmapMode = layers.clouds ? 'clouds' : layers.bortle ? 'bortle' : 'combined'
@@ -161,6 +164,7 @@ function App() {
               spaceWeather={sw}
               onSubmitPhoto={handleSubmitPhoto}
               mode={heatmapMode}
+              bortleGrid={bortleGrid}
             />
           )}
         </MapContainer>
@@ -259,8 +263,8 @@ function App() {
           </div>
 
           <div style={{ color: '#1e2e40', fontSize: 8, letterSpacing: 0.5, fontFamily: FONT }}>
-            light pollution: <a href="https://www.lightpollutionmap.info" target="_blank" rel="noopener"
-              style={{ color: '#1e3a50', textDecoration: 'none' }}>lightpollutionmap.info</a>
+            light pollution: <a href="https://earthdata.nasa.gov" target="_blank" rel="noopener"
+              style={{ color: '#1e3a50', textDecoration: 'none' }}>NASA GIBS</a>
           </div>
 
           <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
