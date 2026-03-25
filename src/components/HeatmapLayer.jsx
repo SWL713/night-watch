@@ -86,20 +86,17 @@ function buildScoreGrid(mode, getCloudAt, selectedHour, bortleLookup) {
       if (mode === 'bortle') return bScore
 
       const cloud = getCloudAt ? getCloudAt(lat, lon, selectedHour) : null
-      // 20% threshold — show partial cloud patches rather than washing them out
       const adjusted = cloud === null ? null : (cloud < 40 ? 0 : (cloud - 40) / 60 * 100)
       const cScore = adjusted === null ? null : 1 - adjusted / 100
 
       if (mode === 'clouds') return cScore
 
-      // Combined: cloud dominates with steep falloff for heavy fronts
-      // cScore^1.5 means 50% cloud → 35% score (punishes mid-front harder)
-      // Border regions (partial cloud) get gentler partial penalty
-      // Bortle contributes 20% — tiebreaker for equally clear areas
-      if (cScore === null) return Math.pow(bScore * 0.5 + 0.5, 0.65)
-      if (cScore <= 0) return 0  // 100% cloud = hard red always
-      const cloudPenalty = Math.pow(cScore, 1.5)
-      return Math.pow(cloudPenalty * 0.8 + bScore * 0.2, 0.65)
+      // Combined: cloud clearly dominates (85%), bortle is a tiebreaker (15%)
+      // No gamma — clouds must show through honestly
+      // 100% cloud always = hard red regardless of bortle
+      if (cScore === null) return bScore * 0.15 + 0.85  // no cloud data = assume clear
+      if (cScore <= 0) return 0
+      return cScore * 0.85 + bScore * 0.15
     })
   )
 
