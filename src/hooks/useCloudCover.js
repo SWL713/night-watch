@@ -1,10 +1,8 @@
-// Cloud cover now loaded from pipeline JSON (updated hourly by GitHub Actions)
-// instead of fetching hundreds of Open-Meteo calls from the browser.
-// Load time: ~1 second (single HTTP request) vs 2-3 minutes (600 API calls).
-// Falls back to direct Open-Meteo fetch if pipeline file is stale/missing.
+// Cloud cover loaded from HRRR pipeline JSON (updated hourly by GitHub Actions).
+// Single HTTP request, ~150KB, bilinear interpolated 2025-point TCDC grid.
+// On fetch failure: serves last cached HRRR data rather than falling back to Open-Meteo.
 
 import { useState, useEffect, useRef, useCallback } from 'react'
-import { GRID_BOUNDS } from '../config.js'
 
 export const GRID_SPACING = 0.25  // matches pipeline grid (NDFD at 0.25°)
 
@@ -98,7 +96,6 @@ export function useCloudCover() {
         }
 
         // Convert pipeline format {t, cc} to {time, cloudcover}
-        // 't' is an absolute ISO timestamp — not relative to pipeline run time
         const results = {}
         for (const [key, forecast] of Object.entries(json.points)) {
           results[key] = forecast.map(p => ({
@@ -120,38 +117,16 @@ export function useCloudCover() {
         setProgress(100)
         setPhase('done')
       } catch (e) {
-        console.warn('Pipeline cloud fetch failed, falling back to Open-Meteo:', e.message)
-        setPhase('fallback')
-
-        // 3. Fallback: coarse grid from Open-Meteo directly
-        try {
-          const results = {}
-          const lats = [], lons = []
-          const COARSE = 1.0
-          for (let lat = GRID_BOUNDS.minLat; lat <= GRID_BOUNDS.maxLat; lat += COARSE)
-            lats.push(parseFloat(lat.toFixed(1)))
-          for (let lon = GRID_BOUNDS.minLon; lon <= GRID_BOUNDS.maxLon; lon += COARSE)
-            lons.push(parseFloat(lon.toFixed(1)))
-
-          let done = 0
-          const total = lats.length * lons.length
-
-          for (const lat of lats) {
-            for (const lon of lons) {
-              const fc = await fetchSinglePoint(lat, lon)
-              if (fc) results[`${lat},${lon}`] = fc
-              done++
-              setProgress(Math.round(done / total * 100))
-              await new Promise(r => setTimeout(r, 60))
-            }
-          }
-
-          const data = { points: results, spacing: COARSE, fetchedAt: Date.now(), source: 'fallback' }
-          saveCache(data)
-          setCloudData(data)
+        // HRRR fetch failed — keep showing last cached data if available
+        // Better to show slightly stale HRRR than bad Open-Meteo fallback data
+        console.warn('Pipeline cloud fetch failed, using stale cache:', e.message)
+        const stale = loadCache()
+        if (stale) {
+          setCloudData(stale)
           setPhase('done')
-        } catch (e2) {
-          setError(e2.message)
+        } else {
+          setError('Cloud data unavailable')
+          setPhase('error')
         }
       } finally {
         setLoading(false)
