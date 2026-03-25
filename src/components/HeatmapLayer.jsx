@@ -23,11 +23,11 @@ function maxLonForLat(lat) {
 }
 function isOcean(lat, lon) { return lon > maxLonForLat(lat) }
 
-const CLOUD_SPACING  = 0.25
+const CLOUD_SPACING  = 0.1   // matches pipeline grid resolution
 const BORTLE_SPACING = 0.1
 
 // Gentle separable gaussian — smooths score grid to remove cell seams.
-// With HRRR data (3km native, resampled to 0.25°) the source data is already
+// With HRRR data (3km native, resampled to 0.1°) we capture real sub-cell variation
 // spatially coherent so we use a moderate kernel.
 // Radius 2, sigma 1.0 — creates gradual transitions without destroying real boundaries.
 function gaussianSmooth(grid, rows, cols, sigma = 1.0, R = 2) {
@@ -101,10 +101,9 @@ function buildScoreGrid(mode, getCloudAt, selectedHour, bortleLookup) {
   )
 
   // Light gaussian to blend hard cell boundaries without destroying cloud structure
-  // sigma=1.5 R=3 covers ~0.75° — enough to soften edges, not enough to smear fronts
-  // Bortle at 0.1° gets tighter smooth
-  const smoothSigma = mode === 'bortle' ? 1.0 : 1.5
-  const smoothR     = mode === 'bortle' ? 2   : 3
+  // sigma=2.5 R=5 covers ~1.25° — wide enough to blend HRRR cell boundaries
+  const smoothSigma = mode === 'bortle' ? 1.0 : 2.5
+  const smoothR     = mode === 'bortle' ? 2   : 5
   const grid = gaussianSmooth(raw, lats.length, lons.length, smoothSigma, smoothR)
   return { grid, lats, lons, mode }
 }
