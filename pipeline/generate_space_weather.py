@@ -905,6 +905,15 @@ def fetch_hrrr_cloud(grid):
     grid_lons = np.array([p['lon'] for p in grid])
     query_pts = np.column_stack([grid_lats, grid_lons])
 
+    from scipy.ndimage import gaussian_filter
+
+    # Unique lats/lons for reshaping to 2D grid
+    unique_lats = sorted(set(p['lat'] for p in grid), reverse=True)
+    unique_lons = sorted(set(p['lon'] for p in grid))
+    lat_idx = {lat: i for i, lat in enumerate(unique_lats)}
+    lon_idx = {lon: i for i, lon in enumerate(unique_lons)}
+    nrows, ncols = len(unique_lats), len(unique_lons)
+
     results = {}
     for vt, lat_f, lon_f, tcc_f in sorted(all_messages, key=lambda x: x[0]):
         tcc_sub = tcc_f[mask]
@@ -912,16 +921,28 @@ def fetch_hrrr_cloud(grid):
         # Bilinear interpolation from native HRRR grid to our lat/lon points
         interp = griddata(native_pts, tcc_sub, query_pts, method='linear')
 
-        # Fill any remaining NaN (outside convex hull) with nearest
+        # Fill any remaining NaN with nearest
         nan_mask = np.isnan(interp)
         if nan_mask.any():
             interp_nn = griddata(native_pts, tcc_sub, query_pts[nan_mask], method='nearest')
             interp[nan_mask] = interp_nn
 
+        # Reshape to 2D, apply gaussian smooth to remove HRRR macro-scale artifacts,
+        # then flatten back — sigma=1.5 at 0.1° spacing covers ~0.15° = ~17km
+        grid2d = np.full((nrows, ncols), np.nan)
+        for gi, pt in enumerate(grid):
+            grid2d[lat_idx[pt['lat']], lon_idx[pt['lon']]] = interp[gi]
+
+        # Fill NaN with local mean before smoothing so edges don't bleed
+        nan2d = np.isnan(grid2d)
+        grid2d[nan2d] = np.nanmean(grid2d)
+        smoothed = gaussian_filter(grid2d, sigma=2.0)
+        smoothed[nan2d] = np.nan  # restore ocean/edge nulls
+
         t_str = vt.isoformat()
         for gi, pt in enumerate(grid):
             key = f"{pt['lat']},{pt['lon']}"
-            cc = interp[gi]
+            cc = smoothed[lat_idx[pt['lat']], lon_idx[pt['lon']]]
             if np.isnan(cc) or np.isinf(cc):
                 continue
             entry = {'t': t_str, 'cc': int(np.clip(round(float(cc)), 0, 100))}
