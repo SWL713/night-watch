@@ -101,9 +101,11 @@ function buildScoreGrid(mode, getCloudAt, selectedHour, bortleLookup) {
   )
 
   // Light gaussian to blend hard cell boundaries without destroying cloud structure
-  // sigma=2.5 R=5 covers ~1.25° — wide enough to blend HRRR cell boundaries
-  const smoothSigma = mode === 'bortle' ? 1.0 : 2.5
-  const smoothR     = mode === 'bortle' ? 2   : 5
+  // Both layers need matching smoothness for clean combined multiply
+  // Bortle: sigma=2.0 R=4 to blend discrete zone boundaries
+  // Clouds: pre-smoothed in pipeline, light frontend pass
+  const smoothSigma = 2.0
+  const smoothR     = 4
   const grid = gaussianSmooth(raw, lats.length, lons.length, smoothSigma, smoothR)
   return { grid, lats, lons, mode }
 }
@@ -190,7 +192,7 @@ const SmoothHeatmap = L.Layer.extend({
     const latMax  = lats[0]
     const lonMin  = lons[0]
     const spacing = lats.length > 1 ? Math.abs(lats[0] - lats[1]) : CLOUD_SPACING
-    const FADE    = spacing * 5
+    const FADE    = spacing * 2  // reduced from 5 - was clipping coast and spots
 
     // Helper: bilinear sample a grid at fractional cell coords, returns null if no data
     function sampleGrid(g, ci, cj, r0, r1, c0, c1) {
