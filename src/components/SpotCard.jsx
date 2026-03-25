@@ -5,10 +5,10 @@ import { combinedScore, locationScore, bortleScore, scoreToColor, scoreToLabel, 
 // Match HeatmapLayer combined scoring exactly
 function calcChaseScore(cloudcover, bortle) {
   const bScore = bortleScore(bortle)
-  const adjusted = cloudcover < 40 ? 0 : (cloudcover - 40) / 60 * 100
+  const adjusted = cloudcover * 100
   const cScore = 1 - adjusted / 100
   if (cScore <= 0) return 0
-  return cScore * 0.85 + bScore * 0.15
+  return cScore * bScore
 }
 
 const FONT = 'DejaVu Sans Mono, Consolas, monospace'

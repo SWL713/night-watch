@@ -86,24 +86,25 @@ function buildScoreGrid(mode, getCloudAt, selectedHour, bortleLookup) {
       if (mode === 'bortle') return bScore
 
       const cloud = getCloudAt ? getCloudAt(lat, lon, selectedHour) : null
-      const adjusted = cloud === null ? null : (cloud < 40 ? 0 : (cloud - 40) / 60 * 100)
+      const adjusted = cloud === null ? null : cloud  // no threshold — full range
       const cScore = adjusted === null ? null : 1 - adjusted / 100
 
       if (mode === 'clouds') return cScore
 
-      // Combined: cloud clearly dominates (85%), bortle is a tiebreaker (15%)
-      // No gamma — clouds must show through honestly
-      // 100% cloud always = hard red regardless of bortle
-      if (cScore === null) return bScore * 0.15 + 0.85  // no cloud data = assume clear
-      if (cScore <= 0) return 0
-      return cScore * 0.85 + bScore * 0.15
+      // Combined: pure multiply — cloud is ceiling, bortle is floor penalty
+      // Clear dark sky = green. Clouds pull everything toward red.
+      // Bortle can't lift cloudy areas — only clear sky reveals dark sky quality.
+      if (cScore === null) return bScore  // no cloud data — show bortle
+      if (cScore <= 0) return 0           // 100% cloud = hard red always
+      return cScore * bScore
     })
   )
 
-  // Cloud data has large uniform patches from HRRR forecast model internal grid
-  // Need wide gaussian to smooth these — sigma=3, R=6 covers ~1.5° in each direction
-  const smoothSigma = (mode === 'clouds' || mode === 'combined') ? 4.0 : 1.0
-  const smoothR     = (mode === 'clouds' || mode === 'combined') ? 8   : 2
+  // Bortle: tight blur preserves fine structure
+  // Clouds: moderate blur smooths HRRR cells without washing out cloud signal
+  // Combined: same as clouds — tight enough to show real cloud patterns
+  const smoothSigma = mode === 'bortle' ? 1.0 : 2.0
+  const smoothR     = mode === 'bortle' ? 2   : 4
   const grid = gaussianSmooth(raw, lats.length, lons.length, smoothSigma, smoothR)
   return { grid, lats, lons, mode }
 }
