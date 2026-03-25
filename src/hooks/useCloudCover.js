@@ -64,7 +64,6 @@ export function useCloudCover() {
           if (res.ok) {
             const json = await res.json()
             if (json?.last_updated && cached.lastUpdated !== json.last_updated) {
-              // Server has fresher data — update silently
               const results = {}
               for (const [key, forecast] of Object.entries(json.points || {})) {
                 results[key] = forecast.map(p => ({
