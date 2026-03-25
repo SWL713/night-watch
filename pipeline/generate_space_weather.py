@@ -21,7 +21,8 @@ import requests
 logging.basicConfig(level=logging.INFO, format='%(asctime)s %(levelname)s %(message)s')
 log = logging.getLogger(__name__)
 
-OUTPUT_PATH = os.path.join(os.path.dirname(__file__), '..', 'data', 'space_weather.json')
+OUTPUT_PATH       = os.path.join(os.path.dirname(__file__), '..', 'data', 'space_weather.json')
+CLOUD_OUTPUT_PATH = os.path.join(os.path.dirname(__file__), '..', 'data', 'cloud_cover.json')
 
 # ── Data source URLs ─────────────────────────────────────────────────────────
 DSCOVR_MAG_URL    = 'https://services.swpc.noaa.gov/json/rtsw/rtsw_mag_1m.json'
