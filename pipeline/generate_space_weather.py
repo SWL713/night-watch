@@ -700,7 +700,7 @@ def main():
 
 # ── Cloud Grid ────────────────────────────────────────────────────────────────
 
-CLOUD_GRID_SPACING = 0.25
+CLOUD_GRID_SPACING = 0.1   # increased from 0.25 — captures more HRRR native cell variation
 CLOUD_GRID_BOUNDS  = {'minLat': 38.5, 'maxLat': 47.5, 'minLon': -82.0, 'maxLon': -66.0}
 
 # Approximate eastern coastline — points east of this are Atlantic Ocean
