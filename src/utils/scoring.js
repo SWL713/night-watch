@@ -5,9 +5,9 @@ import { WEIGHT_CLOUDS, WEIGHT_BORTLE, CLOUD_FLOOR_THRESHOLD } from '../config.j
 // Steeper falloff at B5+ so light-polluted areas read clearly as bad
 export function bortleScore(bortle) {
   const b = Math.min(9, Math.max(1, bortle))
-  // Remap B2=1.0, B9=0.0 with power 2.0 for steep urban falloff
+  // Remap B2=1.0, B9=0.0 with power 1.4 — gentler on mid-range (4-7)
   const remapped = Math.max(0, 9 - b) / 7
-  return Math.min(1, Math.pow(remapped, 2.0))
+  return Math.min(1, Math.pow(remapped, 1.4))
 }
 
 // Cloud cover 0-100% → 0-1 score
