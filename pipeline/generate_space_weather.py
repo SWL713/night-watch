@@ -697,6 +697,45 @@ def main():
 
 
 
+# ── Cloud Grid ────────────────────────────────────────────────────────────────
+
+CLOUD_GRID_SPACING = 0.25
+CLOUD_GRID_BOUNDS  = {'minLat': 38.5, 'maxLat': 47.5, 'minLon': -82.0, 'maxLon': -66.0}
+
+# Approximate eastern coastline — points east of this are Atlantic Ocean
+_COAST_MASK = {
+    38.0: -74.5, 38.5: -74.2, 39.0: -74.0, 39.5: -73.8,
+    40.0: -73.5, 40.5: -73.0, 41.0: -71.8, 41.5: -71.2,
+    42.0: -69.9, 42.5: -70.0, 43.0: -70.5, 43.5: -70.2,
+    44.0: -69.2, 44.5: -67.5, 45.0: -67.0, 45.5: -67.0,
+    46.0: -67.5, 46.5: -68.0, 47.0: -68.5, 47.5: -69.0,
+    48.0: -69.5,
+}
+_COAST_LATS = sorted(_COAST_MASK.keys())
+
+def _max_lon_for(lat):
+    for cl in _COAST_LATS:
+        if lat <= cl:
+            return _COAST_MASK[cl]
+    return CLOUD_GRID_BOUNDS['maxLon']
+
+def build_cloud_grid():
+    """Build list of {lat, lon} dicts at CLOUD_GRID_SPACING, ocean points excluded."""
+    pad  = CLOUD_GRID_SPACING * 2
+    grid = []
+    lat  = CLOUD_GRID_BOUNDS['minLat'] - pad
+    while lat <= CLOUD_GRID_BOUNDS['maxLat'] + pad:
+        max_lon = _max_lon_for(round(lat, 2))
+        lon = CLOUD_GRID_BOUNDS['minLon'] - pad
+        while lon <= CLOUD_GRID_BOUNDS['maxLon'] + pad:
+            if lon <= max_lon:
+                grid.append({'lat': round(lat, 2), 'lon': round(lon, 2)})
+            lon = round(lon + CLOUD_GRID_SPACING, 2)
+        lat = round(lat + CLOUD_GRID_SPACING, 2)
+    log.info(f'Cloud grid: {len(grid)} points (ocean masked)')
+    return grid
+
+
 # ── HRRR Cloud Cover ──────────────────────────────────────────────────────────
 #
 # NOAA HRRR (High-Resolution Rapid Refresh): 3km, hourly, no rate limits, no seams.
