@@ -10,14 +10,14 @@ export const GRID_SPACING = 0.25  // matches pipeline grid (NDFD at 0.25°)
 
 const CLOUD_URL = 'https://raw.githubusercontent.com/SWL713/night-watch/main/data/cloud_cover.json'
 const CACHE_KEY = 'nw_cloud_v2'
-const CACHE_TTL = 3600000  // 1 hour
+const CACHE_TTL = 900000  // 15 minutes — ensures fresh HRRR data loads promptly
 
 function makeKey(lat, lon, spacing = GRID_SPACING) {
   const r = v => parseFloat((Math.round(v / spacing) * spacing).toFixed(2))
   return `${r(lat)},${r(lon)}`
 }
 
-// Load from sessionStorage
+// Load from sessionStorage — invalidate if older than TTL or stale vs server
 function loadCache() {
   try {
     const raw = sessionStorage.getItem(CACHE_KEY)
@@ -60,6 +60,27 @@ export function useCloudCover() {
         setLoading(false)
         setPhase('done')
         setProgress(100)
+        // Background check: if server has newer data, reload silently
+        try {
+          const res = await fetch(CLOUD_URL + `?t=${Math.floor(Date.now() / 300000)}`)
+          if (res.ok) {
+            const json = await res.json()
+            if (json?.last_updated && cached.lastUpdated !== json.last_updated) {
+              // Server has fresher data — update silently
+              const results = {}
+              for (const [key, forecast] of Object.entries(json.points || {})) {
+                results[key] = forecast.map(p => ({
+                  time:       new Date(p.t || p.time),
+                  cloudcover: p.cc ?? p.cloudcover,
+                })).filter(p => !isNaN(p.time) && p.cloudcover !== null)
+              }
+              const data = { points: results, spacing: json.spacing || GRID_SPACING,
+                             fetchedAt: Date.now(), source: 'pipeline', lastUpdated: json.last_updated }
+              saveCache(data)
+              setCloudData(data)
+            }
+          }
+        } catch {}
         return
       }
 
