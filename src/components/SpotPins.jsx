@@ -1,11 +1,13 @@
 import { Marker, Popup } from 'react-leaflet'
 import { useState, useEffect } from 'react'
 import L from 'leaflet'
-import { bortleToTileColor, applyCloudToColor, fetchBortleAt } from '../utils/bortleApi.js'
+import { bortleScore, scoreToRGB } from '../utils/scoring.js'
+import { getBortle } from '../utils/bortleGrid.js'
+import { fetchBortleAt } from '../utils/bortleApi.js'
 import SpotCard from './SpotCard.jsx'
 
-function createPin(rgb, size) {
-  const color = `rgb(${rgb[0]},${rgb[1]},${rgb[2]})`
+function createPin(r, g, b, size) {
+  const color = `rgb(${r},${g},${b})`
   return L.divIcon({
     className: '',
     html: `<div style="
@@ -20,41 +22,65 @@ function createPin(rgb, size) {
   })
 }
 
-// Single pin — manages its own bortle lookup if not stored
-function SpotPin({ spot, selectedHour, getCloudAt, spaceWeather, onSubmitPhoto, mode }) {
-  const [bortle, setBortle] = useState(spot.bortle ?? null)
+// Bortle score → color (green=dark sky, red=light polluted)
+// Same scale as the existing heatmap so pins are visually consistent
+function bortleToRGB(bortle) {
+  return scoreToRGB(bortleScore(bortle))
+}
 
-  // Fetch bortle if not stored on spot
+// Shift a color toward red by cloudFraction (0–1)
+function addCloudRed(rgb, cloudFraction) {
+  const cf = Math.max(0, Math.min(1, cloudFraction))
+  return [
+    Math.round(rgb[0] + (200 - rgb[0]) * cf),
+    Math.round(rgb[1] + (0   - rgb[1]) * cf),
+    Math.round(rgb[2] + (20  - rgb[2]) * cf),
+  ]
+}
+
+function SpotPin({ spot, selectedHour, getCloudAt, spaceWeather, onSubmitPhoto, mode, bortleGrid }) {
+  // Use stored bortle, or look up from grid, or fetch from API as last resort
+  const storedBortle = spot.bortle ?? null
+  const gridBortle   = bortleGrid ? getBortle(bortleGrid, spot.lat, spot.lon) : null
+  const [apiBortle, setApiBortle] = useState(null)
+
   useEffect(() => {
-    if (bortle !== null) return
-    fetchBortleAt(spot.lat, spot.lon).then(b => setBortle(b))
+    // Only hit API if we have neither stored nor grid value
+    if (storedBortle !== null || gridBortle !== null) return
+    fetchBortleAt(spot.lat, spot.lon).then(b => setApiBortle(b))
   }, [spot.id]) // eslint-disable-line
 
-  const b = bortle ?? 5  // default while loading
+  const bortle = storedBortle ?? gridBortle ?? apiBortle ?? 5
 
-  // Cloud fraction at this spot right now
-  const cloudPct = getCloudAt ? (getCloudAt(spot.lat, spot.lon, selectedHour) ?? 0) : 0
+  // Cloud at this spot
+  const cloudPct      = getCloudAt ? (getCloudAt(spot.lat, spot.lon, selectedHour) ?? 0) : 0
   const cloudFraction = Math.max(0, Math.min(1, cloudPct / 100))
 
-  // Base color from bortle (matches tile palette), shifted red by clouds
-  const baseColor  = bortleToTileColor(b)
-  const pinColor   = (mode === 'clouds')
-    ? applyCloudToColor([0, 200, 80], cloudFraction)   // clouds-only: start green
-    : applyCloudToColor(baseColor, cloudFraction)       // bortle/combined: start at tile color
+  // Color logic per mode
+  let rgb
+  if (mode === 'bortle') {
+    // Pure bortle — matches the tile colors beneath
+    rgb = bortleToRGB(bortle)
+  } else if (mode === 'clouds') {
+    // Pure cloud — green=clear, red=cloudy, bortle irrelevant
+    rgb = scoreToRGB(1 - cloudFraction)
+  } else {
+    // Combined — bortle is baseline, clouds push toward red
+    rgb = addCloudRed(bortleToRGB(bortle), cloudFraction)
+  }
 
-  // Pin size: bigger = better (less cloudy + darker sky)
-  const quality = (1 - cloudFraction) * (1 - (b - 1) / 8)
-  const size = 10 + Math.round(quality * 7)
+  // Size: bigger = better sky conditions
+  const quality = (1 - cloudFraction) * bortleScore(bortle)
+  const size    = 10 + Math.round(quality * 7)
 
   return (
     <Marker
-      key={spot.id}
       position={[spot.lat, spot.lon]}
-      icon={createPin(pinColor, size)}
+      icon={createPin(rgb[0], rgb[1], rgb[2], size)}
     >
       <Popup minWidth={300} maxWidth={320} className="night-watch-popup">
         <SpotCard
-          spot={{ ...spot, bortle: b }}
+          spot={{ ...spot, bortle }}
           onClose={() => {}}
           spaceWeather={spaceWeather}
           onSubmitPhoto={onSubmitPhoto}
@@ -64,7 +90,7 @@ function SpotPin({ spot, selectedHour, getCloudAt, spaceWeather, onSubmitPhoto, 
   )
 }
 
-export default function SpotPins({ spots, selectedHour, getCloudAt, spaceWeather, onSubmitPhoto, mode }) {
+export default function SpotPins({ spots, selectedHour, getCloudAt, spaceWeather, onSubmitPhoto, mode, bortleGrid }) {
   return (
     <>
       {spots.map(spot => (
@@ -76,6 +102,7 @@ export default function SpotPins({ spots, selectedHour, getCloudAt, spaceWeather
           spaceWeather={spaceWeather}
           onSubmitPhoto={onSubmitPhoto}
           mode={mode}
+          bortleGrid={bortleGrid}
         />
       ))}
     </>

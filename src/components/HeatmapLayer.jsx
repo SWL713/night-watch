@@ -1,16 +1,92 @@
-import { useEffect, useRef } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useMap } from 'react-leaflet'
 import L from 'leaflet'
-import { scoreToRGB } from '../utils/scoring.js'
+import { scoreToRGB, bortleScore } from '../utils/scoring.js'
 import { GRID_BOUNDS } from '../config.js'
+import { loadBortleGrid, getBortle } from '../utils/bortleGrid.js'
 
-// ── Light pollution tile layer ────────────────────────────────────────────────
-// lightpollutionmap.info VIIRS 2023 tiles — 500m resolution
-// Attribution required per their terms of use
-const LP_TILE_URL = 'https://www.lightpollutionmap.info/tiles/viirs_2023/{z}/{x}/{y}.png'
-const LP_ATTRIBUTION = '© <a href="https://www.lightpollutionmap.info" target="_blank" rel="noopener">lightpollutionmap.info</a> (Cinzano et al.)'
+// ── NASA GIBS VIIRS tile layer — recolored to red/transparent ────────────────
+// Fetches VIIRS night light tiles, renders each to canvas, remaps colors:
+//   black pixels (dark sky)     → fully transparent (base map shows through)
+//   bright pixels (light polln) → red (bad for aurora)
+// This gives us: roads/lakes visible everywhere, light pollution glows red.
 
-// ── Ocean mask (east coast) ───────────────────────────────────────────────────
+const GIBS_LAYER  = 'VIIRS_SNPP_DayNightBand_ENCC'
+const GIBS_DATE   = '2023-01-01'
+const GIBS_ATTRIB = '© <a href="https://earthdata.nasa.gov" target="_blank" rel="noopener">NASA GIBS</a> VIIRS'
+
+const GibsRedLayer = L.GridLayer.extend({
+  createTile(coords, done) {
+    const tile   = document.createElement('canvas')
+    tile.width   = 256
+    tile.height  = 256
+
+    const url = `https://gibs.earthdata.nasa.gov/wmts/epsg3857/best/${GIBS_LAYER}/default/${GIBS_DATE}/GoogleMapsCompatible_Level8/${coords.z}/${coords.y}/${coords.x}.jpg`
+
+    const img = new Image()
+    img.crossOrigin = 'anonymous'
+    img.onload = () => {
+      const ctx = tile.getContext('2d')
+      ctx.drawImage(img, 0, 0, 256, 256)
+
+      const imageData = ctx.getImageData(0, 0, 256, 256)
+      const d = imageData.data
+
+      for (let i = 0; i < d.length; i += 4) {
+        // Luminance of original pixel (VIIRS: black=dark, white=bright city)
+        const lum = (d[i] * 0.299 + d[i+1] * 0.587 + d[i+2] * 0.114) / 255
+
+        if (lum <= 0.06) {
+          // Pure black = pristine dark sky → fully transparent
+          d[i+3] = 0
+        } else {
+          // Remap [0.06..1] → [0..1] so scale starts above dark sky cutoff
+          const remapped = (lum - 0.06) / (1 - 0.06)
+          const intensity = Math.pow(remapped, 0.45)
+
+          // Color ramp: dark-red → orange → red
+          //   intensity 0.0–0.5 : interpolate dark-red (180,30,0) → orange (255,140,0)
+          //   intensity 0.5–1.0 : interpolate orange (255,140,0) → red (220,0,20)
+          let r, g, b
+          if (intensity < 0.5) {
+            const t = intensity / 0.5
+            r = Math.round(180 + (255 - 180) * t)   // 180 → 255
+            g = Math.round(30  + (140 - 30)  * t)   // 30  → 140
+            b = 0
+          } else {
+            const t = (intensity - 0.5) / 0.5
+            r = Math.round(255 + (220 - 255) * t)   // 255 → 220
+            g = Math.round(140 + (0   - 140) * t)   // 140 → 0
+            b = Math.round(t * 20)                   // 0   → 20
+          }
+
+          d[i]   = r
+          d[i+1] = g
+          d[i+2] = b
+          d[i+3] = Math.round(intensity * 225)       // alpha follows brightness
+        }
+      }
+
+      ctx.putImageData(imageData, 0, 0)
+      done(null, tile)
+    }
+    img.onerror = () => done(null, tile)  // empty tile on error — graceful
+    img.src = url
+    return tile
+  }
+})
+
+function createGibsLayer() {
+  return new GibsRedLayer({
+    attribution:   GIBS_ATTRIB,
+    zIndex:        190,
+    maxNativeZoom: 8,
+    maxZoom:       16,
+    crossOrigin:   true,
+  })
+}
+
+// ── Ocean mask ────────────────────────────────────────────────────────────────
 const COAST_MASK = {
   38.0: -74.5, 38.5: -74.2, 39.0: -74.0, 39.5: -73.8,
   40.0: -73.5, 40.5: -73.0, 41.0: -71.8, 41.5: -71.2,
@@ -32,17 +108,16 @@ const CLOUD_SPACING = 0.1
 function gaussianSmooth(grid, rows, cols, sigma = 2.0, R = 4) {
   let ksum = 0
   const raw = []
-  for (let i = -R; i <= R; i++) { const v = Math.exp(-i * i / (2 * sigma * sigma)); raw.push(v); ksum += v }
+  for (let i = -R; i <= R; i++) { const v = Math.exp(-i*i/(2*sigma*sigma)); raw.push(v); ksum += v }
   const k = raw.map(v => v / ksum)
-
   const tmp = Array.from({ length: rows }, () => new Array(cols).fill(null))
   for (let r = 0; r < rows; r++) {
     for (let c = 0; c < cols; c++) {
       if (grid[r][c] == null) continue
       let s = 0, w = 0
       for (let i = -R; i <= R; i++) {
-        const v = grid[r][Math.max(0, Math.min(cols - 1, c + i))]
-        if (v != null) { s += v * k[i + R]; w += k[i + R] }
+        const v = grid[r][Math.max(0, Math.min(cols-1, c+i))]
+        if (v != null) { s += v * k[i+R]; w += k[i+R] }
       }
       tmp[r][c] = w > 0 ? s / w : null
     }
@@ -53,8 +128,8 @@ function gaussianSmooth(grid, rows, cols, sigma = 2.0, R = 4) {
       if (tmp[r][c] == null) continue
       let s = 0, w = 0
       for (let i = -R; i <= R; i++) {
-        const v = tmp[Math.max(0, Math.min(rows - 1, r + i))][c]
-        if (v != null) { s += v * k[i + R]; w += k[i + R] }
+        const v = tmp[Math.max(0, Math.min(rows-1, r+i))][c]
+        if (v != null) { s += v * k[i+R]; w += k[i+R] }
       }
       out[r][c] = w > 0 ? s / w : null
     }
@@ -62,7 +137,7 @@ function gaussianSmooth(grid, rows, cols, sigma = 2.0, R = 4) {
   return out
 }
 
-// ── Build cloud grid (0-1 fraction per cell) ──────────────────────────────────
+// ── Cloud canvas ──────────────────────────────────────────────────────────────
 function buildCloudGrid(getCloudAt, selectedHour) {
   const pad = CLOUD_SPACING * 2
   const lats = [], lons = []
@@ -75,19 +150,14 @@ function buildCloudGrid(getCloudAt, selectedHour) {
     lons.map(lon => {
       if (isOcean(lat, lon)) return null
       const cloud = getCloudAt ? getCloudAt(lat, lon, selectedHour) : null
-      return cloud === null ? null : cloud / 100  // 0-1 fraction
+      return cloud === null ? null : cloud / 100
     })
   )
-  const grid = gaussianSmooth(raw, lats.length, lons.length, 2.0, 4)
-  return { grid, lats, lons }
+  return { grid: gaussianSmooth(raw, lats.length, lons.length, 2.0, 4), lats, lons }
 }
 
-// ── Canvas layer for clouds ───────────────────────────────────────────────────
-// mode='clouds'   → green-to-red based on cloud cover (standalone cloud view)
-// mode='combined' → transparent-to-red overlay on top of light pollution tiles
 const CloudCanvas = L.Layer.extend({
   initialize(options) { this._options = options },
-
   onAdd(map) {
     this._map = map
     this._canvas = document.createElement('canvas')
@@ -96,98 +166,71 @@ const CloudCanvas = L.Layer.extend({
     map.on('moveend zoomend resize', this._redraw, this)
     this._redraw()
   },
-
   onRemove(map) {
     this._canvas.remove()
     map.off('moveend zoomend resize', this._redraw, this)
   },
-
-  update(gridData, mode) {
-    this._gridData = gridData
-    this._mode = mode
-    this._redraw()
-  },
-
+  update(gridData, mode) { this._gridData = gridData; this._mode = mode; this._redraw() },
   _redraw() {
     if (!this._map || !this._gridData) return
-    const map    = this._map
+    const map = this._map
     const canvas = this._canvas
-    const size   = map.getSize()
-    const dpr    = Math.min(window.devicePixelRatio || 1, 3)
-    const W = Math.round(size.x * dpr)
-    const H = Math.round(size.y * dpr)
-    canvas.width  = W
-    canvas.height = H
-    canvas.style.width  = size.x + 'px'
-    canvas.style.height = size.y + 'px'
+    const size = map.getSize()
+    const dpr  = Math.min(window.devicePixelRatio || 1, 3)
+    const W = Math.round(size.x * dpr), H = Math.round(size.y * dpr)
+    canvas.width = W; canvas.height = H
+    canvas.style.width = size.x + 'px'; canvas.style.height = size.y + 'px'
     L.DomUtil.setPosition(canvas, map.containerPointToLayerPoint([0, 0]))
 
     const ctx = canvas.getContext('2d')
     ctx.clearRect(0, 0, W, H)
 
     const { grid, lats, lons } = this._gridData
-    const rows    = lats.length
-    const cols    = lons.length
-    const mode    = this._mode
+    const rows = lats.length, cols = lons.length
     if (rows < 2 || cols < 2) return
 
-    const latMax  = lats[0]
-    const lonMin  = lons[0]
+    const latMax = lats[0], lonMin = lons[0]
     const spacing = Math.abs(lats[0] - lats[1])
-    const FADE    = spacing * 2
-
+    const FADE = spacing * 2
+    const mode = this._mode
     const imageData = ctx.createImageData(W, H)
-    const data      = imageData.data
+    const data = imageData.data
 
     for (let py = 0; py < H; py++) {
       for (let px = 0; px < W; px++) {
-        const latlng = map.containerPointToLatLng([px / dpr, py / dpr])
-        const lat    = latlng.lat
-        const lon    = latlng.lng
-
-        const ci = (latMax - lat) / spacing
-        const cj = (lon - lonMin) / spacing
+        const ll = map.containerPointToLatLng([px / dpr, py / dpr])
+        const ci = (latMax - ll.lat) / spacing
+        const cj = (ll.lng - lonMin) / spacing
         const r0 = Math.floor(ci), r1 = r0 + 1
         const c0 = Math.floor(cj), c1 = c0 + 1
         if (r0 < 0 || r1 >= rows || c0 < 0 || c1 >= cols) continue
 
-        // Bilinear sample of cloud fraction
         const s00 = grid[r0][c0], s10 = grid[r0][c1]
         const s01 = grid[r1][c0], s11 = grid[r1][c1]
-        const vals = [s00, s10, s01, s11].filter(v => v != null)
-        if (vals.length === 0) continue
-        const tx = cj - c0, ty = ci - r0
-        let cf
-        if (vals.length === 4) {
-          cf = s00 + (s10 - s00) * tx + (s01 - s00) * ty + (s00 - s10 - s01 + s11) * tx * ty
-        } else {
-          cf = vals.reduce((a, b) => a + b, 0) / vals.length
-        }
-        cf = Math.max(0, Math.min(1, cf))
+        const vals = [s00,s10,s01,s11].filter(v => v != null)
+        if (!vals.length) continue
 
-        const distFromEdge = Math.min(
-          lat - lats[rows - 1], latMax - lat,
-          lon - lonMin, lons[cols - 1] - lon
-        )
-        const edgeFade = Math.max(0, Math.min(1, distFromEdge / FADE))
+        const tx = cj - c0, ty = ci - r0
+        let cf = vals.length === 4
+          ? s00 + (s10-s00)*tx + (s01-s00)*ty + (s00-s10-s01+s11)*tx*ty
+          : vals.reduce((a,b) => a+b, 0) / vals.length
+        cf = Math.max(0, Math.min(1, cf))  // cloud fraction 0-1
+
+        const edgeFade = Math.max(0, Math.min(1,
+          Math.min(ll.lat - lats[rows-1], latMax - ll.lat,
+                   ll.lng - lonMin, lons[cols-1] - ll.lng) / FADE))
 
         const idx = (py * W + px) * 4
 
         if (mode === 'clouds') {
-          // Standalone cloud view: green=clear, red=cloudy
+          // Standalone: green=clear → red=cloudy
           const [r, g, b] = scoreToRGB(1 - cf)
-          data[idx]     = r
-          data[idx + 1] = g
-          data[idx + 2] = b
-          data[idx + 3] = Math.round(0.45 * edgeFade * 255)
+          data[idx] = r; data[idx+1] = g; data[idx+2] = b
+          data[idx+3] = Math.round(0.45 * edgeFade * 255)
         } else {
-          // Combined mode: transparent=clear, red=cloudy — sits over light pollution tiles
-          // Alpha scales with cloud fraction so clear sky shows tiles fully
-          const alpha = cf * 0.75 * edgeFade
-          data[idx]     = 180
-          data[idx + 1] = 0
-          data[idx + 2] = 10
-          data[idx + 3] = Math.round(alpha * 255)
+          // Combined: transparent=clear → red=cloudy, over VIIRS tiles
+          data[idx] = 180; data[idx+1] = 0; data[idx+2] = 10
+          data[idx+3] = Math.round(cf * 0.78 * edgeFade * 255)
         }
       }
     }
@@ -198,48 +241,43 @@ const CloudCanvas = L.Layer.extend({
 // ── Main component ────────────────────────────────────────────────────────────
 export default function HeatmapLayer({ mode, selectedHour, getCloudAt, cloudLoading }) {
   const map          = useMap()
-  const tileLayerRef = useRef(null)   // lightpollution tiles — bortle + combined modes
-  const canvasRef    = useRef(null)   // cloud canvas — clouds + combined modes
+  const tileLayerRef = useRef(null)
+  const canvasRef    = useRef(null)
+  const [bortleGrid, setBortleGrid] = useState(null)
 
-  const showTiles  = mode === 'bortle'   || mode === 'combined'
-  const showCanvas = mode === 'clouds'   || mode === 'combined'
+  useEffect(() => { loadBortleGrid().then(g => { if (g) setBortleGrid(g) }) }, [])
 
-  // ── Tile layer lifecycle ──────────────────────────────────────────────────
+  const showTiles  = mode === 'bortle' || mode === 'combined'
+  const showCanvas = mode === 'clouds' || mode === 'combined'
+
   useEffect(() => {
     if (showTiles && !tileLayerRef.current) {
-      tileLayerRef.current = L.tileLayer(LP_TILE_URL, {
-        opacity:     0.85,
-        attribution: LP_ATTRIBUTION,
-        zIndex:      190,
-      }).addTo(map)
+      tileLayerRef.current = createGibsLayer()
+      tileLayerRef.current.addTo(map)
     } else if (!showTiles && tileLayerRef.current) {
       map.removeLayer(tileLayerRef.current)
       tileLayerRef.current = null
     }
   }, [showTiles, map])
 
-  // ── Cloud canvas lifecycle ────────────────────────────────────────────────
   useEffect(() => {
-    if (showCanvas && !canvasRef.current) {
-      canvasRef.current = new CloudCanvas({})
-      canvasRef.current.addTo(map)
-    } else if (!showCanvas && canvasRef.current) {
+    if (showCanvas) {
+      if (!canvasRef.current) {
+        canvasRef.current = new CloudCanvas({})
+        canvasRef.current.addTo(map)
+      }
+      if (getCloudAt) {
+        canvasRef.current.update(buildCloudGrid(getCloudAt, selectedHour), mode)
+      }
+    } else if (canvasRef.current) {
       map.removeLayer(canvasRef.current)
       canvasRef.current = null
     }
+  }, [showCanvas, mode, selectedHour, getCloudAt, cloudLoading, bortleGrid, map])
 
-    if (showCanvas && canvasRef.current && getCloudAt) {
-      const gridData = buildCloudGrid(getCloudAt, selectedHour)
-      canvasRef.current.update(gridData, mode)
-    }
-  }, [showCanvas, mode, selectedHour, getCloudAt, cloudLoading, map])
-
-  // Cleanup on unmount
-  useEffect(() => {
-    return () => {
-      if (tileLayerRef.current) { map.removeLayer(tileLayerRef.current); tileLayerRef.current = null }
-      if (canvasRef.current)    { map.removeLayer(canvasRef.current);    canvasRef.current    = null }
-    }
+  useEffect(() => () => {
+    if (tileLayerRef.current) { map.removeLayer(tileLayerRef.current); tileLayerRef.current = null }
+    if (canvasRef.current)    { map.removeLayer(canvasRef.current);    canvasRef.current    = null }
   }, [map])
 
   return null
