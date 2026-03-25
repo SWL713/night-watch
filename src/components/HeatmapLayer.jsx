@@ -43,7 +43,7 @@ const GibsRedLayer = L.GridLayer.extend({
         if (lum > maxLum) maxLum = lum
       }
       const range  = maxLum - minLum
-      const cutoff = minLum + range * 0.35  // darkest 35% → transparent
+      const cutoff = minLum + range * 0.32  // darkest 32% → transparent
 
       for (let i = 0; i < d.length; i += 4) {
         const lum = (d[i] * 0.299 + d[i+1] * 0.587 + d[i+2] * 0.114) / 255
@@ -52,7 +52,7 @@ const GibsRedLayer = L.GridLayer.extend({
           d[i+3] = 0  // transparent
         } else {
           const remapped  = (lum - cutoff) / (maxLum - cutoff)
-          const intensity = Math.pow(remapped, 0.7)  // gentler curve — bortle 4+ visible
+          const intensity = Math.pow(remapped, 0.75) // bortle 4+ visible, cities semi-transparent
 
           let r, g, b
           if (intensity < 0.5) {
@@ -70,7 +70,7 @@ const GibsRedLayer = L.GridLayer.extend({
           d[i]   = r
           d[i+1] = g
           d[i+2] = b
-          d[i+3] = Math.round(intensity * 230)
+          d[i+3] = Math.round(intensity * 175) // capped so cities stay semi-transparent
         }
       }
 
