@@ -53,7 +53,7 @@ const GibsRedLayer = L.GridLayer.extend({
           d[i+3] = 0  // transparent
         } else {
           const remapped  = Math.min(1, (lum - cutoff) / (GLOBAL_CEIL - cutoff))
-          const intensity = Math.pow(remapped, 0.75) // bortle 4+ visible, cities semi-transparent
+          const intensity = Math.pow(remapped, 1.4)  // steep: cities bright, low bortle fades fast
 
           let r, g, b
           if (intensity < 0.5) {
@@ -71,7 +71,7 @@ const GibsRedLayer = L.GridLayer.extend({
           d[i]   = r
           d[i+1] = g
           d[i+2] = b
-          d[i+3] = Math.round(intensity * 90)  // subtle overlay — light pollution hint not dominant
+          d[i+3] = Math.round(intensity * 160) // cities bright, low bortle stays faint
         }
       }
 
