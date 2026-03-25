@@ -7,8 +7,7 @@ function calcChaseScore(cloudcover, bortle) {
   const bScore = bortleScore(bortle)
   const adjusted = cloudcover < 40 ? 0 : (cloudcover - 40) / 60 * 100
   const cScore = 1 - adjusted / 100
-  const bLifted = bScore >= 0.5 ? Math.min(1, bScore + (bScore - 0.5) * 0.25) : bScore
-  return bLifted * cScore
+  return cScore * 0.7 + bScore * 0.3
 }
 
 const FONT = 'DejaVu Sans Mono, Consolas, monospace'

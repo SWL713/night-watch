@@ -90,15 +90,11 @@ function buildScoreGrid(mode, getCloudAt, selectedHour, bortleLookup) {
 
       if (mode === 'clouds') return cScore
 
-      // Combined: cloud as mask on bortle
-      // Gentle lift: bortle <6 gets a small boost toward green (scale bScore up slightly)
-      // bortle 6+ unchanged — light-polluted cities stay red
-      // boost = 0 at bScore=0.5 (bortle 6), scales to +0.12 at bScore=1.0 (bortle 1)
-      const bLifted = bScore >= 0.5
-        ? Math.min(1, bScore + (bScore - 0.5) * 0.25)
-        : bScore
-      if (cScore === null) return bLifted
-      return bLifted * cScore
+      // Combined: 70% cloud + 30% bortle weighted blend
+      // Cloud drives the majority — clear sky areas look good even with moderate bortle
+      // Bortle adds meaningful penalty for heavy light pollution without dominating
+      if (cScore === null) return bScore * 0.3 + 0.7  // no cloud data — assume clear
+      return cScore * 0.7 + bScore * 0.3
     })
   )
 

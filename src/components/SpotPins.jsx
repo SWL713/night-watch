@@ -35,12 +35,9 @@ function spotScore(spot, mode, getCloudAt, selectedHour, bortleGrid) {
 
   if (mode === 'clouds') return cScore ?? null
 
-  // Combined: cloud as mask on bortle — matches HeatmapLayer exactly
-  const bLifted = bScore >= 0.5
-    ? Math.min(1, bScore + (bScore - 0.5) * 0.25)
-    : bScore
-  if (cScore === null) return bLifted
-  return bLifted * cScore
+  // Combined: 70% cloud + 30% bortle
+  if (cScore === null) return bScore * 0.3 + 0.7
+  return cScore * 0.7 + bScore * 0.3
 }
 
 export default function SpotPins({ spots, selectedHour, getCloudAt, spaceWeather, onSubmitPhoto, mode, bortleGrid }) {
