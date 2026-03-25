@@ -52,7 +52,7 @@ const GibsRedLayer = L.GridLayer.extend({
           d[i+3] = 0  // transparent
         } else {
           const remapped  = (lum - cutoff) / (maxLum - cutoff)
-          const intensity = Math.pow(remapped, 1.2)  // steep: only bright areas
+          const intensity = Math.pow(remapped, 0.7)  // gentler curve — bortle 4+ visible
 
           let r, g, b
           if (intensity < 0.5) {
@@ -70,7 +70,7 @@ const GibsRedLayer = L.GridLayer.extend({
           d[i]   = r
           d[i+1] = g
           d[i+2] = b
-          d[i+3] = Math.round(intensity * 210)
+          d[i+3] = Math.round(intensity * 230)
         }
       }
 
