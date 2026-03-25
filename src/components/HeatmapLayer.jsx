@@ -100,12 +100,15 @@ function buildScoreGrid(mode, getCloudAt, selectedHour, bortleLookup) {
     })
   )
 
-  // Bortle: tight blur preserves fine structure
-  // Clouds: moderate blur smooths HRRR cells without washing out cloud signal
-  // Combined: same as clouds — tight enough to show real cloud patterns
-  const smoothSigma = mode === 'bortle' ? 1.0 : 2.0
-  const smoothR     = mode === 'bortle' ? 2   : 4
-  const grid = gaussianSmooth(raw, lats.length, lons.length, smoothSigma, smoothR)
+  // No gaussian pre-smooth for clouds/combined — bilinear interpolation at
+  // render time naturally smooths between 0.25° grid cells without creating
+  // the flat plateaus that cause visible block edges
+  // Bortle still gets gentle smooth since it's at 0.1° native resolution
+  const smoothSigma = mode === 'bortle' ? 1.0 : 0
+  const smoothR     = mode === 'bortle' ? 2   : 0
+  const grid = smoothR > 0
+    ? gaussianSmooth(raw, lats.length, lons.length, smoothSigma, smoothR)
+    : raw
   return { grid, lats, lons, mode }
 }
 
