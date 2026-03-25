@@ -803,15 +803,12 @@ def fetch_hrrr_cloud(grid):
                 continue
 
             # Fetch all cloud layers with aurora-visibility weights:
-            # TCDC entire atmosphere — smooth continuous base
-            # LCDC — low cloud deck, direct blocker (highest weight)
-            # MCDC — mid cloud deck, direct blocker
-            # HCDC — high cloud deck, semi-transparent cirrus (lowest weight)
+            # TCDC entire atmosphere — smooth continuous values, naturally captures
+            # total optical depth including high cirrus. Exacerbated by light pollution
+            # in combined mode via bortle weighting. 40% frontend threshold filters
+            # truly negligible cirrus.
             LAYER_TARGETS = {
-                'TCDC': {'level_keyword': 'entire', 'weight': 0.4},
-                'LCDC': {'level_keyword': 'low',    'weight': 0.5},
-                'MCDC': {'level_keyword': 'middle', 'weight': 0.4},
-                'HCDC': {'level_keyword': 'high',   'weight': 0.15},
+                'TCDC': {'level_keyword': 'entire', 'weight': 1.0},
             }
 
             lines = idx_resp.text.strip().split('\n')
