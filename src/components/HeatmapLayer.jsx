@@ -43,7 +43,7 @@ const GibsRedLayer = L.GridLayer.extend({
         if (lum > maxLum) maxLum = lum
       }
       const range  = maxLum - minLum
-      const cutoff = minLum + range * 0.45  // darkest 45% → transparent
+      const cutoff = minLum + range * 0.35  // darkest 35% → transparent
 
       for (let i = 0; i < d.length; i += 4) {
         const lum = (d[i] * 0.299 + d[i+1] * 0.587 + d[i+2] * 0.114) / 255
