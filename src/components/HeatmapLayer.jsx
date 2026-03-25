@@ -93,9 +93,10 @@ function buildScoreGrid(mode, getCloudAt, selectedHour, bortleLookup) {
       // Combined: 70% cloud + 30% bortle weighted blend
       // Cloud drives the majority — clear sky areas look good even with moderate bortle
       // Bortle adds meaningful penalty for heavy light pollution without dominating
-      if (cScore === null) return bScore * 0.3 + 0.7
-      const raw = cScore * 0.7 + bScore * 0.3
-      return Math.max(0, Math.min(1, (raw - 0.3) / 0.7))
+      if (cScore === null) return bScore * 0.5 + 0.5
+      if (cScore <= 0) return 0  // 100% cloud = hard red, no bortle saves it
+      const raw = cScore * 0.5 + bScore * 0.5
+      return Math.max(0, Math.min(1, (raw - 0.25) / 0.75))
     })
   )
 
