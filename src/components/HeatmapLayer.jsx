@@ -198,7 +198,7 @@ const SmoothHeatmap = L.Layer.extend({
       const s00 = g[r0][c0], s10 = g[r0][c1]
       const s01 = g[r1][c0], s11 = g[r1][c1]
       const vals = [s00, s10, s01, s11].filter(v => v != null)
-      if (vals.length < 3) return null  // require 3+ land corners — prevents coast bleed
+      if (vals.length === 0) return null
       if (vals.length === 4) return bilinear(s00, s10, s01, s11, cj - c0, ci - r0)
       return vals.reduce((a, b) => a + b, 0) / vals.length
     }
