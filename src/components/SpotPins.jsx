@@ -21,24 +21,26 @@ function createPin(color, size) {
 
 // Compute the exact same score the heatmap uses at this lat/lon/hour/mode
 function spotScore(spot, mode, getCloudAt, selectedHour, bortleGrid) {
-  // Use bortle from the high-res grid if available, fall back to spot.bortle
   const bortle = bortleGrid
     ? getBortle(bortleGrid, spot.lat, spot.lon)
     : (spot.bortle ?? 5)
 
-  if (mode === 'bortle') return bortleScore(bortle)
+  const bScore = bortleScore(bortle)
 
-  const cloud = getCloudAt
-    ? getCloudAt(spot.lat, spot.lon, selectedHour)
-    : null
+  if (mode === 'bortle') return bScore
 
-  if (mode === 'clouds') {
-    return cloud !== null ? 1 - cloud / 100 : bortleScore(bortle) * 0.7
-  }
+  const cloud = getCloudAt ? getCloudAt(spot.lat, spot.lon, selectedHour) : null
+  const adjusted = cloud === null ? null : (cloud < 40 ? 0 : (cloud - 40) / 60 * 100)
+  const cScore = adjusted === null ? null : 1 - adjusted / 100
 
-  // Combined — matches HeatmapLayer exactly
-  if (cloud === null) return bortleScore(bortle) * 0.7
-  return combinedScore(cloud, bortle)
+  if (mode === 'clouds') return cScore ?? null
+
+  // Combined: cloud as mask on bortle — matches HeatmapLayer exactly
+  const bLifted = bScore >= 0.5
+    ? Math.min(1, bScore + (bScore - 0.5) * 0.25)
+    : bScore
+  if (cScore === null) return bLifted
+  return bLifted * cScore
 }
 
 export default function SpotPins({ spots, selectedHour, getCloudAt, spaceWeather, onSubmitPhoto, mode, bortleGrid }) {

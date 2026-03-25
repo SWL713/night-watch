@@ -1,6 +1,15 @@
 import { useState, useEffect } from 'react'
 import { fetchSpotForecast } from '../hooks/useCloudCover.js'
-import { combinedScore, locationScore, scoreToColor, scoreToLabel, pinColor } from '../utils/scoring.js'
+import { combinedScore, locationScore, bortleScore, scoreToColor, scoreToLabel, pinColor } from '../utils/scoring.js'
+
+// Match HeatmapLayer combined scoring exactly
+function calcChaseScore(cloudcover, bortle) {
+  const bScore = bortleScore(bortle)
+  const adjusted = cloudcover < 40 ? 0 : (cloudcover - 40) / 60 * 100
+  const cScore = 1 - adjusted / 100
+  const bLifted = bScore >= 0.5 ? Math.min(1, bScore + (bScore - 0.5) * 0.25) : bScore
+  return bLifted * cScore
+}
 
 const FONT = 'DejaVu Sans Mono, Consolas, monospace'
 
@@ -22,7 +31,7 @@ export default function SpotCard({ spot, onClose, spaceWeather, onSubmitPhoto })
 
   const locScore = locationScore(spot)
   const currentCloud = forecast?.[0]?.cloudcover ?? 50
-  const chaseScoreNow = combinedScore(currentCloud, spot.bortle)
+  const chaseScoreNow = calcChaseScore(currentCloud, spot.bortle)
 
   return (
     <div style={{
@@ -84,7 +93,7 @@ export default function SpotCard({ spot, onClose, spaceWeather, onSubmitPhoto })
                 CLOUD COVER · NEXT 8 HRS · {spot.lat.toFixed(2)},{spot.lon.toFixed(2)}
               </div>
               {forecast.slice(0, 9).map((pt, i) => {
-                const score = combinedScore(pt.cloudcover, spot.bortle)
+                const score = calcChaseScore(pt.cloudcover, spot.bortle)
                 return (
                   <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 3 }}>
                     <span style={{ color: '#445566', fontSize: 9, width: 42 }}>
