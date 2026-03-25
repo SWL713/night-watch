@@ -36,10 +36,9 @@ function spotScore(spot, mode, getCloudAt, selectedHour, bortleGrid) {
   if (mode === 'clouds') return cScore ?? null
 
   // Combined: 70% cloud + 30% bortle
-  if (cScore === null) return bScore * 0.5 + 0.5
+  if (cScore === null) return Math.pow(bScore * 0.5 + 0.5, 0.65)
   if (cScore <= 0) return 0
-  const raw = cScore * 0.5 + bScore * 0.5
-  return Math.max(0, Math.min(1, (raw - 0.25) / 0.75))
+  return Math.pow(cScore * 0.5 + bScore * 0.5, 0.65)
 }
 
 export default function SpotPins({ spots, selectedHour, getCloudAt, spaceWeather, onSubmitPhoto, mode, bortleGrid }) {

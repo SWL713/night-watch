@@ -39,23 +39,24 @@ function gaussianSmooth(grid, rows, cols, sigma = 1.0, R = 2) {
   }
   const k = raw.map(v => v / ksum)
 
-  // Horizontal pass
+  // Horizontal pass — null cells (ocean) stay null, never filled from neighbours
   const tmp = Array.from({ length: rows }, () => new Array(cols).fill(null))
   for (let r = 0; r < rows; r++) {
     for (let c = 0; c < cols; c++) {
-      // Collect neighbour values — use available values only, skip nulls
+      if (grid[r][c] == null) continue  // ocean — preserve null
       let s = 0, w = 0
       for (let i = -R; i <= R; i++) {
         const v = grid[r][Math.max(0, Math.min(cols - 1, c + i))]
         if (v != null) { s += v * k[i + R]; w += k[i + R] }
       }
-      tmp[r][c] = w > 0 ? s / w : null  // null only if ALL neighbours are null
+      tmp[r][c] = w > 0 ? s / w : null
     }
   }
   // Vertical pass
   const out = Array.from({ length: rows }, () => new Array(cols).fill(null))
   for (let r = 0; r < rows; r++) {
     for (let c = 0; c < cols; c++) {
+      if (tmp[r][c] == null) continue  // ocean — preserve null
       let s = 0, w = 0
       for (let i = -R; i <= R; i++) {
         const v = tmp[Math.max(0, Math.min(rows - 1, r + i))][c]
@@ -93,10 +94,10 @@ function buildScoreGrid(mode, getCloudAt, selectedHour, bortleLookup) {
       // Combined: 70% cloud + 30% bortle weighted blend
       // Cloud drives the majority — clear sky areas look good even with moderate bortle
       // Bortle adds meaningful penalty for heavy light pollution without dominating
-      if (cScore === null) return bScore * 0.5 + 0.5
-      if (cScore <= 0) return 0  // 100% cloud = hard red, no bortle saves it
-      const raw = cScore * 0.5 + bScore * 0.5
-      return Math.max(0, Math.min(1, (raw - 0.25) / 0.75))
+      if (cScore === null) return Math.pow(bScore * 0.5 + 0.5, 0.65)
+      if (cScore <= 0) return 0  // 100% cloud = hard red
+      // Equal 50/50 blend with gamma lift to boost contrast at the green end
+      return Math.pow(cScore * 0.5 + bScore * 0.5, 0.65)
     })
   )
 
@@ -192,10 +193,9 @@ const SmoothHeatmap = L.Layer.extend({
     function sampleGrid(g, ci, cj, r0, r1, c0, c1) {
       const s00 = g[r0][c0], s10 = g[r0][c1]
       const s01 = g[r1][c0], s11 = g[r1][c1]
-      const vals = [s00, s10, s01, s11].filter(v => v != null)
-      if (vals.length === 0) return null
-      if (vals.length === 4) return bilinear(s00, s10, s01, s11, cj - c0, ci - r0)
-      return vals.reduce((a, b) => a + b, 0) / vals.length
+      // All 4 corners must be non-null — prevents land values bleeding into ocean
+      if (s00 == null || s10 == null || s01 == null || s11 == null) return null
+      return bilinear(s00, s10, s01, s11, cj - c0, ci - r0)
     }
 
     const imageData = ctx.createImageData(W, H)
