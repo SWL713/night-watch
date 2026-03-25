@@ -87,7 +87,7 @@ function buildScoreGrid(mode, getCloudAt, selectedHour, bortleLookup) {
 
       const cloud = getCloudAt ? getCloudAt(lat, lon, selectedHour) : null
       // 20% threshold — show partial cloud patches rather than washing them out
-      const adjusted = cloud === null ? null : (cloud < 20 ? 0 : (cloud - 20) / 80 * 100)
+      const adjusted = cloud === null ? null : (cloud < 40 ? 0 : (cloud - 40) / 60 * 100)
       const cScore = adjusted === null ? null : 1 - adjusted / 100
 
       if (mode === 'clouds') return cScore
@@ -105,8 +105,8 @@ function buildScoreGrid(mode, getCloudAt, selectedHour, bortleLookup) {
 
   // Cloud data has large uniform patches from HRRR forecast model internal grid
   // Need wide gaussian to smooth these — sigma=3, R=6 covers ~1.5° in each direction
-  const smoothSigma = (mode === 'clouds' || mode === 'combined') ? 3.0 : 1.0
-  const smoothR     = (mode === 'clouds' || mode === 'combined') ? 6   : 2
+  const smoothSigma = (mode === 'clouds' || mode === 'combined') ? 4.0 : 1.0
+  const smoothR     = (mode === 'clouds' || mode === 'combined') ? 8   : 2
   const grid = gaussianSmooth(raw, lats.length, lons.length, smoothSigma, smoothR)
   return { grid, lats, lons, mode }
 }

@@ -30,7 +30,7 @@ function spotScore(spot, mode, getCloudAt, selectedHour, bortleGrid) {
   if (mode === 'bortle') return bScore
 
   const cloud = getCloudAt ? getCloudAt(spot.lat, spot.lon, selectedHour) : null
-  const adjusted = cloud === null ? null : (cloud < 20 ? 0 : (cloud - 20) / 80 * 100)
+  const adjusted = cloud === null ? null : (cloud < 40 ? 0 : (cloud - 40) / 60 * 100)
   const cScore = adjusted === null ? null : 1 - adjusted / 100
 
   if (mode === 'clouds') return cScore ?? null

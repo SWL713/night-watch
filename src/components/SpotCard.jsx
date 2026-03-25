@@ -5,7 +5,7 @@ import { combinedScore, locationScore, bortleScore, scoreToColor, scoreToLabel, 
 // Match HeatmapLayer combined scoring exactly
 function calcChaseScore(cloudcover, bortle) {
   const bScore = bortleScore(bortle)
-  const adjusted = cloudcover < 20 ? 0 : (cloudcover - 20) / 80 * 100
+  const adjusted = cloudcover < 40 ? 0 : (cloudcover - 40) / 60 * 100
   const cScore = 1 - adjusted / 100
   if (cScore <= 0) return 0
   const cloudPenalty = Math.pow(cScore, 1.5)
