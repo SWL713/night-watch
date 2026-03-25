@@ -159,13 +159,29 @@ export function useCloudCover() {
     if (!fc?.length) return null
 
     const target = Date.now() + hourOffset * 3600000
-    let best = fc[0]
-    let bestDiff = Math.abs(new Date(fc[0].time).getTime() - target)
-    for (let i = 1; i < fc.length; i++) {
-      const diff = Math.abs(new Date(fc[i].time).getTime() - target)
-      if (diff < bestDiff) { bestDiff = diff; best = fc[i] }
+
+    // Sort by time and find surrounding hours for interpolation
+    const sorted = [...fc].sort((a, b) => new Date(a.time).getTime() - new Date(b.time).getTime())
+
+    // Find the two forecast hours bracketing the target time
+    let before = null, after = null
+    for (const p of sorted) {
+      const t = new Date(p.time).getTime()
+      if (t <= target) before = p
+      else if (!after) after = p
     }
-    return best ? (best.cloudcover ?? best.cc ?? null) : null
+
+    // Extrapolate from single endpoint if outside range
+    if (!before) return after ? (after.cloudcover ?? after.cc ?? null) : null
+    if (!after)  return before ? (before.cloudcover ?? before.cc ?? null) : null
+
+    // Linear interpolation between surrounding hours
+    const t0 = new Date(before.time).getTime()
+    const t1 = new Date(after.time).getTime()
+    const frac = (target - t0) / (t1 - t0)
+    const v0 = before.cloudcover ?? before.cc ?? 0
+    const v1 = after.cloudcover  ?? after.cc  ?? 0
+    return Math.round(v0 + (v1 - v0) * frac)
   }, []) // stable — reads from ref
 
   const coverage = cloudData?.points ? Object.keys(cloudData.points).length : 0
