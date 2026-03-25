@@ -10,7 +10,7 @@ export const GRID_SPACING = 0.25  // matches pipeline grid (NDFD at 0.25°)
 
 const CLOUD_URL = 'https://raw.githubusercontent.com/SWL713/night-watch/main/data/cloud_cover.json'
 const CACHE_KEY = 'nw_cloud_v2'
-const CACHE_TTL = 900000  // 15 minutes — ensures fresh HRRR data loads promptly
+const CACHE_TTL = 3600000  // 1 hour — background check handles live freshness
 
 function makeKey(lat, lon, spacing = GRID_SPACING) {
   const r = v => parseFloat((Math.round(v / spacing) * spacing).toFixed(2))
