@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { useMap } from 'react-leaflet'
 import L from 'leaflet'
-import { scoreToRGB, bortleScore } from '../utils/scoring.js'
+import { bortleScore } from '../utils/scoring.js'
 import { GRID_BOUNDS } from '../config.js'
 import { loadBortleGrid, getBortle } from '../utils/bortleGrid.js'
 
@@ -53,7 +53,7 @@ const GibsRedLayer = L.GridLayer.extend({
           d[i+3] = 0  // transparent
         } else {
           const remapped  = Math.min(1, (lum - cutoff) / (GLOBAL_CEIL - cutoff))
-          const intensity = Math.pow(remapped, 1.2)  // steep: cities bright, low bortle fades fast
+          const intensity = Math.pow(remapped, 1.3)  // steep: cities bright, low bortle fades fast
 
           let r, g, b
           if (intensity < 0.5) {
@@ -231,10 +231,9 @@ const CloudCanvas = L.Layer.extend({
         const idx = (py * W + px) * 4
 
         if (mode === 'clouds') {
-          // Standalone: green=clear → red=cloudy
-          const [r, g, b] = scoreToRGB(1 - cf)
-          data[idx] = r; data[idx+1] = g; data[idx+2] = b
-          data[idx+3] = Math.round(0.45 * edgeFade * 255)
+          // Standalone: transparent=clear → red=cloudy (matches combined, no green)
+          data[idx] = 180; data[idx+1] = 0; data[idx+2] = 10
+          data[idx+3] = Math.round(cf * 0.78 * edgeFade * 255)
         } else {
           // Combined: transparent=clear → red=cloudy, over VIIRS tiles
           data[idx] = 180; data[idx+1] = 0; data[idx+2] = 10
