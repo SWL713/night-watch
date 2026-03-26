@@ -25,7 +25,7 @@ async function uploadToCloudinary(file) {
   return data.secure_url
 }
 
-export default function SubmitPhoto({ spot, spaceWeather, onClose }) {
+export default function SubmitPhoto({ spot, onClose }) {
   const [file, setFile] = useState(null)
   const [preview, setPreview] = useState(null)
   const [caption, setCaption] = useState('')
@@ -47,12 +47,7 @@ export default function SubmitPhoto({ spot, spaceWeather, onClose }) {
     setUploading(true)
     try {
       const url = await uploadToCloudinary(file)
-      const { error } = await submitPhoto(spot.id, url, caption, photographerName, {
-        intensity: spaceWeather.intensity_label,
-        bz: spaceWeather.bz_now,
-        state: spaceWeather.state,
-        timestamp: new Date().toISOString(),
-      })
+      const { error } = await submitPhoto(spot.id, url, caption, photographerName, null)
       if (error) throw new Error(error.message || error)
       setStatus({ success: true })
     } catch (err) {
@@ -87,15 +82,6 @@ export default function SubmitPhoto({ spot, spaceWeather, onClose }) {
 
       <div style={{ color: '#445566', fontSize: 10, marginBottom: 10 }}>
         {spot.name}
-      </div>
-
-      {/* Conditions auto-tag */}
-      <div style={{ background: '#060810', border: '1px solid #1a2035', borderRadius: 2,
-        padding: '6px 10px', marginBottom: 10, fontSize: 10 }}>
-        <div style={{ color: '#334455', marginBottom: 2 }}>CONDITIONS AT CAPTURE</div>
-        <div style={{ color: spaceWeather.intensity_color }}>
-          {spaceWeather.intensity_label} · Bz {spaceWeather.bz_now?.toFixed(1)} nT · {spaceWeather.state}
-        </div>
       </div>
 
       <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>

@@ -307,7 +307,6 @@ function App() {
           {modal === 'submitPhoto' && selectedSpotForPhoto && (
             <SubmitPhoto
               spot={selectedSpotForPhoto}
-              spaceWeather={sw}
               onClose={() => { setModal(null); setSelectedSpotForPhoto(null) }}
             />
           )}
