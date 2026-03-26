@@ -75,7 +75,8 @@ function App() {
   const [pendingPin, setPendingPin] = useState(null)
   const [pinMode, setPinMode] = useState(false) // true = user clicked "place pin" button
   const [sightingPinMode, setSightingPinMode] = useState(false)
-  const [nightMode, setNightMode] = useState(false) // picking location for sighting report
+  const [nightMode, setNightMode] = useState(false)
+  const [peruMode, setPeruMode] = useState(false) // picking location for sighting report
   const [sightingPendingCoords, setSightingPendingCoords] = useState(null)
 
   function toggleLayer(key) {
@@ -116,7 +117,11 @@ function App() {
       height: '100vh', background: '#06080f',
       fontFamily: FONT, overflow: 'hidden',
       paddingTop: 'env(safe-area-inset-top, 6px)',
-      filter: nightMode ? 'grayscale(1) sepia(1) saturate(8) hue-rotate(320deg) brightness(0.55)' : 'none',
+      filter: peruMode
+        ? 'grayscale(1) sepia(1) saturate(12) hue-rotate(270deg) brightness(0.7)'
+        : nightMode
+        ? 'grayscale(1) sepia(1) saturate(8) hue-rotate(320deg) brightness(0.55)'
+        : 'none',
     }}>
       {/* Timeline panel */}
       <TimelinePanel
@@ -145,20 +150,20 @@ function App() {
 
           <ZoomControl position="bottomright" />
 
-          <MapSearch />
+          <MapSearch onSelectResult={(result, isPeru) => { if (isPeru) setPeruMode(m => !m) }} />
 
           {/* Night mode toggle */}
           <div style={{ position: 'absolute', top: 56, left: 12, zIndex: 1000 }}>
             <button
-              onClick={() => setNightMode(m => !m)}
+              onClick={() => { setNightMode(m => !m); setPeruMode(false) }}
               title="Night vision mode"
               style={{
                 width: 36, height: 36,
                 background: nightMode ? '#1a0000' : '#070b16',
-                border: `1px solid ${nightMode ? '#ff4400' : '#1a2a3a'}`,
+                border: `1px solid ${peruMode ? '#ff44cc' : nightMode ? '#ff4400' : '#1a2a3a'}`,
                 borderRadius: 2, cursor: 'pointer',
                 display: 'flex', alignItems: 'center', justifyContent: 'center',
-                fontSize: 16, color: nightMode ? '#ff4400' : '#445566',
+                fontSize: 16, color: peruMode ? '#ff44cc' : nightMode ? '#ff4400' : '#445566',
                 transition: 'all 0.15s',
               }}
             >

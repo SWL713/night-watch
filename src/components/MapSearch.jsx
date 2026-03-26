@@ -3,7 +3,7 @@ import { useMap } from 'react-leaflet'
 
 const FONT = 'DejaVu Sans Mono, Consolas, monospace'
 
-export default function MapSearch() {
+export default function MapSearch({ onSelectResult }) {
   const map = useMap()
   const [open, setOpen] = useState(false)
   const [query, setQuery] = useState('')
@@ -49,8 +49,14 @@ export default function MapSearch() {
     debounceRef.current = setTimeout(() => search(val), 400)
   }
 
+  function isPeru(result) {
+    const name = result.display_name?.toLowerCase() || ''
+    return name.includes('peru') && (name.includes('clinton') || name.includes('new york') || name.includes(', ny'))
+  }
+
   function flyTo(result) {
     map.flyTo([parseFloat(result.lat), parseFloat(result.lon)], 11, { duration: 1.2 })
+    if (onSelectResult) onSelectResult(result, isPeru(result))
     close()
   }
 
