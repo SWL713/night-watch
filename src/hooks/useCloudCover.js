@@ -148,8 +148,10 @@ export function useCloudCover() {
   }, [])
 
   // Use a ref so getCloudAt is always fresh without causing re-renders
+  // Assign directly in render (not useEffect) so ref is always current before
+  // any child effects fire in the same cycle
   const cloudDataRef = useRef(null)
-  useEffect(() => { cloudDataRef.current = cloudData }, [cloudData])
+  cloudDataRef.current = cloudData
 
   // Interpolate a forecast series at a target timestamp (ms)
   function interpForecast(fc, target) {
