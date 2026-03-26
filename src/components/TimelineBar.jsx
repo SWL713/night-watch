@@ -334,16 +334,9 @@ export default function TimelineBar({ spaceWeather, moonData, selectedHour, onHo
     const obsV   = plasma.map(p => p.speed).filter(v => v != null)
     const enlilV = enlil.map(p => p.speed).filter(v => v != null)
     const allV   = [...obsV, ...enlilV]
-    if (allV.length) {
-      const vDataMin = Math.min(...allV)
-      const vDataMax = Math.max(...allV)
-      const vPad = Math.max(5, (vDataMax - vDataMin) * 0.15 + 8)  // 15% + 8 km/s each side
-      var vMin = Math.max(200,  vDataMin - vPad)
-      var vMax = Math.min(1100, vDataMax + vPad)  // 1100 ceiling keeps normal wind in lower portion
-      if (vMax - vMin < 20) { vMin -= 10; vMax += 10 }  // absolute floor: 20 km/s span
-    } else {
-      var vMin = 350, vMax = 1100
-    }
+    // Fixed scale: 200–1100 km/s always
+    // Quiet wind (~450) sits at 28%, fast stream (~700) at 56%, CME (~900) at 78%
+    var vMin = 200, vMax = 1100
     const vRange = vMax - vMin
     function vY(v) { return PAD_T + pH * (1 - (v - vMin) / vRange) }
 
@@ -383,17 +376,9 @@ export default function TimelineBar({ spaceWeather, moonData, selectedHour, onHo
     const obsD   = plasma.map(p => p.density).filter(d => d != null)
     const enlilD = enlil.map(p => p.density).filter(d => d != null)
     const allD   = [...obsD, ...enlilD]
-    let dMin, dMax
-    if (allD.length) {
-      const dDataMin = Math.min(...allD)
-      const dDataMax = Math.max(...allD)
-      const dPad = Math.max(0.5, (dDataMax - dDataMin) * 0.15 + 0.5)
-      dMin = Math.max(0, dDataMin - dPad)
-      dMax = Math.min(50, dDataMax + dPad)  // 50 n/cc ceiling keeps quiet values near bottom
-      if (dMax - dMin < 2) { dMin = Math.max(0, dMin - 1); dMax += 1 }  // min 2 n/cc span
-    } else {
-      dMin = 0; dMax = 50
-    }
+    // Fixed scale: 0–50 n/cc always
+    // Quiet density (~5) sits at 10%, elevated (~20) at 40%, CME sheath (~40) at 80%
+    let dMin = 0, dMax = 50
     const dRange = dMax - dMin
     function dY(d) { return PAD_T + pH * (1 - (d - dMin) / dRange) }
 
