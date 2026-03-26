@@ -11,6 +11,7 @@ import HeatmapLayer from './components/HeatmapLayer.jsx'
 import OvationLines from './components/OvationLines.jsx'
 import SpotPins from './components/SpotPins.jsx'
 import SubmitSpot from './components/SubmitSpot.jsx'
+import MapSearch from './components/MapSearch.jsx'
 import SubmitPhoto from './components/SubmitPhoto.jsx'
 import AdminQueue from './components/AdminQueue.jsx'
 
@@ -131,6 +132,8 @@ function App() {
           />
 
           <ZoomControl position="bottomright" />
+
+          <MapSearch />
 
           {/* Map click handler — only active in pin placement mode */}
           <MapClickHandler
