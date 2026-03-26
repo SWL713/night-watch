@@ -117,25 +117,13 @@ function App() {
       height: '100vh', background: '#06080f',
       fontFamily: FONT, overflow: 'hidden',
       paddingTop: 'env(safe-area-inset-top, 6px)',
-      position: 'relative',
+      filter: peruMode
+        ? 'grayscale(1) sepia(1) saturate(20) hue-rotate(240deg) brightness(0.75)'
+        : nightMode
+        ? 'grayscale(1) sepia(1) saturate(5) hue-rotate(317deg) brightness(0.6)'
+        : 'none',
 
     }}>
-      {/* Night vision overlay — pointer-events none so it doesn't block interaction */}
-      {nightMode && (
-        <div style={{
-          position: 'absolute', inset: 0, zIndex: 9998, pointerEvents: 'none',
-          background: 'rgba(180, 0, 0, 0.55)',
-          mixBlendMode: 'multiply',
-        }} />
-      )}
-      {peruMode && (
-        <div style={{
-          position: 'absolute', inset: 0, zIndex: 9998, pointerEvents: 'none',
-          background: 'rgba(255, 0, 150, 0.55)',
-          mixBlendMode: 'multiply',
-        }} />
-      )}
-
       {/* Timeline panel */}
       <TimelinePanel
         spaceWeather={sw}
