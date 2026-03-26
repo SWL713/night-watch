@@ -29,6 +29,7 @@ export default function SubmitPhoto({ spot, spaceWeather, onClose }) {
   const [file, setFile] = useState(null)
   const [preview, setPreview] = useState(null)
   const [caption, setCaption] = useState('')
+  const [photographerName, setPhotographerName] = useState('')
   const [status, setStatus] = useState(null)
   const [uploading, setUploading] = useState(false)
   const fileRef = useRef()
@@ -46,7 +47,7 @@ export default function SubmitPhoto({ spot, spaceWeather, onClose }) {
     setUploading(true)
     try {
       const url = await uploadToCloudinary(file)
-      const { error } = await submitPhoto(spot.id, url, caption, {
+      const { error } = await submitPhoto(spot.id, url, caption, photographerName, {
         intensity: spaceWeather.intensity_label,
         bz: spaceWeather.bz_now,
         state: spaceWeather.state,
@@ -113,6 +114,10 @@ export default function SubmitPhoto({ spot, spaceWeather, onClose }) {
           )}
         </div>
         <input ref={fileRef} type="file" accept="image/*" onChange={handleFile} style={{ display: 'none' }} />
+
+        <input style={inputStyle}
+          value={photographerName} onChange={e => setPhotographerName(e.target.value)}
+          placeholder="Your name / handle (optional)" maxLength={80} />
 
         <textarea style={{ ...inputStyle, resize: 'vertical', minHeight: 50 }}
           value={caption} onChange={e => setCaption(e.target.value)}

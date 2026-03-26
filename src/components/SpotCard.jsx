@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { fetchSpotForecast } from '../hooks/useCloudCover.js'
+import { flagPhoto } from '../hooks/useSpots.js'
 import { combinedScore, locationScore, bortleScore, scoreToColor, scoreToLabel, pinColor } from '../utils/scoring.js'
 
 // Match HeatmapLayer combined scoring exactly
@@ -22,6 +23,7 @@ export default function SpotCard({ spot, onClose, spaceWeather, onSubmitPhoto })
   const [forecast, setForecast] = useState(null)
   const [loading, setLoading] = useState(true)
   const [tab, setTab] = useState('info') // info | photos | submit
+  const [flaggedIds, setFlaggedIds] = useState(new Set())
 
   useEffect(() => {
     fetchSpotForecast(spot.lat, spot.lon)
@@ -125,11 +127,29 @@ export default function SpotCard({ spot, onClose, spaceWeather, onSubmitPhoto })
       {tab === 'photos' && (
         <div>
           {spot.photos && spot.photos.length > 0 ? (
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 4 }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
               {spot.photos.map((p, i) => (
                 <div key={i} style={{ position: 'relative' }}>
-                  <img src={p.photo_url} alt="" style={{ width: '100%', aspectRatio: '1', objectFit: 'cover', borderRadius: 2 }} />
-                  <div style={{ color: '#445566', fontSize: 8, marginTop: 2 }}>{p.caption}</div>
+                  <img src={p.photo_url} alt="" style={{ width: '100%', maxHeight: 160, objectFit: 'cover', borderRadius: 2 }} />
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginTop: 3 }}>
+                    <div>
+                      {p.caption && <div style={{ color: '#778899', fontSize: 9 }}>{p.caption}</div>}
+                      {p.photographer_name && (
+                        <div style={{ color: '#445566', fontSize: 8, marginTop: 1 }}>📷 {p.photographer_name}</div>
+                      )}
+                    </div>
+                    {!flaggedIds.has(p.id) ? (
+                      <button onClick={async () => {
+                        await flagPhoto(p.id)
+                        setFlaggedIds(prev => new Set([...prev, p.id]))
+                      }} style={{
+                        background: 'none', border: 'none', color: '#334455',
+                        fontSize: 10, cursor: 'pointer', padding: '0 2px', flexShrink: 0,
+                      }} title="Flag this photo">🚩</button>
+                    ) : (
+                      <span style={{ color: '#445566', fontSize: 8 }}>flagged</span>
+                    )}
+                  </div>
                 </div>
               ))}
             </div>

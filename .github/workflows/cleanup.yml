@@ -1,0 +1,36 @@
+name: Night Watch — Cloudinary Cleanup
+
+# Runs nightly at 06:00 UTC — purges deleted photos from Cloudinary
+on:
+  schedule:
+    - cron: '0 6 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: none
+
+jobs:
+  cleanup:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: pip install requests
+
+      - name: Run Cloudinary cleanup
+        env:
+          SUPABASE_URL:        ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+          CLOUDINARY_CLOUD:    ${{ secrets.CLOUDINARY_CLOUD }}
+          CLOUDINARY_API_KEY:  ${{ secrets.CLOUDINARY_API_KEY }}
+          CLOUDINARY_SECRET:   ${{ secrets.CLOUDINARY_SECRET }}
+        run: python pipeline/cloudinary_cleanup.py
