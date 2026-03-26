@@ -129,8 +129,38 @@ export function isMoonUp(dt, moonData) {
   return risesBefore > setsBefore
 }
 
-// Moon interference score 0-1 for a given datetime
+
+// Moon altitude in degrees at a given datetime (NY observer)
+export function moonAltitudeDeg(dt) {
+  const NY_LAT = 40.7128, NY_LON = -74.0060
+  const jdVal = jd(dt)
+  const T = (jdVal - 2451545.0) / 36525
+  const gmst = ((280.46061837 + 360.98564736629*(jdVal-2451545.0)) % 360 + 360) % 360
+  const lst = (gmst + NY_LON + 360) % 360
+  const r = x => x * Math.PI / 180
+  const Lm = ((218.3164477 + 481267.88123421*T) % 360 + 360) % 360
+  const Mm = r(((134.9633964 + 477198.8675055*T) % 360 + 360) % 360)
+  const D  = r(((297.8501921 + 445267.1114034*T) % 360 + 360) % 360)
+  const F  = r(((93.2720950  + 483202.0175233*T) % 360 + 360) % 360)
+  const eLon = r((Lm + 6.289*Math.sin(Mm) - 1.274*Math.sin(2*D-Mm) +
+                  0.658*Math.sin(2*D) - 0.214*Math.sin(2*Mm) + 360) % 360)
+  const eLat = r(5.128*Math.sin(F))
+  const eps = r(23.439 - 0.013*T)
+  const ra = ((Math.atan2(Math.sin(eLon)*Math.cos(eps) - Math.tan(eLat)*Math.sin(eps),
+                          Math.cos(eLon)) * 180/Math.PI) + 360) % 360
+  const dec = Math.asin(Math.sin(eLat)*Math.cos(eps) + Math.cos(eLat)*Math.sin(eps)*Math.sin(eLon))
+  const ha = r((lst - ra + 360) % 360)
+  const alt = Math.asin(Math.sin(dec)*Math.sin(r(NY_LAT)) + Math.cos(dec)*Math.cos(r(NY_LAT))*Math.cos(ha))
+  return alt * 180 / Math.PI
+}
+
+// Moon interference 0–100% for a given datetime
+// = illumination% × altitude factor (0 at horizon → 1 at 60°+)
+// Matches LeFevre model: illumination component + altitude component
 export function moonInterference(dt, moonData) {
   if (!isMoonUp(dt, moonData)) return 0
-  return moonData.illumination
+  const illum = moonData.illumination          // 0.0–1.0
+  const altDeg = moonAltitudeDeg(dt)
+  const altFactor = Math.min(1, Math.max(0, altDeg / 60))  // 0 at horizon, 1 at 60°
+  return Math.round(illum * altFactor * 100)   // 0–100%
 }
