@@ -339,10 +339,10 @@ export default function TimelineBar({ spaceWeather, moonData, selectedHour, onHo
       const vDataMax = Math.max(...allV)
       const vPad = Math.max(5, (vDataMax - vDataMin) * 0.15 + 8)  // 15% + 8 km/s each side
       var vMin = Math.max(200,  vDataMin - vPad)
-      var vMax = Math.min(1200, vDataMax + vPad)
+      var vMax = Math.min(1100, vDataMax + vPad)  // 1100 ceiling keeps normal wind in lower portion
       if (vMax - vMin < 20) { vMin -= 10; vMax += 10 }  // absolute floor: 20 km/s span
     } else {
-      var vMin = 350, vMax = 650
+      var vMin = 350, vMax = 1100
     }
     const vRange = vMax - vMin
     function vY(v) { return PAD_T + pH * (1 - (v - vMin) / vRange) }
@@ -389,10 +389,10 @@ export default function TimelineBar({ spaceWeather, moonData, selectedHour, onHo
       const dDataMax = Math.max(...allD)
       const dPad = Math.max(0.5, (dDataMax - dDataMin) * 0.15 + 0.5)
       dMin = Math.max(0, dDataMin - dPad)
-      dMax = dDataMax + dPad
+      dMax = Math.min(50, dDataMax + dPad)  // 50 n/cc ceiling keeps quiet values near bottom
       if (dMax - dMin < 2) { dMin = Math.max(0, dMin - 1); dMax += 1 }  // min 2 n/cc span
     } else {
-      dMin = 0; dMax = 20
+      dMin = 0; dMax = 50
     }
     const dRange = dMax - dMin
     function dY(d) { return PAD_T + pH * (1 - (d - dMin) / dRange) }
