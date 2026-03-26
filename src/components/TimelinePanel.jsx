@@ -1,5 +1,5 @@
 import { useMemo } from 'react'
-import { getMoonData } from '../utils/moon.js'
+import { getMoonData, moonInterference } from '../utils/moon.js'
 import TimelineBar from './TimelineBar.jsx'
 import { useBzTrace } from '../hooks/useBzTrace.js'
 
@@ -67,38 +67,22 @@ function sunTimesForDate(date) {
   }
 }
 
-// Compute astro dark % for a given time — 0 during day, tapers through twilight
-function computeAstroDark(t, moonIllum, moonRise, moonSet) {
-  const sun0    = sunTimesForDate(t)
-  const sun1    = sunTimesForDate(new Date(t.getTime() + 86400000))
-  const TAPER   = 90 * 60000  // 90 min twilight taper
+// Astronomical darkness % — pure sun depression, 0 at sunrise/set, 100 at −18°
+// 90-min taper covers civil + nautical + astronomical twilight combined
+// Moon is handled separately as interference
+function computeAstroDark(t) {
+  const sun0  = sunTimesForDate(t)
+  const sun1  = sunTimesForDate(new Date(t.getTime() + 86400000))
+  const TAPER = 90 * 60000  // 90 min: sun at horizon → astronomical darkness
 
-  let raw = 0
   const ss = sun0.set.getTime()
   const sr = sun1.rise.getTime()
   const tm = t.getTime()
 
-  if (tm <= ss || tm >= sr) {
-    raw = 0  // daytime
-  } else if (tm < ss + TAPER) {
-    raw = (tm - ss) / TAPER        // evening taper 0→1
-  } else if (tm > sr - TAPER) {
-    raw = (sr - tm) / TAPER        // morning taper 1→0
-  } else {
-    raw = 1                         // full darkness
-  }
-
-  // Moon interference
-  let moonUp = false
-  if (moonRise && moonSet) {
-    const mr = new Date(moonRise).getTime()
-    const ms = new Date(moonSet).getTime()
-    moonUp = mr < ms ? (tm > mr && tm < ms) : (tm > mr || tm < ms)
-  } else if (moonRise) moonUp = tm > new Date(moonRise).getTime()
-  else if (moonSet)    moonUp = tm < new Date(moonSet).getTime()
-
-  const interference = moonUp ? moonIllum : 0
-  return Math.max(0, Math.round((raw - interference * raw) * 100))
+  if (tm <= ss || tm >= sr) return 0           // daytime
+  if (tm < ss + TAPER) return Math.round((tm - ss) / TAPER * 100)   // evening taper
+  if (tm > sr - TAPER) return Math.round((sr - tm) / TAPER * 100)   // morning taper
+  return 100                                    // full astronomical darkness
 }
 
 // Derive intensity from Bz at a given timeline offset
@@ -138,20 +122,12 @@ export default function TimelinePanel({ spaceWeather, selectedHour, onHourSelect
   const intensityAtHour = isNow ? intensity_label : bzToIntensity(bzAtHour)
 
   // Astro dark at selected hour
-  const astroDarkAtHour = useMemo(() => computeAstroDark(
-    selectedTime,
-    moonData?.illumination ?? 0,
-    spaceWeather.moon_rise,
-    spaceWeather.moon_set,
-  ), [selectedHour, moonData, spaceWeather.moon_rise, spaceWeather.moon_set])
+  const astroDarkAtHour = useMemo(() => computeAstroDark(selectedTime),
+    [selectedHour])
 
-  // Moon interference at selected hour — same taper logic
-  const moonIllumAtHour = useMemo(() => {
-    const raw = computeAstroDark(selectedTime, 0, spaceWeather.moon_rise, spaceWeather.moon_set) / 100
-    const moonUp = raw > 0 && astroDarkAtHour < (raw * 100)
-    const illum = moonData?.illumination ?? 0
-    return moonUp ? Math.round(illum * raw * 100) : 0
-  }, [selectedHour, moonData, spaceWeather.moon_rise, spaceWeather.moon_set, astroDarkAtHour])
+  // Moon interference at selected hour — illumination × altitude factor, 0 when moon is down
+  const moonIllumAtHour = useMemo(() => moonInterference(selectedTime, moonData),
+    [selectedHour, moonData])
 
   // Quality at selected hour
   const qualityAtHour = useMemo(() => {
