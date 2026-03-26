@@ -249,7 +249,7 @@ function App() {
 
         {/* NASA attribution — bottom right overlay */}
         <div style={{
-          position: 'absolute', bottom: 76, right: 48,
+          position: 'absolute', bottom: 8, right: 48,
           color: 'rgba(40,70,100,0.55)', fontSize: 8, letterSpacing: 0.5,
           fontFamily: FONT, zIndex: 900, pointerEvents: 'none',
         }}>
