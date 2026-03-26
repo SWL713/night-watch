@@ -403,6 +403,7 @@ def fetch_enlil_timeline():
                 timeline.append({'time': dt.isoformat(), 'speed': v, 'density': d})
 
         log.info(f'ENLIL: {len(timeline)} future points extracted')
+        timeline.sort(key=lambda x: x['time'])
         return timeline[:13]
 
     except Exception as e:
