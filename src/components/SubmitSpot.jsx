@@ -15,10 +15,10 @@ export default function SubmitSpot({ onClose, initialCoords }) {
     name: '',
     lat: initialCoords ? initialCoords.lat.toFixed(6) : '',
     lon: initialCoords ? initialCoords.lon.toFixed(6) : '',
-    bortle: '4',
-    view_direction: 'N',
+    bortle: '',
+    view_direction: '',
     access_notes: '',
-    horizon_rating: '3',
+    horizon_rating: '',
   })
   const [status, setStatus] = useState(null)
   const [submitting, setSubmitting] = useState(false)
