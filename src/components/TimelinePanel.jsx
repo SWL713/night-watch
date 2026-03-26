@@ -39,7 +39,7 @@ function stateColor(state) {
 
 function StatRow({ icon, label, value, color }) {
   return (
-    <div style={{ display:'flex', alignItems:'center', gap:6, marginBottom:4 }}>
+    <div style={{ display:'flex', alignItems:'center', gap:5, marginBottom:2 }}>
       <img src={icon} alt="" style={{ width:16, height:16, objectFit:'contain', flexShrink:0 }} />
       <span style={{ color:'#445566', fontSize:9, letterSpacing:1, width:74, flexShrink:0 }}>{label}</span>
       <span style={{ color, fontSize:11, fontWeight:'bold' }}>{value}</span>
@@ -217,15 +217,15 @@ export default function TimelinePanel({ spaceWeather, selectedHour, onHourSelect
 
         {/* Stats panel */}
         <div style={{
-          width:175, flexShrink:0, padding:'7px 10px',
+          width:175, flexShrink:0, padding:'5px 10px',
           borderLeft:'1px solid #1a2035',
           display:'flex', flexDirection:'column', justifyContent:'center',
         }}>
-          <div style={{ marginBottom:8 }}>
-            <div style={{ color:'#2a3a55', fontSize:8, letterSpacing:1, marginBottom:2 }}>
+          <div style={{ marginBottom:4 }}>
+            <div style={{ color:'#2a3a55', fontSize:7, letterSpacing:1, marginBottom:1 }}>
               CHASE QUALITY{!isNow ? ` · +${selectedHour}h` : ''}
             </div>
-            <div style={{ color:qualityColor, fontSize:18, fontWeight:'bold', letterSpacing:2 }}>
+            <div style={{ color:qualityColor, fontSize:16, fontWeight:'bold', letterSpacing:2 }}>
               {qualityLabel}
             </div>
           </div>
@@ -248,7 +248,7 @@ export default function TimelinePanel({ spaceWeather, selectedHour, onHourSelect
             value={`${astroDarkAtHour}%`}
             color={astroDarkAtHour > 75 ? '#44cc88' : astroDarkAtHour > 40 ? '#ffcc44' : '#ff5566'}
           />
-          <div style={{ marginTop:6, color:'#334455', fontSize:8 }}>
+          <div style={{ marginTop:3, color:'#334455', fontSize:8 }}>
             {moonData.phaseLabel} · {moonIllumPct}% illuminated
           </div>
         </div>
