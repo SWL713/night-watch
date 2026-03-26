@@ -13,7 +13,7 @@ export const SUPABASE_ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzd
 
 // -- Cloudinary ----------------------------------------------
 // Create free account at cloudinary.com → Dashboard → Cloud Name
-export const CLOUDINARY_CLOUD = 'REPLACE_ME_cloudinary_cloud_name'
+export const CLOUDINARY_CLOUD = 'dkyxhu5bs'
 export const CLOUDINARY_PRESET = 'night_watch_unsigned'
 
 // -- Space weather pipeline output ---------------------------
