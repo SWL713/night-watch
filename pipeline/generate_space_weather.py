@@ -929,15 +929,15 @@ def fetch_hrrr_cloud(grid):
     base_url = f'{HRRR_BASE}hrrr.{run_date}/conus/hrrr.t{run_hour:02d}z'
     log.info(f'HRRR: using run {run_date} {run_hour:02d}Z')
 
-    # Forecast hours covering now-1hr to now+9hr
-    # Fetch f00-f11 so we always cover the full +9h browser window even when
-    # the run started 60+ min ago (f09 from a -60min run only reaches +8h)
+    # Fetch f00-f18 — covers the full +18h window so daytime runs (once/hr or
+    # once at noon) keep the timeline populated through the aurora window
+    # without needing another pull. Browser only shows +8h but caches the rest.
     run_valid = run_dt.replace(minute=0, second=0, microsecond=0)
     hours_needed = []
-    for fh in range(0, 12):
+    for fh in range(0, 19):
         valid_time = run_valid + timedelta(hours=fh)
         offset_hr  = (valid_time - now).total_seconds() / 3600
-        if -1.5 <= offset_hr <= 9.5:
+        if -1.5 <= offset_hr <= 18.5:
             hours_needed.append((fh, valid_time))
 
     if not hours_needed:
