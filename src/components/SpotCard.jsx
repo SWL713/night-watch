@@ -103,8 +103,8 @@ export default function SpotCard({ spot, onClose, spaceWeather, onSubmitPhoto })
                     </span>
                     <div style={{ flex: 1, height: 8, background: '#0a0e18', borderRadius: 1, overflow: 'hidden' }}>
                       <div style={{
-                        height: '100%', width: `${100 - score*100}%`,
-                        background: pt.cloudcover >= 95 ? '#334455' : '#2a4a6a',
+                        height: '100%', width: `${pt.cloudcover}%`,
+                        background: pt.cloudcover >= 80 ? '#cc2222' : pt.cloudcover >= 50 ? '#cc7700' : '#2a6a4a',
                         transition: 'width 0.3s',
                       }} />
                     </div>
