@@ -275,9 +275,7 @@ function App() {
               }}
             >
               <span style={{ fontSize: 13 }}>🌌</span>
-              <span>{sightingPinMode ? 'CLICK
-MAP' : 'REPORT
-AURORA'}</span>
+              <span>{sightingPinMode ? <>CLICK<br/>MAP</> : <>REPORT<br/>AURORA</>}</span>
             </button>
 
             {/* Place pin */}
@@ -295,9 +293,7 @@ AURORA'}</span>
               }}
             >
               <span style={{ fontSize: 13 }}>📍</span>
-              <span>{pinMode ? 'CLICK
-MAP' : '+ PLACE
-PIN'}</span>
+              <span>{pinMode ? <>CLICK<br/>MAP</> : <>+ PLACE<br/>PIN</>}</span>
             </button>
           </div>
 
