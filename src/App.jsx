@@ -332,9 +332,7 @@ function App() {
             <div style={{ color: '#2a3f55', fontSize: 8, letterSpacing: 0.5, fontFamily: FONT }}>
               developed by Scott W. LeFevre
             </div>
-
-
-          <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+            <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
             <div style={{ color: sw.last_updated ? '#334455' : '#1e2a3a', fontSize: 9 }}>
               {sw.last_updated
                 ? `SW: ${new Date(sw.last_updated).toUTCString().slice(17,22)} UTC`
@@ -347,6 +345,7 @@ function App() {
               const color = ageMin > 180 ? '#ff5544' : ageMin > 90 ? '#ffaa33' : '#334455'
               return <div style={{ color, fontSize: 9 }}>{`CL: ${new Date(cu).toUTCString().slice(17,22)} UTC`}</div>
             })()}
+            </div>
           </div>
         </div>
       </div>
