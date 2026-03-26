@@ -74,7 +74,8 @@ function App() {
   const heatmapMode = layers.clouds ? 'clouds' : layers.bortle ? 'bortle' : 'combined'
   const [pendingPin, setPendingPin] = useState(null)
   const [pinMode, setPinMode] = useState(false) // true = user clicked "place pin" button
-  const [sightingPinMode, setSightingPinMode] = useState(false) // picking location for sighting report
+  const [sightingPinMode, setSightingPinMode] = useState(false)
+  const [nightMode, setNightMode] = useState(false) // picking location for sighting report
   const [sightingPendingCoords, setSightingPendingCoords] = useState(null)
 
   function toggleLayer(key) {
@@ -115,6 +116,7 @@ function App() {
       height: '100vh', background: '#06080f',
       fontFamily: FONT, overflow: 'hidden',
       paddingTop: 'env(safe-area-inset-top, 6px)',
+      filter: nightMode ? 'sepia(1) saturate(5) hue-rotate(295deg) brightness(0.7)' : 'none',
     }}>
       {/* Timeline panel */}
       <TimelinePanel
@@ -144,6 +146,25 @@ function App() {
           <ZoomControl position="bottomright" />
 
           <MapSearch />
+
+          {/* Night mode toggle */}
+          <div style={{ position: 'absolute', top: 56, left: 12, zIndex: 1000 }}>
+            <button
+              onClick={() => setNightMode(m => !m)}
+              title="Night vision mode"
+              style={{
+                width: 36, height: 36,
+                background: nightMode ? '#1a0000' : '#070b16',
+                border: `1px solid ${nightMode ? '#ff4400' : '#1a2a3a'}`,
+                borderRadius: 2, cursor: 'pointer',
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                fontSize: 16, color: nightMode ? '#ff4400' : '#445566',
+                transition: 'all 0.15s',
+              }}
+            >
+              🌙
+            </button>
+          </div>
 
           {/* Map click handler — only active in pin placement mode */}
           <MapClickHandler
