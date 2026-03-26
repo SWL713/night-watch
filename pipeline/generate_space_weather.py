@@ -685,6 +685,9 @@ def main():
     bz_timeline     = build_bz_timeline(l1)
     plasma_timeline = build_plasma_timeline(l1)
 
+    # Ovation
+    ovation = fetch_ovation()
+
     # Build output JSON
     output = {
         'last_updated':       now.isoformat(),
@@ -714,6 +717,10 @@ def main():
         'enlil_timeline':     enlil_timeline,
         'timeline':           bz_timeline,
         'plasma_timeline':    plasma_timeline,
+        'ovation_oval':       ovation.get('oval_boundary', []),
+        'ovation_viewline':   ovation.get('view_line', []),
+        'ovation_obs_time':   ovation.get('observation_time'),
+        'ovation_fcst_time':  ovation.get('forecast_time'),
     }
 
     os.makedirs(os.path.dirname(OUTPUT_PATH), exist_ok=True)
