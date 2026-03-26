@@ -116,7 +116,7 @@ function App() {
       height: '100vh', background: '#06080f',
       fontFamily: FONT, overflow: 'hidden',
       paddingTop: 'env(safe-area-inset-top, 6px)',
-      filter: nightMode ? 'sepia(1) saturate(5) hue-rotate(295deg) brightness(0.7)' : 'none',
+      filter: nightMode ? 'grayscale(1) sepia(1) saturate(8) hue-rotate(320deg) brightness(0.55)' : 'none',
     }}>
       {/* Timeline panel */}
       <TimelinePanel
