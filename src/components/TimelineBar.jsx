@@ -93,8 +93,9 @@ export default function TimelineBar({ spaceWeather, moonData, selectedHour, onHo
     const spanMs = tEnd - tStart
     function tx(t) { return ((t - tStart) / spanMs) * cW }
 
-    const PAD_T = 16, PAD_B = 16, KP_ZONE = 36
-    const pH = cH - PAD_T - PAD_B - KP_ZONE
+    const PAD_T = 16, PAD_B = 16
+    const KP_ZONE = 32  // height of Kp bars, overlaid at bottom of timeline
+    const pH = cH - PAD_T - PAD_B  // FULL height — Kp bars overlay, don't compress
 
     // Transit lag: how long solar wind takes from L1 to Earth
     const lagMs  = Math.min((1.5e6 / (spaceWeather.speed_kms || 450)) * 1000, 5400000)
@@ -451,7 +452,7 @@ export default function TimelineBar({ spaceWeather, moonData, selectedHour, onHo
     // Bars rise from bottom rail. KP_ZONE px tall. Kp=9 fills full zone.
     // Observed (1-min) solid, forecast 3-hour blocks at 40% opacity.
     const KP_COLORS = { 5:'#ffdd33', 6:'#ffaa00', 7:'#ff7722', 8:'#ff3344', 9:'#cc44ff' }
-    const kpBase = PAD_T + pH + KP_ZONE  // bottom of kp zone = bottom of canvas - PAD_B
+    const kpBase = PAD_T + pH  // bottom of timeline — bars rise upward from here
     function kpBarH(kp) { return Math.max(1, (Math.min(kp, 9) / 9) * KP_ZONE) }
     function kpColor(kp, alpha) {
       const g = Math.floor(kp)
@@ -489,14 +490,9 @@ export default function TimelineBar({ spaceWeather, moonData, selectedHour, onHo
       ctx.fillRect(x1, kpBase - barH, w, barH)
     }
 
-    // Kp zone separator line
-    ctx.strokeStyle = '#1a2535'; ctx.lineWidth = 1; ctx.setLineDash([])
-    ctx.beginPath(); ctx.moveTo(0, kpBase - KP_ZONE); ctx.lineTo(cW, kpBase - KP_ZONE); ctx.stroke()
-
-    // Kp axis label
+    // Kp label
     ctx.fillStyle = '#2a3a55'; ctx.font = `6.5px ${FONT}`
     ctx.fillText('Kp', 2, kpBase - KP_ZONE + 8)
-    ctx.fillText('9', 2, kpBase - KP_ZONE + 1)
 
     // ── 10. NOW LINE ─────────────────────────────────────────────────────────
     ctx.strokeStyle = '#ffffff'; ctx.lineWidth = 2.0; ctx.globalAlpha = 0.75
@@ -520,7 +516,7 @@ export default function TimelineBar({ spaceWeather, moonData, selectedHour, onHo
       const t = new Date(now.getTime() + dh * 3600000)
       if (t < tStart || t > tEnd) continue
       const lbl = t.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false, timeZone: 'America/New_York' })
-      ctx.fillText(lbl, tx(t) - 13, PAD_T + pH + KP_ZONE + 12)
+      ctx.fillText(lbl, tx(t) - 13, PAD_T + pH + 12)
     }
 
     // ── 13. Y LABELS (Bz nT scale) ───────────────────────────────────────────
