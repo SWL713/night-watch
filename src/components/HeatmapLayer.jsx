@@ -268,18 +268,17 @@ export default function HeatmapLayer({ mode, selectedHour, getCloudAt, cloudLoad
   }, [showTiles, map])
 
   useEffect(() => {
-    if (showCanvas) {
+    if (showCanvas && !cloudLoading && getCloudAt) {
       if (!canvasRef.current) {
         canvasRef.current = new CloudCanvas({})
         canvasRef.current.addTo(map)
       }
-      if (getCloudAt) {
-        canvasRef.current.update(buildCloudGrid(getCloudAt, selectedHour), mode)
-      }
-    } else if (canvasRef.current) {
+      canvasRef.current.update(buildCloudGrid(getCloudAt, selectedHour), mode)
+    } else if (!showCanvas && canvasRef.current) {
       map.removeLayer(canvasRef.current)
       canvasRef.current = null
     }
+    // When cloudLoading, leave any existing canvas in place (don't clear it)
   }, [showCanvas, mode, selectedHour, getCloudAt, cloudLoading, bortleGrid, map])
 
   useEffect(() => () => {
