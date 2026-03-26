@@ -27,12 +27,12 @@ export function useSpots() {
           .order('name')
         if (err) throw err
 
-        // Fetch approved, non-deleted photos separately
-        const { data: photosData } = await supabase
+        // Fetch approved photos — no deleted filter to avoid null column issues
+        const { data: photosData, error: photosErr } = await supabase
           .from('photos')
           .select('id, spot_id, photo_url, caption, photographer_name, flagged, deleted, created_at')
           .eq('approved', true)
-          .neq('deleted', true)
+        if (photosErr) console.warn('Photos fetch error:', photosErr)
 
         // Attach photos to their spots
         const photosBySpot = {}
