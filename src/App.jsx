@@ -222,7 +222,7 @@ function App() {
 
         {/* NASA attribution — bottom right overlay */}
         <div style={{
-          position: 'absolute', bottom: 42, right: 48,
+          position: 'absolute', bottom: 58, right: 48,
           color: 'rgba(40,70,100,0.55)', fontSize: 8, letterSpacing: 0.5,
           fontFamily: FONT, zIndex: 900, pointerEvents: 'none',
         }}>
@@ -239,7 +239,7 @@ function App() {
         {/* Cloud loading indicator */}
         {(cloudLoading || phase === 'fallback') && (
           <div style={{
-            position: 'absolute', bottom: 62, left: '50%', transform: 'translateX(-50%)',
+            position: 'absolute', bottom: 58, left: '50%', transform: 'translateX(-50%)',
             background: '#070b16', border: '1px solid #1a2035', borderRadius: 2,
             padding: '4px 12px', fontSize: 9, zIndex: 1000,
             fontFamily: FONT, letterSpacing: 1,
@@ -250,15 +250,14 @@ function App() {
           </div>
         )}
 
-        {/* Bottom action bar — two rows */}
+        {/* Bottom action bar */}
         <div style={{
           position: 'absolute', bottom: 0, left: 0, right: 0,
           background: '#06080f', borderTop: '1px solid #1a2035',
-          display: 'flex', flexDirection: 'column', justifyContent: 'center',
-          padding: '4px 12px', minHeight: 56, zIndex: 1000, gap: 4,
+          display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+          padding: '0 12px', height: 52, zIndex: 1000,
         }}>
-          {/* Row 1: action buttons + admin */}
-          <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+          <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
             {/* Report Aurora button */}
             <button
               onClick={() => { setSightingPinMode(false); setSightingPendingCoords(null); setModal('reportAurora') }}
@@ -266,7 +265,7 @@ function App() {
                 background: sightingPinMode ? '#1a0a00' : '#1a0505',
                 border: `1px solid ${sightingPinMode ? '#ff8800' : '#cc2222'}`,
                 color: sightingPinMode ? '#ff8800' : '#ff4444',
-                padding: '4px 10px', fontSize: 9, fontFamily: FONT,
+                padding: '3px 10px', fontSize: 9, fontFamily: FONT,
                 cursor: 'pointer', letterSpacing: 1, borderRadius: 2,
               }}
             >
@@ -280,7 +279,7 @@ function App() {
                 background: pinMode ? '#0d2a1a' : '#071a2a',
                 border: `1px solid ${pinMode ? '#44ffcc' : '#00aacc'}`,
                 color: pinMode ? '#44ffcc' : '#00ccee',
-                padding: '4px 10px', fontSize: 9, fontFamily: FONT,
+                padding: '3px 10px', fontSize: 9, fontFamily: FONT,
                 cursor: 'pointer', letterSpacing: 1, borderRadius: 2,
               }}
             >
@@ -327,12 +326,10 @@ function App() {
             )}
           </div>
 
-          {/* Row 2: attributions + timestamps */}
-          <div style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
+          <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
             <div style={{ color: '#2a3f55', fontSize: 8, letterSpacing: 0.5, fontFamily: FONT }}>
-              developed by Scott W. LeFevre
+              SWL713
             </div>
-            <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
             <div style={{ color: sw.last_updated ? '#334455' : '#1e2a3a', fontSize: 9 }}>
               {sw.last_updated
                 ? `SW: ${new Date(sw.last_updated).toUTCString().slice(17,22)} UTC`
@@ -345,7 +342,6 @@ function App() {
               const color = ageMin > 180 ? '#ff5544' : ageMin > 90 ? '#ffaa33' : '#334455'
               return <div style={{ color, fontSize: 9 }}>{`CL: ${new Date(cu).toUTCString().slice(17,22)} UTC`}</div>
             })()}
-            </div>
           </div>
         </div>
       </div>

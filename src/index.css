@@ -65,3 +65,8 @@ select {
 .leaflet-control-attribution a {
   color: #6688aa !important;
 }
+
+/* Push Leaflet bottom controls above the action bar */
+.leaflet-bottom {
+  bottom: 52px !important;
+}
