@@ -1,8 +1,9 @@
 import { useEffect, useRef, useCallback } from 'react'
 import { useMap } from 'react-leaflet'
+import L from 'leaflet'
 
 const TEAL       = [68, 255, 170]
-const RADIUS_M   = 30000            // 30km (3x original)
+const RADIUS_M   = 30000
 const EXPIRE_MS  = 5 * 3600000
 const FULL_ALPHA = 0.55
 
@@ -14,33 +15,33 @@ export default function SightingLayer({ sightings, onSightingClick }) {
 
   useEffect(() => { sightingsRef.current = sightings }, [sightings])
 
-  // metres → pixels at a given latitude
-  function mToPx(lat, metres) {
-    const p1 = map.project([lat, 0],     map.getZoom())
-    const p2 = map.project([lat, 0.001], map.getZoom())
-    const pxPerDeg = Math.abs(p2.x - p1.x) / 0.001
-    const degPerM  = 360 / (2 * Math.PI * 6371000)
-    return pxPerDeg * degPerM * metres
-  }
+  const reposition = useCallback(() => {
+    const canvas = canvasRef.current
+    if (!canvas) return
+    const topLeft = map.containerPointToLayerPoint([0, 0])
+    L.DomUtil.setPosition(canvas, topLeft)
+  }, [map])
 
   const draw = useCallback(() => {
     const canvas = canvasRef.current
     if (!canvas) return
+
+    // Resize to match map
+    const size = map.getSize()
+    const dpr  = window.devicePixelRatio || 1
+    if (canvas.width !== size.x * dpr) {
+      canvas.width  = size.x * dpr
+      canvas.height = size.y * dpr
+      canvas.style.width  = size.x + 'px'
+      canvas.style.height = size.y + 'px'
+    }
+
+    reposition()
+
     const ctx = canvas.getContext('2d')
-    const dpr = window.devicePixelRatio || 1
-
-    // The overlay pane is CSS-translated by Leaflet during panning.
-    // We need canvas coords in overlay-pane-local space, not container space.
-    // Use map.project/unproject at pixel level relative to map origin.
-    const mapSize   = map.getSize()
-    const mapOrigin = map.getPixelOrigin()   // top-left of map in world pixels
-
-    canvas.width  = mapSize.x * dpr
-    canvas.height = mapSize.y * dpr
-    canvas.style.width  = mapSize.x + 'px'
-    canvas.style.height = mapSize.y + 'px'
+    ctx.save()
     ctx.scale(dpr, dpr)
-    ctx.clearRect(0, 0, mapSize.x, mapSize.y)
+    ctx.clearRect(0, 0, size.x, size.y)
 
     const now = Date.now()
 
@@ -49,14 +50,23 @@ export default function SightingLayer({ sightings, onSightingClick }) {
       const age     = now - created
       if (age >= EXPIRE_MS) continue
 
-      const frac   = age / EXPIRE_MS
-      const alpha  = FULL_ALPHA * (1 - frac)
+      const frac  = age / EXPIRE_MS
+      const alpha = FULL_ALPHA * (1 - frac)
 
-      // Convert lat/lon to overlay-pane-local pixel coords
-      const worldPt = map.project([s.lat, s.lon], map.getZoom())
-      const x = worldPt.x - mapOrigin.x
-      const y = worldPt.y - mapOrigin.y
-      const r = mToPx(s.lat, RADIUS_M)
+      // Use containerPointToLayerPoint offset — draw in layer (canvas) coords
+      const containerPt = map.latLngToContainerPoint([s.lat, s.lon])
+      const layerPt     = map.containerPointToLayerPoint(containerPt)
+      // Since canvas is positioned at containerPointToLayerPoint([0,0]),
+      // we just use containerPt directly as our draw coords
+      const x = containerPt.x
+      const y = containerPt.y
+
+      // Radius in pixels
+      const earthCircumference = 2 * Math.PI * 6371000
+      const metersPerDeg = earthCircumference / 360
+      const p1 = map.latLngToContainerPoint([s.lat, 0])
+      const p2 = map.latLngToContainerPoint([s.lat, RADIUS_M / metersPerDeg])
+      const r  = Math.abs(p2.x - p1.x)
 
       const [ri, gi, bi] = TEAL
       const grad = ctx.createRadialGradient(x, y, 0, x, y, r)
@@ -75,55 +85,41 @@ export default function SightingLayer({ sightings, onSightingClick }) {
       ctx.lineWidth   = 1.5
       ctx.stroke()
 
-      // Center dot
       ctx.beginPath()
       ctx.arc(x, y, 5, 0, Math.PI * 2)
       ctx.fillStyle = `rgba(${ri},${gi},${bi},${Math.min(1, alpha * 2)})`
       ctx.fill()
     }
 
+    ctx.restore()
     animRef.current = requestAnimationFrame(draw)
-  }, [map])
+  }, [map, reposition])
 
   useEffect(() => {
-    const dpr = window.devicePixelRatio || 1
-
-    // Canvas lives in the overlay pane — Leaflet transforms this pane during
-    // panning, so our world-pixel math stays correct automatically
     const canvas = document.createElement('canvas')
-    canvas.style.cssText = 'position:absolute;top:0;left:0;pointer-events:none;z-index:450;'
+    canvas.style.cssText = 'position:absolute;pointer-events:none;z-index:450;'
     map.getPanes().overlayPane.appendChild(canvas)
     canvasRef.current = canvas
 
-    // Reposition canvas origin when map moves
-    function reposition() {
-      const topLeft = map.containerPointToLayerPoint([0, 0])
-      canvas.style.transform = `translate(${topLeft.x}px,${topLeft.y}px)`
-    }
-    map.on('movestart move moveend zoomstart zoom zoomend', reposition)
-    reposition()
-
+    map.on('move zoom resize moveend zoomend', reposition)
     animRef.current = requestAnimationFrame(draw)
 
-    // Click handler — check inside any sighting circle
+    // Click detection
     function handleClick(e) {
       if (!onSightingClick) return
-      const now       = Date.now()
-      const mapOrigin = map.getPixelOrigin()
-      const clickPt   = map.project(e.latlng, map.getZoom())
-      const cx = clickPt.x - mapOrigin.x
-      const cy = clickPt.y - mapOrigin.y
-
+      const now = Date.now()
       for (const s of sightingsRef.current) {
         const created = new Date(s.created_at).getTime()
         if (now - created >= EXPIRE_MS) continue
-        const worldPt = map.project([s.lat, s.lon], map.getZoom())
-        const sx = worldPt.x - mapOrigin.x
-        const sy = worldPt.y - mapOrigin.y
-        const r  = mToPx(s.lat, RADIUS_M)
-        if (Math.hypot(cx - sx, cy - sy) <= r) {
-          const screenPt = map.latLngToContainerPoint(e.latlng)
-          onSightingClick(s, { x: screenPt.x, y: screenPt.y })
+        const cp  = map.latLngToContainerPoint([s.lat, s.lon])
+        const earthCircumference = 2 * Math.PI * 6371000
+        const metersPerDeg = earthCircumference / 360
+        const p1  = map.latLngToContainerPoint([s.lat, 0])
+        const p2  = map.latLngToContainerPoint([s.lat, RADIUS_M / metersPerDeg])
+        const r   = Math.abs(p2.x - p1.x)
+        const clickPt = map.latLngToContainerPoint(e.latlng)
+        if (Math.hypot(clickPt.x - cp.x, clickPt.y - cp.y) <= r) {
+          onSightingClick(s, { x: clickPt.x, y: clickPt.y })
           return
         }
       }
@@ -132,11 +128,11 @@ export default function SightingLayer({ sightings, onSightingClick }) {
 
     return () => {
       cancelAnimationFrame(animRef.current)
-      map.off('movestart move moveend zoomstart zoom zoomend', reposition)
+      map.off('move zoom resize moveend zoomend', reposition)
       map.off('click', handleClick)
       canvas.remove()
     }
-  }, [map, draw, onSightingClick])
+  }, [map, draw, reposition, onSightingClick])
 
   return null
 }
