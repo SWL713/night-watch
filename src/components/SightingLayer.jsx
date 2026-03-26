@@ -122,7 +122,8 @@ export default function SightingLayer({ sightings, onSightingClick }) {
         const sy = worldPt.y - mapOrigin.y
         const r  = mToPx(s.lat, RADIUS_M)
         if (Math.hypot(cx - sx, cy - sy) <= r) {
-          onSightingClick(s, e.latlng)
+          const screenPt = map.latLngToContainerPoint(e.latlng)
+          onSightingClick(s, { x: screenPt.x, y: screenPt.y })
           return
         }
       }

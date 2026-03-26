@@ -63,7 +63,7 @@ function App() {
   const { spots } = useSpots()
   const { sightings, deleteSighting, reload: reloadSightings } = useSightings()
   const [selectedSighting, setSelectedSighting] = useState(null)
-  const [sightingPos, setSightingPos] = useState(null)
+  const [sightingScreen, setSightingScreen] = useState(null)
   const { getCloudAt, loading: cloudLoading, progress, coverage, total, phase, cloudData } = useCloudCover()
 
   const moonData = getMoonData()
@@ -183,21 +183,22 @@ function App() {
           {layers.sightings && (
             <SightingLayer
               sightings={sightings}
-              onSightingClick={(s, latlng) => { setSelectedSighting(s); setSightingPos(latlng) }}
+              onSightingClick={(s, screenPt) => { setSelectedSighting(s); setSightingScreen(screenPt) }}
             />
           )}
 
-          {/* Sighting popup */}
-          {selectedSighting && sightingPos && (
-            <SightingPopup
-              sighting={selectedSighting}
-              position={sightingPos}
-              adminAuthed={adminAuthed}
-              onDelete={deleteSighting}
-              onClose={() => { setSelectedSighting(null); setSightingPos(null) }}
-            />
-          )}
         </MapContainer>
+
+        {/* Sighting popup — outside MapContainer so it's a plain div */}
+        {selectedSighting && sightingScreen && (
+          <SightingPopup
+            sighting={selectedSighting}
+            screenPos={sightingScreen}
+            adminAuthed={adminAuthed}
+            onDelete={deleteSighting}
+            onClose={() => { setSelectedSighting(null); setSightingScreen(null) }}
+          />
+        )}
 
         {/* Badges top-right */}
         <Badges spaceWeather={sw} selectedHour={selectedHour} />
