@@ -6,11 +6,12 @@ const HEATMAP_MODES = ['heatmap', 'clouds', 'bortle']
 
 export default function LayerControls({ layers, onToggle }) {
   const LAYER_DEFS = [
-    { key: 'heatmap', label: 'Combined',      group: 'heatmap' },
-    { key: 'clouds',  label: 'Clouds only',   group: 'heatmap' },
-    { key: 'bortle',  label: 'Bortle only',   group: 'heatmap' },
-    { key: 'ovation', label: 'Ovation Model', group: 'toggle' },
-    { key: 'pins',    label: 'Locations',     group: 'toggle' },
+    { key: 'heatmap',   label: 'Combined',      group: 'heatmap' },
+    { key: 'clouds',    label: 'Clouds only',   group: 'heatmap' },
+    { key: 'bortle',    label: 'Bortle only',   group: 'heatmap' },
+    { key: 'ovation',   label: 'Ovation Model', group: 'toggle' },
+    { key: 'pins',      label: 'Locations',     group: 'toggle' },
+    { key: 'sightings', label: 'Active Hunt',   group: 'toggle', accent: '#ff8800' },
   ]
 
   return (
@@ -23,7 +24,7 @@ export default function LayerControls({ layers, onToggle }) {
         HEATMAP MODE
       </div>
 
-      {LAYER_DEFS.map(({ key, label, group }, i) => {
+      {LAYER_DEFS.map(({ key, label, group, accent }, i) => {
         const active = layers[key]
         const isGroupSeparator = i > 0 && group !== LAYER_DEFS[i-1].group
 
@@ -36,9 +37,9 @@ export default function LayerControls({ layers, onToggle }) {
               onClick={() => onToggle(key)}
               style={{
                 display: 'block',
-                background: active ? '#0d1a2a' : '#060810',
-                border: `1px solid ${active ? '#44ddaa' : '#1a2a3a'}`,
-                color: active ? '#44ddaa' : '#334455',
+                background: active ? (accent ? '#1a0d00' : '#0d1a2a') : '#060810',
+                border: `1px solid ${active ? (accent || '#44ddaa') : '#1a2a3a'}`,
+                color: active ? (accent || '#44ddaa') : '#334455',
                 padding: '5px 10px', fontSize: 10,
                 fontFamily: FONT, cursor: 'pointer', letterSpacing: 1,
                 borderRadius: 2, textAlign: 'left', minWidth: 110,
@@ -56,10 +57,11 @@ export default function LayerControls({ layers, onToggle }) {
 
 export function initLayers() {
   return {
-    heatmap: true,   // Combined heatmap on by default
-    clouds: false,
-    bortle: false,
-    ovation: true,
-    pins: true,
+    heatmap:   true,
+    clouds:    false,
+    bortle:    false,
+    ovation:   true,
+    pins:      true,
+    sightings: true,
   }
 }

@@ -12,6 +12,10 @@ import OvationLines from './components/OvationLines.jsx'
 import SpotPins from './components/SpotPins.jsx'
 import SubmitSpot from './components/SubmitSpot.jsx'
 import MapSearch from './components/MapSearch.jsx'
+import SightingLayer from './components/SightingLayer.jsx'
+import SightingForm from './components/SightingForm.jsx'
+import SightingPopup from './components/SightingPopup.jsx'
+import { useSightings } from './hooks/useSpots.js'
 import SubmitPhoto from './components/SubmitPhoto.jsx'
 import AdminQueue from './components/AdminQueue.jsx'
 
@@ -57,6 +61,9 @@ function App() {
 
   const { data: sw } = useSpaceWeather()
   const { spots } = useSpots()
+  const { sightings, deleteSighting, reload: reloadSightings } = useSightings()
+  const [selectedSighting, setSelectedSighting] = useState(null)
+  const [sightingPos, setSightingPos] = useState(null)
   const { getCloudAt, loading: cloudLoading, progress, coverage, total, phase, cloudData } = useCloudCover()
 
   const moonData = getMoonData()
@@ -171,10 +178,48 @@ function App() {
               bortleGrid={bortleGrid}
             />
           )}
+
+          {/* Sighting rings */}
+          {layers.sightings && (
+            <SightingLayer
+              sightings={sightings}
+              onSightingClick={(s, latlng) => { setSelectedSighting(s); setSightingPos(latlng) }}
+            />
+          )}
+
+          {/* Sighting popup */}
+          {selectedSighting && sightingPos && (
+            <SightingPopup
+              sighting={selectedSighting}
+              position={sightingPos}
+              adminAuthed={adminAuthed}
+              onDelete={deleteSighting}
+              onClose={() => { setSelectedSighting(null); setSightingPos(null) }}
+            />
+          )}
         </MapContainer>
 
         {/* Badges top-right */}
         <Badges spaceWeather={sw} selectedHour={selectedHour} />
+
+        {/* Night Watch title — top center overlay */}
+        <div style={{
+          position: 'absolute', top: 10, left: '50%', transform: 'translateX(-50%)',
+          color: 'rgba(100,140,180,0.35)', fontSize: 10, letterSpacing: 3,
+          fontFamily: FONT, zIndex: 900, pointerEvents: 'none', whiteSpace: 'nowrap',
+        }}>
+          NIGHT WATCH · SWL713
+        </div>
+
+        {/* NASA attribution — bottom right overlay */}
+        <div style={{
+          position: 'absolute', bottom: 42, right: 48,
+          color: 'rgba(40,70,100,0.55)', fontSize: 8, letterSpacing: 0.5,
+          fontFamily: FONT, zIndex: 900, pointerEvents: 'none',
+        }}>
+          light pollution: <a href="https://earthdata.nasa.gov" target="_blank" rel="noopener"
+            style={{ color: 'rgba(40,80,120,0.55)', textDecoration: 'none' }}>NASA GIBS</a>
+        </div>
 
         {/* Layer controls bottom-left */}
         <LayerControls
@@ -204,13 +249,27 @@ function App() {
           padding: '0 12px', height: 36, zIndex: 1000,
         }}>
           <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+            {/* Report Aurora button */}
+            <button
+              onClick={() => setModal('reportAurora')}
+              style={{
+                background: '#1a0505',
+                border: '1px solid #cc2222',
+                color: '#ff4444',
+                padding: '3px 10px', fontSize: 9, fontFamily: FONT,
+                cursor: 'pointer', letterSpacing: 1, borderRadius: 2,
+              }}
+            >
+              🌌 REPORT AURORA
+            </button>
+
             {/* Step 1: Toggle pin placement mode */}
             <button
               onClick={() => { setPinMode(m => !m); setPendingPin(null) }}
               style={{
-                background: pinMode ? '#0d2a1a' : '#2a0808',
-                border: `1px solid ${pinMode ? '#44ddaa' : '#cc2222'}`,
-                color: pinMode ? '#44ddaa' : '#cc4444',
+                background: pinMode ? '#0d2a1a' : '#071a2a',
+                border: `1px solid ${pinMode ? '#44ffcc' : '#00aacc'}`,
+                color: pinMode ? '#44ffcc' : '#00ccee',
                 padding: '3px 10px', fontSize: 9, fontFamily: FONT,
                 cursor: 'pointer', letterSpacing: 1, borderRadius: 2,
               }}
@@ -258,18 +317,13 @@ function App() {
             )}
           </div>
 
-          <div style={{ color: '#3a4f66', fontSize: 9, letterSpacing: 1 }}>
-            NIGHT WATCH · SWL713
-          </div>
+
 
           <div style={{ color: '#2a3f55', fontSize: 8, letterSpacing: 0.5, fontFamily: FONT }}>
             developed by Scott W. LeFevre
           </div>
 
-          <div style={{ color: '#1e2e40', fontSize: 8, letterSpacing: 0.5, fontFamily: FONT }}>
-            light pollution: <a href="https://earthdata.nasa.gov" target="_blank" rel="noopener"
-              style={{ color: '#1e3a50', textDecoration: 'none' }}>NASA GIBS</a>
-          </div>
+
 
           <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
             <div style={{ color: sw.last_updated ? '#334455' : '#1e2a3a', fontSize: 9 }}>
@@ -314,6 +368,12 @@ function App() {
             />
           )}
           {modal === 'admin' && <AdminQueue onClose={() => setModal(null)} />}
+          {modal === 'reportAurora' && (
+            <SightingForm
+              onClose={() => setModal(null)}
+              onSubmitted={() => { setModal(null); reloadSightings() }}
+            />
+          )}
         </div>
       )}
     </div>

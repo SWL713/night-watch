@@ -166,3 +166,49 @@ export async function flagPhoto(id) {
     .eq('id', id)
   return { error }
 }
+
+// ── Sightings ─────────────────────────────────────────────────────────────────
+
+export function useSightings() {
+  const [sightings, setSightings] = useState([])
+  const [loading, setLoading] = useState(true)
+
+  async function load() {
+    if (!supabaseReady) { setLoading(false); return }
+    const now = new Date().toISOString()
+    const { data, error } = await supabase
+      .from('sightings')
+      .select('*')
+      .gt('expires_at', now)
+      .order('created_at', { ascending: false })
+    if (!error) setSightings(data || [])
+    setLoading(false)
+  }
+
+  useEffect(() => {
+    load()
+    // Refresh every 2 minutes to pick up new reports
+    const iv = setInterval(load, 2 * 60000)
+    return () => clearInterval(iv)
+  }, [])
+
+  async function deleteSighting(id) {
+    if (!supabaseReady) return
+    await supabase.from('sightings').delete().eq('id', id)
+    setSightings(prev => prev.filter(s => s.id !== id))
+  }
+
+  return { sightings, loading, deleteSighting, reload: load }
+}
+
+export async function submitSighting(lat, lon, observations) {
+  if (!supabaseReady) return { error: 'Database not configured yet' }
+  const now = new Date()
+  const expires = new Date(now.getTime() + 5 * 3600000)
+  const { data, error } = await supabase.from('sightings').insert([{
+    lat, lon, observations,
+    created_at: now.toISOString(),
+    expires_at: expires.toISOString(),
+  }])
+  return { data, error }
+}
