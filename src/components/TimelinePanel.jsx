@@ -122,7 +122,7 @@ export default function TimelinePanel({ spaceWeather, selectedHour, onHourSelect
     enlil_active, enlil_timeline, timeline,
   } = spaceWeather
 
-  const { trace: bzTrace } = useBzTrace()
+  const { trace: bzTrace, plasmaTrace } = useBzTrace()
 
   // ── Issue 3: derive stats for the SELECTED hour ────────────────────────────
   const selectedTime = new Date(now.getTime() + selectedHour * 3600000)
@@ -217,6 +217,13 @@ export default function TimelinePanel({ spaceWeather, selectedHour, onHourSelect
           {/* ── Issue 5: State badge moved ABOVE the G-badge area — stays in aurora image ── */}
           <div style={{
             position:'absolute', top:8, left:8,
+            color: stateColor(state), fontSize:10, fontWeight:'bold', letterSpacing:2,
+          }}>
+            ● {state || 'QUIET'}
+          </div>
+
+          <div style={{
+            position:'absolute', top:26, left:8,
             color:'#445566', fontSize:9, letterSpacing:1,
           }}>
             {timeLabel}
@@ -279,6 +286,7 @@ export default function TimelinePanel({ spaceWeather, selectedHour, onHourSelect
         selectedHour={selectedHour}
         onHourSelect={onHourSelect}
         bzTrace={bzTrace}
+        plasmaTrace={plasmaTrace}
       />
     </div>
   )
