@@ -239,7 +239,7 @@ function App() {
         {/* Cloud loading indicator */}
         {(cloudLoading || phase === 'fallback') && (
           <div style={{
-            position: 'absolute', bottom: 48, left: '50%', transform: 'translateX(-50%)',
+            position: 'absolute', bottom: 62, left: '50%', transform: 'translateX(-50%)',
             background: '#070b16', border: '1px solid #1a2035', borderRadius: 2,
             padding: '4px 12px', fontSize: 9, zIndex: 1000,
             fontFamily: FONT, letterSpacing: 1,
@@ -250,14 +250,15 @@ function App() {
           </div>
         )}
 
-        {/* Bottom action bar */}
+        {/* Bottom action bar — two rows */}
         <div style={{
           position: 'absolute', bottom: 0, left: 0, right: 0,
           background: '#06080f', borderTop: '1px solid #1a2035',
-          display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-          padding: '0 12px', height: 36, zIndex: 1000,
+          display: 'flex', flexDirection: 'column', justifyContent: 'center',
+          padding: '4px 12px', minHeight: 56, zIndex: 1000, gap: 4,
         }}>
-          <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+          {/* Row 1: action buttons + admin */}
+          <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
             {/* Report Aurora button */}
             <button
               onClick={() => { setSightingPinMode(false); setSightingPendingCoords(null); setModal('reportAurora') }}
@@ -265,28 +266,28 @@ function App() {
                 background: sightingPinMode ? '#1a0a00' : '#1a0505',
                 border: `1px solid ${sightingPinMode ? '#ff8800' : '#cc2222'}`,
                 color: sightingPinMode ? '#ff8800' : '#ff4444',
-                padding: '3px 10px', fontSize: 9, fontFamily: FONT,
+                padding: '4px 10px', fontSize: 9, fontFamily: FONT,
                 cursor: 'pointer', letterSpacing: 1, borderRadius: 2,
               }}
             >
               {sightingPinMode ? '🌌 CLICK MAP' : '🌌 REPORT AURORA'}
             </button>
 
-            {/* Step 1: Toggle pin placement mode */}
+            {/* Place pin */}
             <button
               onClick={() => { setPinMode(m => !m); setPendingPin(null) }}
               style={{
                 background: pinMode ? '#0d2a1a' : '#071a2a',
                 border: `1px solid ${pinMode ? '#44ffcc' : '#00aacc'}`,
                 color: pinMode ? '#44ffcc' : '#00ccee',
-                padding: '3px 10px', fontSize: 9, fontFamily: FONT,
+                padding: '4px 10px', fontSize: 9, fontFamily: FONT,
                 cursor: 'pointer', letterSpacing: 1, borderRadius: 2,
               }}
             >
               {pinMode ? '📍 CLICK MAP TO PIN' : '+ PLACE PIN'}
             </button>
 
-            {/* Step 2: Once pinned show coords + submit + cancel */}
+            {/* Pending pin coords */}
             {pendingPin && !pinMode && (
               <>
                 <span style={{ color: '#44ddaa', fontSize: 9, fontFamily: FONT }}>
@@ -300,9 +301,9 @@ function App() {
               </>
             )}
 
-            {/* Admin login */}
+            {/* Admin — input + GO stacked vertically to save lateral space */}
             {!adminAuthed && (
-              <form onSubmit={handleAdminLogin} style={{ display: 'flex', gap: 4 }}>
+              <form onSubmit={handleAdminLogin} style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
                 <input
                   type="password"
                   value={adminInput}
@@ -316,8 +317,8 @@ function App() {
                 />
                 <button type="submit" style={{
                   background: '#060810', border: '1px solid #1a2035',
-                  color: '#334455', padding: '2px 8px', fontSize: 9,
-                  fontFamily: FONT, cursor: 'pointer', borderRadius: 2,
+                  color: '#334455', padding: '2px 0', fontSize: 9, width: 80,
+                  fontFamily: FONT, cursor: 'pointer', borderRadius: 2, textAlign: 'center',
                 }}>GO</button>
               </form>
             )}
@@ -326,12 +327,11 @@ function App() {
             )}
           </div>
 
-
-
-          <div style={{ color: '#2a3f55', fontSize: 8, letterSpacing: 0.5, fontFamily: FONT }}>
-            developed by Scott W. LeFevre
-          </div>
-
+          {/* Row 2: attributions + timestamps */}
+          <div style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
+            <div style={{ color: '#2a3f55', fontSize: 8, letterSpacing: 0.5, fontFamily: FONT }}>
+              developed by Scott W. LeFevre
+            </div>
 
 
           <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>

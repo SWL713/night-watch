@@ -503,10 +503,16 @@ export default function TimelineBar({ spaceWeather, moonData, selectedHour, onHo
     ctx.fillText('NOW', tx(now) + 3, PAD_T + 11)
 
     // ── 11. SELECTED HOUR HIGHLIGHT ──────────────────────────────────────────
-    if (selectedHour !== null && selectedHour !== 0) {
-      const hS = new Date(now.getTime() + (selectedHour - 0.5) * 3600000)
-      const hE = new Date(now.getTime() + (selectedHour + 0.5) * 3600000)
-      ctx.strokeStyle = '#ff4444'; ctx.lineWidth = 1.5
+    // Selected hour box — always shown including hour 0 (NOW)
+    {
+      const hS = selectedHour === 0
+        ? new Date(now.getTime() - 0.5 * 3600000)
+        : new Date(now.getTime() + (selectedHour - 0.5) * 3600000)
+      const hE = selectedHour === 0
+        ? new Date(now.getTime() + 0.5 * 3600000)
+        : new Date(now.getTime() + (selectedHour + 0.5) * 3600000)
+      ctx.strokeStyle = selectedHour === 0 ? '#ffffff44' : '#ff4444'
+      ctx.lineWidth = 1.5
       ctx.strokeRect(Math.max(0, tx(hS)), PAD_T + 1, tx(hE) - tx(hS), pH - 2)
     }
 

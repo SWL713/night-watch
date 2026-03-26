@@ -168,7 +168,7 @@ export default function TimelinePanel({ spaceWeather, selectedHour, onHourSelect
       background:'#06080f', borderBottom:'1px solid #1a2035',
       fontFamily:FONT, color:'#ccd', flexShrink:0,
     }}>
-      <div style={{ display:'flex', height:130 }}>
+      <div style={{ display:'flex', height:110 }}>
 
         {/* Logo */}
         <div style={{
@@ -217,7 +217,7 @@ export default function TimelinePanel({ spaceWeather, selectedHour, onHourSelect
 
         {/* Stats panel */}
         <div style={{
-          width:175, flexShrink:0, padding:'10px 10px',
+          width:175, flexShrink:0, padding:'7px 10px',
           borderLeft:'1px solid #1a2035',
           display:'flex', flexDirection:'column', justifyContent:'center',
         }}>
