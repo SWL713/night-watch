@@ -149,6 +149,7 @@ function App() {
               selectedHour={selectedHour}
               getCloudAt={getCloudAt}
               cloudLoading={cloudLoading}
+              cloudData={cloudData}
             />
           )}
 
@@ -170,7 +171,7 @@ function App() {
         </MapContainer>
 
         {/* Badges top-right */}
-        <Badges spaceWeather={sw} />
+        <Badges spaceWeather={sw} selectedHour={selectedHour} />
 
         {/* Layer controls bottom-left */}
         <LayerControls

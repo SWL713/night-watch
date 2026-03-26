@@ -33,6 +33,8 @@ NOAA_FORECAST_URL = 'https://services.swpc.noaa.gov/text/3-day-forecast.txt'
 OVATION_URL       = 'https://services.swpc.noaa.gov/json/ovation_aurora_latest.json'
 ENLIL_BASE        = 'https://nomads.ncep.noaa.gov/pub/data/nccf/com/wsa_enlil/prod/'
 ENLIL_JSON_URL    = 'https://services.swpc.noaa.gov/json/enlil_time_series.json'
+KP_1M_URL         = 'https://services.swpc.noaa.gov/json/planetary_k_index_1m.json'
+KP_FORECAST_URL   = 'https://services.swpc.noaa.gov/products/noaa-planetary-k-index-forecast.json'
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -155,63 +157,168 @@ def compute_intensity(bz, v_kms, density_ncc):
 
 # ── NOAA Alerts ───────────────────────────────────────────────────────────────
 
+def kp_to_g(kp):
+    """Convert Kp float to NOAA G-scale string. Returns '' if below G1 threshold."""
+    if kp is None: return ''
+    if kp >= 9.0: return 'G5'
+    if kp >= 8.0: return 'G4'
+    if kp >= 7.0: return 'G3'
+    if kp >= 6.0: return 'G2'
+    if kp >= 5.0: return 'G1'
+    return ''
+
+
+def fetch_kp_data():
+    """
+    Fetch real-time and forecast Kp from NOAA.
+
+    Observed (1-min): planetary_k_index_1m.json — last ~3h at 1-min resolution.
+    Forecast: noaa-planetary-k-index-forecast.json — 3-hour blocks, obs + predicted.
+
+    Returns dict with:
+      kp_observed: [{time, kp}] past 3h at 1-min (for bar graph)
+      kp_forecast: [{time, kp, g}] all blocks including future (for scrubbing)
+      kp_now: float — most recent completed 3-hour observed block value
+      g_now: str — G level from kp_now
+    """
+    now = datetime.now(timezone.utc)
+    cutoff_past = now - timedelta(hours=3)
+    cutoff_future = now + timedelta(hours=9)
+
+    # ── 1-min observed Kp ─────────────────────────────────────────────────────
+    kp_observed = []
+    try:
+        data = safe_get(KP_1M_URL)
+        if data:
+            for rec in data:
+                t_str = rec.get('time_tag')
+                kp_val = rec.get('kp_index') or rec.get('kp') or rec.get('Kp')
+                if not t_str or kp_val is None:
+                    continue
+                try:
+                    dt = datetime.fromisoformat(str(t_str).replace('Z', '+00:00'))
+                    if dt.tzinfo is None: dt = dt.replace(tzinfo=timezone.utc)
+                    kp_f = float(kp_val)
+                    if dt >= cutoff_past:
+                        kp_observed.append({'time': dt.isoformat(), 'kp': round(kp_f, 2)})
+                except Exception:
+                    continue
+            kp_observed.sort(key=lambda x: x['time'])
+            log.info(f'Kp 1m: {len(kp_observed)} observed points in past 3h')
+    except Exception as e:
+        log.warning(f'Kp 1m fetch failed: {e}')
+
+    # ── 3-hour forecast/observed blocks ───────────────────────────────────────
+    kp_forecast = []
+    kp_now = None
+    try:
+        data = safe_get(KP_FORECAST_URL)
+        if data and len(data) > 1:
+            # First row is headers: ["time_tag","kp","observed","noaa_scale"]
+            headers = [h.lower() for h in data[0]]
+            ti = headers.index('time_tag') if 'time_tag' in headers else 0
+            ki = next((i for i, h in enumerate(headers) if 'kp' in h), 1)
+            oi = headers.index('observed') if 'observed' in headers else 2
+            last_observed_kp = None
+            for row in data[1:]:
+                try:
+                    t_str = row[ti]
+                    dt = datetime.fromisoformat(str(t_str).replace('Z', '+00:00'))
+                    if dt.tzinfo is None: dt = dt.replace(tzinfo=timezone.utc)
+                    kp_f = float(row[ki])
+                    obs_flag = str(row[oi]).lower() if len(row) > oi else ''
+                    is_observed = obs_flag in ('observed', 'estimated')
+                    g = kp_to_g(kp_f)
+                    kp_forecast.append({
+                        'time': dt.isoformat(), 'kp': round(kp_f, 2),
+                        'g': g, 'observed': is_observed,
+                    })
+                    # kp_now = most recent completed 3-hour observed block
+                    if is_observed and dt <= now:
+                        last_observed_kp = kp_f
+                except Exception:
+                    continue
+            if last_observed_kp is not None:
+                kp_now = round(last_observed_kp, 2)
+            log.info(f'Kp forecast: {len(kp_forecast)} blocks, kp_now={kp_now}')
+    except Exception as e:
+        log.warning(f'Kp forecast fetch failed: {e}')
+
+    g_now = kp_to_g(kp_now) if kp_now is not None else ''
+    return {
+        'kp_observed': kp_observed,
+        'kp_forecast': kp_forecast,
+        'kp_now': kp_now,
+        'g_now': g_now,
+    }
+
+
 def fetch_noaa_alerts():
     """
-    G badge: 3-day-forecast.txt for today's predicted max G-scale.
-    HSS badge: rationale text for CH HSS + alerts.json supplement.
+    HSS detection only — G level now comes from real-time Kp via fetch_kp_data().
+    HSS is stateful: turns on with fresh alert + V≥450, stays on until V<450,
+    requires fresh alert + V≥450 to re-arm. Alert expiry = 24 hours.
     """
-    import re
-    g_level, g_label, hss_active, hss_watch = '', '', False, False
+    hss_alert_fresh = False
+    hss_watch = False
 
-    # Primary: 3-day forecast text
-    forecast_text = ''
-    try:
-        r = requests.get(NOAA_FORECAST_URL, timeout=10)
-        if r.ok:
-            forecast_text = r.text
-    except Exception as e:
-        log.warning(f'3-day forecast fetch failed: {e}')
-
-    if forecast_text:
-        # G predicted max for today: "greatest expected ... (NOAA Scale GX)"
-        m = re.search(r'greatest expected 3 hr Kp.*?NOAA Scale (G\d)', forecast_text, re.IGNORECASE)
-        if m:
-            g_level = m.group(1)
-            g_label = g_level
-            log.info(f'G badge from 3-day forecast: {g_level}')
-
-        # HSS: rationale section mentions CH HSS or high speed stream
-        rat = re.search(r'Rationale:(.*?)(?:\n[A-Z]\.|\Z)', forecast_text, re.DOTALL | re.IGNORECASE)
-        if rat:
-            r_text = rat.group(1).lower()
-            if 'hss' in r_text or 'high speed stream' in r_text or 'coronal hole' in r_text:
-                hss_watch = True
-                log.info('HSS watch from 3-day forecast rationale')
-
-    # Supplement: alerts.json for active G alert and HSS in-progress
     try:
         alerts = safe_get(NOAA_ALERTS_URL) or []
+        now = datetime.now(timezone.utc)
         for alert in alerts:
-            product_id = alert.get('product_id', '')
-            msg = (alert.get('message', '') + product_id).lower()
-            if not g_level:
-                for g in ['G5', 'G4', 'G3', 'G2', 'G1']:
-                    if g.lower() in msg:
-                        g_level = g
-                        g_label = g
-                        break
+            # Check alert age — ignore if > 24h old
+            issue_str = alert.get('issue_datetime') or alert.get('issue_time') or ''
+            if issue_str:
+                try:
+                    issue_dt = datetime.fromisoformat(str(issue_str).replace('Z', '+00:00'))
+                    if issue_dt.tzinfo is None: issue_dt = issue_dt.replace(tzinfo=timezone.utc)
+                    if (now - issue_dt).total_seconds() > 86400:
+                        continue  # skip stale alerts
+                except Exception:
+                    pass
+
+            msg = (alert.get('message', '') + alert.get('product_id', '')).lower()
             hss_signal = ('high speed stream' in msg or ' hss' in msg or
                           'coronal hole' in msg or 'ch hss' in msg)
             if hss_signal:
                 if any(x in msg for x in ['in progress', 'geomagnetic activity', 'arrival', 'arrived']):
-                    hss_active = True
+                    hss_alert_fresh = True
                 if any(x in msg for x in ['warning', 'watch', 'expected', 'likely', 'anticipated']):
                     hss_watch = True
     except Exception as e:
         log.warning(f'alerts.json fetch failed: {e}')
 
-    log.info(f'NOAA: G={g_level or "none"}, HSS active={hss_active}, watch={hss_watch}')
-    return {'g_level': g_level, 'g_label': g_label, 'hss_active': hss_active, 'hss_watch': hss_watch}
+    return {'hss_alert_fresh': hss_alert_fresh, 'hss_watch': hss_watch}
+
+
+def compute_hss_active(v_kms, noaa, prev_json):
+    """
+    Stateful HSS active flag:
+    - ON:      fresh alert AND V >= 450
+    - STAYS:   V >= 450 (latched, no alert needed)
+    - OFF:     V < 450
+    - RE-ARM:  needs fresh alert AND V >= 450 again
+    """
+    HSS_V_THRESHOLD = 450
+    prev_active = False
+    try:
+        if prev_json:
+            prev_active = bool(prev_json.get('hss_active', False))
+    except Exception:
+        pass
+
+    hss_alert_fresh = noaa.get('hss_alert_fresh', False)
+    v_sufficient    = (v_kms or 0) >= HSS_V_THRESHOLD
+
+    if prev_active:
+        # Stay on as long as V is sufficient — turns off when V drops
+        new_active = v_sufficient
+    else:
+        # Off — need fresh alert AND sufficient V to turn on
+        new_active = hss_alert_fresh and v_sufficient
+
+    log.info(f'HSS: prev={prev_active} alert={hss_alert_fresh} V={v_kms} -> active={new_active}')
+    return new_active
 
 
 def moon_illumination(dt):
@@ -599,7 +706,9 @@ def main():
 
     # Fetch all data
     l1 = fetch_l1()
-    noaa = fetch_noaa_alerts()
+    noaa  = fetch_noaa_alerts()
+    kp    = fetch_kp_data()
+    kp    = fetch_kp_data()
 
     bz_now   = l1['bz_now']   if l1 else 0.0
     v_kms    = l1['v_kms']    if l1 else 450.0
@@ -674,6 +783,15 @@ def main():
     # Overall quality
     quality_label, quality_color = overall_quality(intensity_label, astro_dark_pct)
 
+    # HSS stateful + G from Kp
+    try:
+        with open(OUTPUT_PATH) as f: prev_json = json.load(f)
+    except Exception: prev_json = {}
+    hss_active  = compute_hss_active(v_kms, noaa, prev_json)
+    g_level     = kp.get('g_now', '')
+    noaa['hss_active'] = hss_active
+    noaa['g_level']    = g_level
+
     # State
     state = determine_state(bz_now, v_kms, noaa)
 
@@ -709,10 +827,13 @@ def main():
         'moon_phase_label':   moon['phase_label'],
         'moon_rise':          moon_rise,
         'moon_set':           moon_set,
-        'g_level':            noaa.get('g_level', ''),
-        'g_label':            noaa.get('g_label', ''),
-        'hss_active':         noaa.get('hss_active', False),
+        'g_level':            g_level,
+        'g_label':            g_level,
+        'hss_active':         hss_active,
         'hss_watch':          noaa.get('hss_watch', False),
+        'kp_now':             kp.get('kp_now'),
+        'kp_observed':        kp.get('kp_observed', []),
+        'kp_forecast':        kp.get('kp_forecast', []),
         'enlil_active':       bool(enlil_active),
         'enlil_timeline':     enlil_timeline,
         'timeline':           bz_timeline,
@@ -1075,6 +1196,16 @@ def main_with_clouds():
     # Ovation Prime aurora model
     ovation = fetch_ovation()
 
+    # HSS stateful + G from Kp
+    try:
+        with open(OUTPUT_PATH) as f: prev_json = json.load(f)
+    except Exception: prev_json = {}
+    hss_active  = compute_hss_active(v_kms, noaa, prev_json)
+    g_level     = kp.get('g_now', '')
+    noaa['hss_active'] = hss_active
+    noaa['g_level']    = g_level
+    state = determine_state(bz_now, v_kms, noaa)
+
     sw_output = {
         'last_updated':         now.isoformat(),
         'state':                state,
@@ -1095,10 +1226,13 @@ def main_with_clouds():
         'moon_phase_label':     moon['phase_label'],
         'moon_rise':            moon_rise,
         'moon_set':             moon_set,
-        'g_level':              noaa.get('g_level', ''),
-        'g_label':              noaa.get('g_label', ''),
-        'hss_active':           noaa.get('hss_active', False),
+        'g_level':              g_level,
+        'g_label':              g_level,
+        'hss_active':           hss_active,
         'hss_watch':            noaa.get('hss_watch', False),
+        'kp_now':               kp.get('kp_now'),
+        'kp_observed':          kp.get('kp_observed', []),
+        'kp_forecast':          kp.get('kp_forecast', []),
         'enlil_active':         bool(enlil_active),
         'enlil_timeline':       enlil_timeline,
         'timeline':             bz_timeline,

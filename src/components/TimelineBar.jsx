@@ -69,6 +69,8 @@ function slope(points, getX, getY) {
 
 // ── Main component ─────────────────────────────────────────────────────────────
 export default function TimelineBar({ spaceWeather, moonData, selectedHour, onHourSelect, bzTrace, plasmaTrace }) {
+  const kpObserved = spaceWeather.kp_observed || []
+  const kpForecast = spaceWeather.kp_forecast || []
   const canvasRef = useRef(null)
 
   useEffect(() => {
@@ -91,8 +93,8 @@ export default function TimelineBar({ spaceWeather, moonData, selectedHour, onHo
     const spanMs = tEnd - tStart
     function tx(t) { return ((t - tStart) / spanMs) * cW }
 
-    const PAD_T = 16, PAD_B = 16
-    const pH = cH - PAD_T - PAD_B
+    const PAD_T = 16, PAD_B = 16, KP_ZONE = 36
+    const pH = cH - PAD_T - PAD_B - KP_ZONE
 
     // Transit lag: how long solar wind takes from L1 to Earth
     const lagMs  = Math.min((1.5e6 / (spaceWeather.speed_kms || 450)) * 1000, 5400000)
@@ -444,7 +446,59 @@ export default function TimelineBar({ spaceWeather, moonData, selectedHour, onHo
       ctx.fillText('L1→⊕', tx(lagEnd) + 2, PAD_T + 9)
     }
 
-    // ── 9. NOW LINE ───────────────────────────────────────────────────────────
+
+    // ── 9. KP BAR GRAPH ───────────────────────────────────────────────────────
+    // Bars rise from bottom rail. KP_ZONE px tall. Kp=9 fills full zone.
+    // Observed (1-min) solid, forecast 3-hour blocks at 40% opacity.
+    const KP_COLORS = { 5:'#ffdd33', 6:'#ffaa00', 7:'#ff7722', 8:'#ff3344', 9:'#cc44ff' }
+    const kpBase = PAD_T + pH + KP_ZONE  // bottom of kp zone = bottom of canvas - PAD_B
+    function kpBarH(kp) { return Math.max(1, (Math.min(kp, 9) / 9) * KP_ZONE) }
+    function kpColor(kp, alpha) {
+      const g = Math.floor(kp)
+      const hex = KP_COLORS[Math.min(9, Math.max(5, g))] || '#334455'
+      const r = parseInt(hex.slice(1,3),16), gr = parseInt(hex.slice(3,5),16), b = parseInt(hex.slice(5,7),16)
+      return `rgba(${r},${gr},${b},${alpha})`
+    }
+
+    // Observed 1-min bars (solid)
+    for (let i = 0; i < kpObserved.length - 1; i++) {
+      const a = kpObserved[i], b2 = kpObserved[i+1]
+      const tA = new Date(a.time), tB = new Date(b2.time)
+      if (tB < tStart || tA > tEnd) continue
+      const kp = a.kp
+      const barH = kpBarH(kp)
+      const x1 = Math.max(0, tx(tA)), x2 = Math.min(cW, tx(tB))
+      const alpha = kp >= 5 ? 0.85 : 0.25
+      ctx.fillStyle = kpColor(kp, alpha)
+      ctx.fillRect(x1, kpBase - barH, Math.max(1, x2 - x1), barH)
+    }
+
+    // Forecast 3-hour blocks (lighter, hatched with diagonal lines for distinction)
+    for (let i = 0; i < kpForecast.length; i++) {
+      const pt = kpForecast[i]
+      if (pt.observed) continue  // already drawn above via 1-min data
+      const tA = new Date(pt.time)
+      const tB = i + 1 < kpForecast.length ? new Date(kpForecast[i+1].time) : new Date(tA.getTime() + 3*3600000)
+      if (tB < tStart || tA > tEnd) continue
+      if (tA > tEnd) break
+      const kp = pt.kp
+      const barH = kpBarH(kp)
+      const x1 = Math.max(0, tx(tA)), x2 = Math.min(cW, tx(tB))
+      const w = Math.max(1, x2 - x1)
+      ctx.fillStyle = kpColor(kp, kp >= 5 ? 0.40 : 0.12)
+      ctx.fillRect(x1, kpBase - barH, w, barH)
+    }
+
+    // Kp zone separator line
+    ctx.strokeStyle = '#1a2535'; ctx.lineWidth = 1; ctx.setLineDash([])
+    ctx.beginPath(); ctx.moveTo(0, kpBase - KP_ZONE); ctx.lineTo(cW, kpBase - KP_ZONE); ctx.stroke()
+
+    // Kp axis label
+    ctx.fillStyle = '#2a3a55'; ctx.font = `6.5px ${FONT}`
+    ctx.fillText('Kp', 2, kpBase - KP_ZONE + 8)
+    ctx.fillText('9', 2, kpBase - KP_ZONE + 1)
+
+    // ── 10. NOW LINE ─────────────────────────────────────────────────────────
     ctx.strokeStyle = '#ffffff'; ctx.lineWidth = 2.0; ctx.globalAlpha = 0.75
     ctx.setLineDash([])
     ctx.beginPath(); ctx.moveTo(tx(now), PAD_T); ctx.lineTo(tx(now), PAD_T + pH); ctx.stroke()
@@ -452,7 +506,7 @@ export default function TimelineBar({ spaceWeather, moonData, selectedHour, onHo
     ctx.fillStyle = '#ffffff'; ctx.font = `bold 8.5px ${FONT}`
     ctx.fillText('NOW', tx(now) + 3, PAD_T + 11)
 
-    // ── 10. SELECTED HOUR HIGHLIGHT ──────────────────────────────────────────
+    // ── 11. SELECTED HOUR HIGHLIGHT ──────────────────────────────────────────
     if (selectedHour !== null && selectedHour !== 0) {
       const hS = new Date(now.getTime() + (selectedHour - 0.5) * 3600000)
       const hE = new Date(now.getTime() + (selectedHour + 0.5) * 3600000)
@@ -460,16 +514,16 @@ export default function TimelineBar({ spaceWeather, moonData, selectedHour, onHo
       ctx.strokeRect(Math.max(0, tx(hS)), PAD_T + 1, tx(hE) - tx(hS), pH - 2)
     }
 
-    // ── 11. HOUR TICK LABELS ──────────────────────────────────────────────────
+    // ── 12. HOUR TICK LABELS ──────────────────────────────────────────────────
     ctx.fillStyle = '#445566'; ctx.font = `bold 8px ${FONT}`
     for (let dh = -1; dh <= 8; dh++) {
       const t = new Date(now.getTime() + dh * 3600000)
       if (t < tStart || t > tEnd) continue
       const lbl = t.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false, timeZone: 'America/New_York' })
-      ctx.fillText(lbl, tx(t) - 13, PAD_T + pH + 12)
+      ctx.fillText(lbl, tx(t) - 13, PAD_T + pH + KP_ZONE + 12)
     }
 
-    // ── 12. Y LABELS (Bz nT scale) ───────────────────────────────────────────
+    // ── 13. Y LABELS (Bz nT scale) ───────────────────────────────────────────
     ctx.fillStyle = '#2a3a4a'; ctx.font = `7px ${FONT}`
     for (const v of [5, -5, 10, -10]) {
       const y = bzY(v)
@@ -477,14 +531,14 @@ export default function TimelineBar({ spaceWeather, moonData, selectedHour, onHo
       ctx.fillText(`${v > 0 ? '+' : ''}${v}`, 2, y + 3)
     }
 
-    // ── 13. CURRENT VALUE BADGES ─────────────────────────────────────────────
+    // ── 14. CURRENT VALUE BADGES ─────────────────────────────────────────────
     const lastV = plasma.length ? plasma[plasma.length - 1].speed   : speedNow
     const lastD = plasma.length ? plasma[plasma.length - 1].density : densNow
     ctx.font = `7.5px ${FONT}`
     if (lastV) { ctx.fillStyle = '#4488ff'; ctx.fillText(`V ${Math.round(lastV)} km/s`, cW - 90, PAD_T + 9) }
     if (lastD) { ctx.fillStyle = '#bb66ff'; ctx.fillText(`n ${Number(lastD).toFixed(1)} /cc`, cW - 90, PAD_T + 20) }
 
-  }, [spaceWeather, moonData, selectedHour, bzTrace, plasmaTrace])
+  }, [spaceWeather, moonData, selectedHour, bzTrace, plasmaTrace, kpObserved, kpForecast])
 
   useEffect(() => {
     const canvas = canvasRef.current

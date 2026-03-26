@@ -1,12 +1,41 @@
-export default function Badges({ spaceWeather }) {
-  const { g_level, g_label, hss_active, hss_watch, state } = spaceWeather
+const KP_COLORS = {
+  G5: '#cc44ff', G4: '#ff3344', G3: '#ff7722', G2: '#ffaa00', G1: '#ffdd33',
+}
 
-  const gNum = parseInt(g_label?.replace('G','')) || 0
-  const gColor = gNum >= 5 ? '#cc44ff' : gNum === 4 ? '#ff3344' : gNum === 3 ? '#ff7722'
-              : gNum === 2 ? '#ffaa00' : gNum >= 1 ? '#ffdd33' : '#1e2a3a'
-  const gText = g_label || 'G—'
-  const gHeader = g_level ? 'NOAA alert' : 'NOAA'
-  const gFooter = g_level ? 'active' : 'quiet'
+function kpToG(kp) {
+  if (kp === null || kp === undefined) return ''
+  if (kp >= 9.0) return 'G5'
+  if (kp >= 8.0) return 'G4'
+  if (kp >= 7.0) return 'G3'
+  if (kp >= 6.0) return 'G2'
+  if (kp >= 5.0) return 'G1'
+  return ''
+}
+
+function gAtHour(selectedHour, kpNow, kpForecast) {
+  if (selectedHour === 0) return kpToG(kpNow)
+  // Find the forecast block covering the selected time
+  const target = Date.now() + selectedHour * 3600000
+  if (!kpForecast?.length) return ''
+  // Find the block whose time is <= target and closest
+  let best = null
+  for (const pt of kpForecast) {
+    const t = new Date(pt.time).getTime()
+    if (t <= target) best = pt
+  }
+  // Also check the next block (3-hour blocks: target may be inside a block that starts before)
+  return best ? kpToG(best.kp) : ''
+}
+
+export default function Badges({ spaceWeather, selectedHour }) {
+  const { hss_active, hss_watch, kp_now, kp_forecast } = spaceWeather
+
+  const gLabel = gAtHour(selectedHour ?? 0, kp_now, kp_forecast)
+  const gNum   = parseInt(gLabel?.replace('G','')) || 0
+  const gColor = KP_COLORS[gLabel] || '#1e2a3a'
+  const gText  = gLabel || 'G—'
+  const gHeader = gNum > 0 ? 'NOAA scale' : 'NOAA'
+  const gFooter = gNum > 0 ? (selectedHour === 0 ? 'active' : `+${selectedHour}h fcst`) : 'quiet'
 
   const hssColor = hss_active ? '#ffaa33' : hss_watch ? '#cc8822' : '#2a2a3a'
   const hssSub   = hss_active ? 'ACTIVE'  : hss_watch ? 'WATCH'  : 'inactive'
