@@ -930,9 +930,11 @@ def fetch_hrrr_cloud(grid):
     log.info(f'HRRR: using run {run_date} {run_hour:02d}Z')
 
     # Forecast hours covering now-1hr to now+9hr
+    # Fetch f00-f11 so we always cover the full +9h browser window even when
+    # the run started 60+ min ago (f09 from a -60min run only reaches +8h)
     run_valid = run_dt.replace(minute=0, second=0, microsecond=0)
     hours_needed = []
-    for fh in range(0, 10):
+    for fh in range(0, 12):
         valid_time = run_valid + timedelta(hours=fh)
         offset_hr  = (valid_time - now).total_seconds() / 3600
         if -1.5 <= offset_hr <= 9.5:
