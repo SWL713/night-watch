@@ -348,68 +348,94 @@ def overall_quality(intensity_label, astro_dark_pct):
 
 def fetch_enlil_timeline():
     """
-    Fetch ENLIL Earth time series from NOAA services JSON — 1.5MB vs 131MB netCDF.
-    Returns list of {time, speed, density} dicts for the next ~12 hours, or [].
+    Fetch ENLIL Earth time series from NOAA services JSON and merge with cached data.
+
+    The ENLIL model runs once daily at 00Z (more often for CME events), so a single
+    run may produce all its forecast points clustered many hours out.  We cache the
+    full set in space_weather.json and carry forward any points still in the future
+    on each pipeline run, so the +8h browser window stays populated between model runs.
 
     Data source: services.swpc.noaa.gov/json/enlil_time_series.json
-    This is the same data that feeds the Earth plots on the SWPC ENLIL animation page.
     Updated once daily at 00Z for ambient runs, on-demand for CME runs.
     """
+    now    = datetime.now(timezone.utc)
+    cutoff = now + timedelta(hours=9)   # slightly beyond the +8h browser window
+
+    # ── Load cached points from previous run ─────────────────────────────────
+    cached = []
     try:
-        data = safe_get(ENLIL_JSON_URL)
-        if not data:
-            log.warning('ENLIL: enlil_time_series.json fetch failed')
-            return []
-
-        # Structure: list of records, each with time_tag plus Earth/STEREO fields
-        # We want Earth (or L1) speed and density for future times only
-        now    = datetime.now(timezone.utc)
-        cutoff = now + timedelta(hours=13)
-
-        log.info(f'ENLIL JSON: {len(data)} records, keys={list(data[0].keys()) if data else []}')
-
-        timeline = []
-        for rec in data:
-            t_str = rec.get('time_tag') or rec.get('time') or rec.get('Time')
+        with open(OUTPUT_PATH) as f:
+            prev = json.load(f)
+        for p in prev.get('enlil_timeline', []):
+            t_str = p.get('time')
             if not t_str:
                 continue
             try:
-                dt = datetime.fromisoformat(t_str.replace('Z', '+00:00'))
+                dt = datetime.fromisoformat(t_str)
                 if dt.tzinfo is None:
                     dt = dt.replace(tzinfo=timezone.utc)
             except Exception:
                 continue
+            if now < dt <= cutoff:
+                cached.append({'time': dt.isoformat(), 'speed': p.get('speed'), 'density': p.get('density')})
+        log.info(f'ENLIL cache: {len(cached)} still-future points carried forward')
+    except Exception:
+        pass  # first run or file missing
 
-            if dt <= now or dt > cutoff:
-                continue
+    # ── Fetch fresh ENLIL data ────────────────────────────────────────────────
+    fresh = []
+    try:
+        data = safe_get(ENLIL_JSON_URL)
+        if not data:
+            log.warning('ENLIL: enlil_time_series.json fetch failed — using cache only')
+        else:
+            log.info(f'ENLIL JSON: {len(data)} records, keys={list(data[0].keys()) if data else []}')
+            for rec in data:
+                t_str = rec.get('time_tag') or rec.get('time') or rec.get('Time')
+                if not t_str:
+                    continue
+                try:
+                    dt = datetime.fromisoformat(t_str.replace('Z', '+00:00'))
+                    if dt.tzinfo is None:
+                        dt = dt.replace(tzinfo=timezone.utc)
+                except Exception:
+                    continue
 
-            # Field names confirmed from live log 2026-03-24:
-            # keys=['time_tag','earth_particles_per_cm3','temperature',
-            #       'v_r','v_theta','v_phi','b_r','b_theta','b_phi','polarity','cloud']
-            v = (rec.get('v_r') or rec.get('speed_earth') or rec.get('v_earth') or
-                 rec.get('vel_earth') or rec.get('speed_l1') or rec.get('speed') or rec.get('V'))
-            d = (rec.get('earth_particles_per_cm3') or rec.get('density_earth') or
-                 rec.get('n_earth') or rec.get('density_l1') or rec.get('density') or rec.get('N'))
+                if dt <= now or dt > cutoff:
+                    continue
 
-            try:
-                v = float(v) if v is not None else None
-                d = float(d) if d is not None else None
-                if v is not None and (v <= 0 or v > 5000): v = None
-                if d is not None and (d <  0 or d > 500):  d = None
-            except Exception:
-                v = d = None
+                # Field names confirmed from live log 2026-03-24:
+                # keys=['time_tag','earth_particles_per_cm3','temperature',
+                #       'v_r','v_theta','v_phi','b_r','b_theta','b_phi','polarity','cloud']
+                v = (rec.get('v_r') or rec.get('speed_earth') or rec.get('v_earth') or
+                     rec.get('vel_earth') or rec.get('speed_l1') or rec.get('speed') or rec.get('V'))
+                d = (rec.get('earth_particles_per_cm3') or rec.get('density_earth') or
+                     rec.get('n_earth') or rec.get('density_l1') or rec.get('density') or rec.get('N'))
 
-            if v is not None or d is not None:
-                timeline.append({'time': dt.isoformat(), 'speed': v, 'density': d})
+                try:
+                    v = float(v) if v is not None else None
+                    d = float(d) if d is not None else None
+                    if v is not None and (v <= 0 or v > 5000): v = None
+                    if d is not None and (d <  0 or d > 500):  d = None
+                except Exception:
+                    v = d = None
 
-        log.info(f'ENLIL: {len(timeline)} future points extracted')
-        timeline.sort(key=lambda x: x['time'])
-        return timeline[:13]
+                if v is not None or d is not None:
+                    fresh.append({'time': dt.isoformat(), 'speed': v, 'density': d})
 
+            log.info(f'ENLIL: {len(fresh)} fresh future points fetched')
     except Exception as e:
         log.warning(f'ENLIL JSON fetch failed: {e}')
         import traceback; log.warning(traceback.format_exc())
-        return []
+
+    # ── Merge: fresh takes precedence over cached for same timestamp ──────────
+    merged = {p['time']: p for p in cached}
+    for p in fresh:
+        merged[p['time']] = p
+
+    timeline = sorted(merged.values(), key=lambda x: x['time'])
+    log.info(f'ENLIL merged: {len(timeline)} points covering now to +9h window')
+    return timeline
 
 
 # ── Determine pipeline state ──────────────────────────────────────────────────
@@ -652,8 +678,8 @@ def main():
     state = determine_state(bz_now, v_kms, noaa)
 
     # ENLIL — only fetch when warranted (avoid unnecessary 174MB downloads)
-    enlil_active = state in ('ARRIVED', 'STORM_ACTIVE') or noaa.get('hss_active')
-    enlil_timeline = fetch_enlil_timeline() if enlil_active else []
+    enlil_active   = True  # always fetch — caching carries data between model runs
+    enlil_timeline = fetch_enlil_timeline()
 
     # Bz timeline
     bz_timeline     = build_bz_timeline(l1)
@@ -1034,8 +1060,8 @@ def main_with_clouds():
     quality_label, quality_color = overall_quality(intensity_label, astro_dark_pct)
     state = determine_state(bz_now, v_kms, noaa)
 
-    enlil_active    = state in ('ARRIVED', 'STORM_ACTIVE') or noaa.get('hss_active')
-    enlil_timeline  = fetch_enlil_timeline() if enlil_active else []
+    enlil_active   = True  # always fetch — caching carries data between model runs
+    enlil_timeline = fetch_enlil_timeline()
     bz_timeline     = build_bz_timeline(l1)
     plasma_timeline = build_plasma_timeline(l1)
 
