@@ -9,7 +9,7 @@ const btnStyle = (color) => ({
   color, cursor: 'pointer', fontFamily: FONT,
 })
 
-export default function AdminQueue({ onClose }) {
+export default function AdminQueue({ onClose, onViewOnMap }) {
   const {
     pending, pendingPhotos, flaggedPhotos, loading,
     approveSpot, rejectSpot, approvePhoto, rejectPhoto, deletePhoto, dismissFlag,
@@ -62,8 +62,33 @@ export default function AdminQueue({ onClose }) {
                 {spot.lat?.toFixed(4)}, {spot.lon?.toFixed(4)} · Bortle {spot.bortle} · {spot.view_direction}
               </div>
               {spot.access_notes && <div style={{ color: '#334455', fontSize: 10, marginBottom: 4 }}>{spot.access_notes}</div>}
-              <div style={{ color: '#223344', fontSize: 9, marginBottom: 8 }}>
+              <div style={{ color: '#223344', fontSize: 9, marginBottom: 6 }}>
                 {new Date(spot.created_at).toLocaleString()}
+              </div>
+              {/* Location preview links */}
+              <div style={{ display: 'flex', gap: 6, marginBottom: 8 }}>
+                <button onClick={() => {
+                  onViewOnMap?.(spot.lat, spot.lon)
+                  onClose()
+                }} style={{ ...btnStyle('#44aaff'), flex: 1, fontSize: 8 }}>
+                  🗺 View on App Map
+                </button>
+                <a
+                  href={`https://maps.apple.com/?ll=${spot.lat},${spot.lon}&q=${encodeURIComponent(spot.name)}`}
+                  target="_blank" rel="noopener"
+                  style={{ ...btnStyle('#44aaff'), flex: 1, fontSize: 8, textDecoration: 'none',
+                    display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                >
+                  📍 Apple Maps
+                </a>
+                <a
+                  href={`https://www.google.com/maps?q=${spot.lat},${spot.lon}`}
+                  target="_blank" rel="noopener"
+                  style={{ ...btnStyle('#44aaff'), flex: 1, fontSize: 8, textDecoration: 'none',
+                    display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                >
+                  🌐 Google Maps
+                </a>
               </div>
               <div style={{ display: 'flex', gap: 6 }}>
                 <button onClick={() => approveSpot(spot.id)} style={btnStyle('#22c55e')}>✓ APPROVE</button>

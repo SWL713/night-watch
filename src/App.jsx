@@ -1,5 +1,5 @@
 import { useState, useCallback, useEffect } from 'react'
-import { MapContainer, TileLayer, ZoomControl, useMapEvents } from 'react-leaflet'
+import { MapContainer, TileLayer, ZoomControl, useMapEvents, useMap } from 'react-leaflet'
 import 'leaflet/dist/leaflet.css'
 
 import Auth from './components/Auth.jsx'
@@ -40,6 +40,19 @@ const FONT = 'DejaVu Sans Mono, Consolas, monospace'
 
 // Admin passphrase — change this to your own admin password
 const ADMIN_PHRASE = 'nwadmin2026'
+
+// Listens for flyto events dispatched when admin clicks 'View on App Map'
+function MapFlyToHandler() {
+  const map = useMap()
+  useEffect(() => {
+    function handler(e) {
+      map.flyTo([e.detail.lat, e.detail.lon], 13, { duration: 1.2 })
+    }
+    window.addEventListener('nightwatch:flyto', handler)
+    return () => window.removeEventListener('nightwatch:flyto', handler)
+  }, [map])
+  return null
+}
 
 export default function AppWrapper() {
   const [authed, setAuthed] = useState(() => {
@@ -152,6 +165,7 @@ function App() {
           <ZoomControl position="bottomright" />
 
           <MapSearch onSelectResult={(result, isPeru) => { if (isPeru) setPeruMode(m => !m) }} />
+          <MapFlyToHandler />
 
           {/* Night mode toggle */}
           <div style={{ position: 'absolute', top: 56, left: 12, zIndex: 1000 }}>
@@ -423,7 +437,17 @@ function App() {
               onClose={() => { setModal(null); setSelectedSpotForPhoto(null) }}
             />
           )}
-          {modal === 'admin' && <AdminQueue onClose={() => setModal(null)} />}
+          {modal === 'admin' && (
+            <AdminQueue
+              onClose={() => setModal(null)}
+              onViewOnMap={(lat, lon) => {
+                setModal(null)
+                // Use a custom event to fly the map — MapFlyTo component listens for it
+                window.__nightWatchFlyTo = { lat, lon }
+                window.dispatchEvent(new CustomEvent('nightwatch:flyto', { detail: { lat, lon } }))
+              }}
+            />
+          )}
           {modal === 'reportAurora' && (
             <SightingForm
               overrideCoords={sightingPendingCoords}
