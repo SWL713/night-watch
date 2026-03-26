@@ -15,7 +15,7 @@ const inputStyle = {
   width: '100%', boxSizing: 'border-box',
 }
 
-export default function SightingForm({ onClose, onSubmitted }) {
+export default function SightingForm({ onClose, onSubmitted, onPickLocation, overrideCoords }) {
   const [lat, setLat] = useState('')
   const [lon, setLon] = useState('')
   const [observations, setObservations] = useState([])
@@ -24,6 +24,12 @@ export default function SightingForm({ onClose, onSubmitted }) {
   const [status, setStatus] = useState(null)
 
   useEffect(() => {
+    if (overrideCoords) {
+      setLat(overrideCoords.lat.toFixed(5))
+      setLon(overrideCoords.lon.toFixed(5))
+      setLocating(false)
+      return
+    }
     if (!navigator.geolocation) {
       setLocating(false)
       return
@@ -37,7 +43,7 @@ export default function SightingForm({ onClose, onSubmitted }) {
       () => setLocating(false),
       { timeout: 8000, maximumAge: 60000 }
     )
-  }, [])
+  }, [overrideCoords])
 
   function toggleObs(obs) {
     setObservations(prev =>
@@ -89,11 +95,22 @@ export default function SightingForm({ onClose, onSubmitted }) {
       {locating ? (
         <div style={{ color: '#445566', fontSize: 10, marginBottom: 10 }}>📍 Getting your location...</div>
       ) : (
-        <div style={{ display: 'flex', gap: 6, marginBottom: 10 }}>
-          <input style={{ ...inputStyle, flex: 1 }} value={lat}
-            onChange={e => setLat(e.target.value)} placeholder="Latitude" />
-          <input style={{ ...inputStyle, flex: 1 }} value={lon}
-            onChange={e => setLon(e.target.value)} placeholder="Longitude" />
+        <div style={{ marginBottom: 10 }}>
+          <div style={{ display: 'flex', gap: 6, marginBottom: 5 }}>
+            <input style={{ ...inputStyle, flex: 1 }} value={lat}
+              onChange={e => setLat(e.target.value)} placeholder="Latitude" />
+            <input style={{ ...inputStyle, flex: 1 }} value={lon}
+              onChange={e => setLon(e.target.value)} placeholder="Longitude" />
+          </div>
+          {onPickLocation && (
+            <button onClick={onPickLocation} style={{
+              width: '100%', padding: '4px 0', fontSize: 9, letterSpacing: 1,
+              background: '#06080f', border: '1px solid #1a2a3a',
+              color: '#445566', cursor: 'pointer', fontFamily: FONT,
+            }}>
+              📍 Pick different location on map
+            </button>
+          )}
         </div>
       )}
 

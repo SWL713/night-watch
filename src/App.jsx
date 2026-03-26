@@ -74,6 +74,8 @@ function App() {
   const heatmapMode = layers.clouds ? 'clouds' : layers.bortle ? 'bortle' : 'combined'
   const [pendingPin, setPendingPin] = useState(null)
   const [pinMode, setPinMode] = useState(false) // true = user clicked "place pin" button
+  const [sightingPinMode, setSightingPinMode] = useState(false) // picking location for sighting report
+  const [sightingPendingCoords, setSightingPendingCoords] = useState(null)
 
   function toggleLayer(key) {
     setLayers(prev => {
@@ -129,7 +131,7 @@ function App() {
           minZoom={MAP_BOUNDS.minZoom}
           maxZoom={MAP_BOUNDS.maxZoom}
           zoomControl={false}
-          style={{ height: '100%', width: '100%', background: '#06080f', cursor: pinMode ? 'crosshair' : 'grab' }}
+          style={{ height: '100%', width: '100%', background: '#06080f', cursor: (pinMode || sightingPinMode) ? 'crosshair' : 'grab' }}
         >
           {/* Dark base tile layer */}
           <TileLayer
@@ -144,11 +146,17 @@ function App() {
 
           {/* Map click handler — only active in pin placement mode */}
           <MapClickHandler
-            active={pinMode}
+            active={pinMode || sightingPinMode}
             onMapClick={(lat, lon) => {
-              setPendingPin({ lat, lon })
-              setPinMode(false)
-              setModal('submitSpot')
+              if (sightingPinMode) {
+                setSightingPendingCoords({ lat, lon })
+                setSightingPinMode(false)
+                setModal('reportAurora')
+              } else {
+                setPendingPin({ lat, lon })
+                setPinMode(false)
+                setModal('submitSpot')
+              }
             }}
           />
 
@@ -252,16 +260,16 @@ function App() {
           <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
             {/* Report Aurora button */}
             <button
-              onClick={() => setModal('reportAurora')}
+              onClick={() => { setSightingPinMode(false); setSightingPendingCoords(null); setModal('reportAurora') }}
               style={{
-                background: '#1a0505',
-                border: '1px solid #cc2222',
-                color: '#ff4444',
+                background: sightingPinMode ? '#1a0a00' : '#1a0505',
+                border: `1px solid ${sightingPinMode ? '#ff8800' : '#cc2222'}`,
+                color: sightingPinMode ? '#ff8800' : '#ff4444',
                 padding: '3px 10px', fontSize: 9, fontFamily: FONT,
                 cursor: 'pointer', letterSpacing: 1, borderRadius: 2,
               }}
             >
-              🌌 REPORT AURORA
+              {sightingPinMode ? '🌌 CLICK MAP' : '🌌 REPORT AURORA'}
             </button>
 
             {/* Step 1: Toggle pin placement mode */}
@@ -371,8 +379,10 @@ function App() {
           {modal === 'admin' && <AdminQueue onClose={() => setModal(null)} />}
           {modal === 'reportAurora' && (
             <SightingForm
-              onClose={() => setModal(null)}
-              onSubmitted={() => { setModal(null); reloadSightings() }}
+              overrideCoords={sightingPendingCoords}
+              onClose={() => { setModal(null); setSightingPendingCoords(null) }}
+              onSubmitted={() => { setModal(null); setSightingPendingCoords(null); reloadSightings() }}
+              onPickLocation={() => { setModal(null); setSightingPinMode(true) }}
             />
           )}
         </div>
