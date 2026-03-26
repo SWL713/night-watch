@@ -217,13 +217,6 @@ export default function TimelinePanel({ spaceWeather, selectedHour, onHourSelect
           {/* ── Issue 5: State badge moved ABOVE the G-badge area — stays in aurora image ── */}
           <div style={{
             position:'absolute', top:8, left:8,
-            color: stateColor(state), fontSize:10, fontWeight:'bold', letterSpacing:2,
-          }}>
-            ● {state || 'QUIET'}
-          </div>
-
-          <div style={{
-            position:'absolute', top:26, left:8,
             color:'#445566', fontSize:9, letterSpacing:1,
           }}>
             {timeLabel}
