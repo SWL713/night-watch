@@ -118,7 +118,7 @@ function App() {
       fontFamily: FONT, overflow: 'hidden', outline: 'none',
       paddingTop: 'env(safe-area-inset-top, 6px)',
       filter: peruMode
-        ? 'grayscale(1) sepia(1) saturate(20) hue-rotate(240deg) brightness(0.75)'
+        ? 'grayscale(1) sepia(1) saturate(20) hue-rotate(225deg) brightness(0.75)'
         : nightMode
         ? 'grayscale(1) sepia(1) saturate(5) hue-rotate(317deg) brightness(0.6)'
         : 'none',
