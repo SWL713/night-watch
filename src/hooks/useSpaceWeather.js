@@ -24,9 +24,6 @@ const FALLBACK = {
   timeline: [],
   enlil_active: false,
   enlil_timeline: [],
-  kp_now: null,
-  kp_observed: [],
-  kp_forecast: [],
   last_updated: null,
 }
 

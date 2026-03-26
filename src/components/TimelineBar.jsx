@@ -69,8 +69,6 @@ function slope(points, getX, getY) {
 
 // ── Main component ─────────────────────────────────────────────────────────────
 export default function TimelineBar({ spaceWeather, moonData, selectedHour, onHourSelect, bzTrace, plasmaTrace }) {
-  const kpObserved = spaceWeather.kp_observed || []
-  const kpForecast = spaceWeather.kp_forecast || []
   const canvasRef = useRef(null)
 
   useEffect(() => {
@@ -94,7 +92,6 @@ export default function TimelineBar({ spaceWeather, moonData, selectedHour, onHo
     function tx(t) { return ((t - tStart) / spanMs) * cW }
 
     const PAD_T = 16, PAD_B = 16
-    const KP_ZONE = 32  // height of Kp bars, overlaid at bottom of timeline
     const pH = cH - PAD_T - PAD_B  // FULL height — Kp bars overlay, don't compress
 
     // Transit lag: how long solar wind takes from L1 to Earth
@@ -448,51 +445,6 @@ export default function TimelineBar({ spaceWeather, moonData, selectedHour, onHo
     }
 
 
-    // ── 9. KP BAR GRAPH ───────────────────────────────────────────────────────
-    // Bars rise from bottom rail. KP_ZONE px tall. Kp=9 fills full zone.
-    // Observed (1-min) solid, forecast 3-hour blocks at 40% opacity.
-    const KP_COLORS = { 5:'#ffdd33', 6:'#ffaa00', 7:'#ff7722', 8:'#ff3344', 9:'#cc44ff' }
-    const kpBase = PAD_T + pH  // bottom of timeline — bars rise upward from here
-    function kpBarH(kp) { return Math.max(1, (Math.min(kp, 9) / 9) * KP_ZONE) }
-    function kpColor(kp, alpha) {
-      const g = Math.floor(kp)
-      const hex = KP_COLORS[Math.min(9, Math.max(5, g))] || '#334455'
-      const r = parseInt(hex.slice(1,3),16), gr = parseInt(hex.slice(3,5),16), b = parseInt(hex.slice(5,7),16)
-      return `rgba(${r},${gr},${b},${alpha})`
-    }
-
-    // Observed 1-min bars (solid)
-    for (let i = 0; i < kpObserved.length - 1; i++) {
-      const a = kpObserved[i], b2 = kpObserved[i+1]
-      const tA = new Date(a.time), tB = new Date(b2.time)
-      if (tB < tStart || tA > tEnd) continue
-      const kp = a.kp
-      const barH = kpBarH(kp)
-      const x1 = Math.max(0, tx(tA)), x2 = Math.min(cW, tx(tB))
-      const alpha = kp >= 5 ? 0.85 : 0.25
-      ctx.fillStyle = kpColor(kp, alpha)
-      ctx.fillRect(x1, kpBase - barH, Math.max(1, x2 - x1), barH)
-    }
-
-    // Forecast 3-hour blocks (lighter, hatched with diagonal lines for distinction)
-    for (let i = 0; i < kpForecast.length; i++) {
-      const pt = kpForecast[i]
-      if (pt.observed) continue  // already drawn above via 1-min data
-      const tA = new Date(pt.time)
-      const tB = i + 1 < kpForecast.length ? new Date(kpForecast[i+1].time) : new Date(tA.getTime() + 3*3600000)
-      if (tB < tStart || tA > tEnd) continue
-      if (tA > tEnd) break
-      const kp = pt.kp
-      const barH = kpBarH(kp)
-      const x1 = Math.max(0, tx(tA)), x2 = Math.min(cW, tx(tB))
-      const w = Math.max(1, x2 - x1)
-      ctx.fillStyle = kpColor(kp, kp >= 5 ? 0.40 : 0.12)
-      ctx.fillRect(x1, kpBase - barH, w, barH)
-    }
-
-    // Kp label
-    ctx.fillStyle = '#2a3a55'; ctx.font = `6.5px ${FONT}`
-    ctx.fillText('Kp', 2, kpBase - KP_ZONE + 8)
 
     // ── 10. NOW LINE ─────────────────────────────────────────────────────────
     ctx.strokeStyle = '#ffffff'; ctx.lineWidth = 2.0; ctx.globalAlpha = 0.75
@@ -540,7 +492,7 @@ export default function TimelineBar({ spaceWeather, moonData, selectedHour, onHo
     if (lastV) { ctx.fillStyle = '#4488ff'; ctx.fillText(`V ${Math.round(lastV)} km/s`, cW - 90, PAD_T + 9) }
     if (lastD) { ctx.fillStyle = '#bb66ff'; ctx.fillText(`n ${Number(lastD).toFixed(1)} /cc`, cW - 90, PAD_T + 20) }
 
-  }, [spaceWeather, moonData, selectedHour, bzTrace, plasmaTrace, kpObserved, kpForecast])
+  }, [spaceWeather, moonData, selectedHour, bzTrace, plasmaTrace])
 
   useEffect(() => {
     const canvas = canvasRef.current
