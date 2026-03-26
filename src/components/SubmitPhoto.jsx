@@ -10,17 +10,51 @@ const inputStyle = {
   width: '100%', boxSizing: 'border-box',
 }
 
+async function compressImage(file, maxBytes = 8 * 1024 * 1024) {
+  // If already small enough, use as-is
+  if (file.size <= maxBytes) return file
+  return new Promise((resolve) => {
+    const img = new Image()
+    const url = URL.createObjectURL(file)
+    img.onload = () => {
+      URL.revokeObjectURL(url)
+      const canvas = document.createElement('canvas')
+      let { width, height } = img
+      // Scale down if very large
+      const maxDim = 2400
+      if (width > maxDim || height > maxDim) {
+        const scale = Math.min(maxDim / width, maxDim / height)
+        width = Math.round(width * scale)
+        height = Math.round(height * scale)
+      }
+      canvas.width = width
+      canvas.height = height
+      canvas.getContext('2d').drawImage(img, 0, 0, width, height)
+      // Try quality 0.85, then 0.70 if still too big
+      canvas.toBlob(blob => {
+        if (blob && blob.size <= maxBytes) { resolve(blob); return }
+        canvas.toBlob(blob2 => resolve(blob2 || blob), 'image/jpeg', 0.70)
+      }, 'image/jpeg', 0.85)
+    }
+    img.src = url
+  })
+}
+
 async function uploadToCloudinary(file) {
   if (CLOUDINARY_CLOUD.startsWith('REPLACE_ME')) {
     throw new Error('Cloudinary not configured yet')
   }
+  const compressed = await compressImage(file)
   const fd = new FormData()
-  fd.append('file', file)
+  fd.append('file', compressed, 'photo.jpg')
   fd.append('upload_preset', CLOUDINARY_PRESET)
   const res = await fetch(`https://api.cloudinary.com/v1_1/${CLOUDINARY_CLOUD}/image/upload`, {
     method: 'POST', body: fd,
   })
-  if (!res.ok) throw new Error('Upload failed')
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}))
+    throw new Error(err?.error?.message || `Upload failed (${res.status})`)
+  }
   const data = await res.json()
   return data.secure_url
 }
