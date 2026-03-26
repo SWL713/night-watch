@@ -120,7 +120,7 @@ function App() {
       filter: peruMode
         ? 'grayscale(1) sepia(1) saturate(20) hue-rotate(240deg) brightness(0.75)'
         : nightMode
-        ? 'grayscale(1) sepia(1) saturate(4) hue-rotate(325deg) brightness(0.55)'
+        ? 'sepia(1) saturate(3) brightness(0.45)'
         : 'none',
     }}>
       {/* Timeline panel */}
@@ -249,7 +249,7 @@ function App() {
 
         {/* NASA attribution — bottom right overlay */}
         <div style={{
-          position: 'absolute', bottom: 8, right: 48,
+          position: 'absolute', bottom: 58, right: 48,
           color: 'rgba(40,70,100,0.55)', fontSize: 8, letterSpacing: 0.5,
           fontFamily: FONT, zIndex: 900, pointerEvents: 'none',
         }}>
