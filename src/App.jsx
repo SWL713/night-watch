@@ -222,7 +222,7 @@ function App() {
 
         {/* NASA attribution — bottom right overlay */}
         <div style={{
-          position: 'absolute', bottom: 58, right: 48,
+          position: 'absolute', bottom: 76, right: 48,
           color: 'rgba(40,70,100,0.55)', fontSize: 8, letterSpacing: 0.5,
           fontFamily: FONT, zIndex: 900, pointerEvents: 'none',
         }}>
@@ -239,7 +239,7 @@ function App() {
         {/* Cloud loading indicator */}
         {(cloudLoading || phase === 'fallback') && (
           <div style={{
-            position: 'absolute', bottom: 58, left: '50%', transform: 'translateX(-50%)',
+            position: 'absolute', bottom: 76, left: '50%', transform: 'translateX(-50%)',
             background: '#070b16', border: '1px solid #1a2035', borderRadius: 2,
             padding: '4px 12px', fontSize: 9, zIndex: 1000,
             fontFamily: FONT, letterSpacing: 1,
@@ -254,38 +254,56 @@ function App() {
         <div style={{
           position: 'absolute', bottom: 0, left: 0, right: 0,
           background: '#06080f', borderTop: '1px solid #1a2035',
-          display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-          padding: '0 12px', height: 52, zIndex: 1000,
+          display: 'flex', alignItems: 'center',
+          padding: '0 0', height: 56, zIndex: 1000,
         }}>
-          <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-            {/* Report Aurora button */}
+          {/* Action buttons — span same width as layer controls (110px total) */}
+          <div style={{ display: 'flex', gap: 4, alignItems: 'stretch',
+            paddingLeft: 10, height: '100%', paddingTop: 4, paddingBottom: 4 }}>
+            {/* Report Aurora */}
             <button
               onClick={() => { setSightingPinMode(false); setSightingPendingCoords(null); setModal('reportAurora') }}
               style={{
+                width: 53, flexShrink: 0, padding: 0,
                 background: sightingPinMode ? '#1a0a00' : '#1a0505',
                 border: `1px solid ${sightingPinMode ? '#ff8800' : '#cc2222'}`,
                 color: sightingPinMode ? '#ff8800' : '#ff4444',
-                padding: '3px 10px', fontSize: 9, fontFamily: FONT,
-                cursor: 'pointer', letterSpacing: 1, borderRadius: 2,
+                fontSize: 8, fontFamily: FONT, letterSpacing: 1,
+                cursor: 'pointer', borderRadius: 2, lineHeight: 1.4,
+                display: 'flex', flexDirection: 'column',
+                alignItems: 'center', justifyContent: 'center', gap: 1,
               }}
             >
-              {sightingPinMode ? '🌌 CLICK MAP' : '🌌 REPORT AURORA'}
+              <span style={{ fontSize: 13 }}>🌌</span>
+              <span>{sightingPinMode ? 'CLICK
+MAP' : 'REPORT
+AURORA'}</span>
             </button>
 
             {/* Place pin */}
             <button
               onClick={() => { setPinMode(m => !m); setPendingPin(null) }}
               style={{
+                width: 53, flexShrink: 0, padding: 0,
                 background: pinMode ? '#0d2a1a' : '#071a2a',
                 border: `1px solid ${pinMode ? '#44ffcc' : '#00aacc'}`,
                 color: pinMode ? '#44ffcc' : '#00ccee',
-                padding: '3px 10px', fontSize: 9, fontFamily: FONT,
-                cursor: 'pointer', letterSpacing: 1, borderRadius: 2,
+                fontSize: 8, fontFamily: FONT, letterSpacing: 1,
+                cursor: 'pointer', borderRadius: 2, lineHeight: 1.4,
+                display: 'flex', flexDirection: 'column',
+                alignItems: 'center', justifyContent: 'center', gap: 1,
               }}
             >
-              {pinMode ? '📍 CLICK MAP TO PIN' : '+ PLACE PIN'}
+              <span style={{ fontSize: 13 }}>📍</span>
+              <span>{pinMode ? 'CLICK
+MAP' : '+ PLACE
+PIN'}</span>
             </button>
+          </div>
 
+          {/* Rest of bar */}
+          <div style={{ display: 'flex', flex: 1, alignItems: 'center',
+            gap: 8, padding: '0 10px', overflow: 'hidden' }}>
             {/* Pending pin coords */}
             {pendingPin && !pinMode && (
               <>
@@ -326,7 +344,7 @@ function App() {
             )}
           </div>
 
-          <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+          <div style={{ display: 'flex', gap: 8, alignItems: 'center', paddingRight: 10 }}>
             <div style={{ color: '#2a3f55', fontSize: 8, letterSpacing: 0.5, fontFamily: FONT }}>
               SWL713
             </div>
@@ -342,6 +360,7 @@ function App() {
               const color = ageMin > 180 ? '#ff5544' : ageMin > 90 ? '#ffaa33' : '#334455'
               return <div style={{ color, fontSize: 9 }}>{`CL: ${new Date(cu).toUTCString().slice(17,22)} UTC`}</div>
             })()}
+          </div>
           </div>
         </div>
       </div>
