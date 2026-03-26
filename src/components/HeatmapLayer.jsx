@@ -161,7 +161,7 @@ function buildCloudGrid(getCloudAt, selectedHour) {
       return cloud === null ? null : cloud / 100
     })
   )
-  return { grid: gaussianSmooth(raw, lats.length, lons.length, 2.0, 4), lats, lons }
+  return { grid: gaussianSmooth(raw, lats.length, lons.length, 1.5, 3), lats, lons }
 }
 
 const CloudCanvas = L.Layer.extend({
@@ -230,14 +230,17 @@ const CloudCanvas = L.Layer.extend({
 
         const idx = (py * W + px) * 4
 
+        // Don't render below 25% cloud cover — that's essentially clear sky
+        if (cf < 0.25) continue
+
         if (mode === 'clouds') {
-          // Standalone: transparent=clear → red=cloudy (matches combined, no green)
+          // Standalone: transparent=clear → red=cloudy
           data[idx] = 180; data[idx+1] = 0; data[idx+2] = 10
-          data[idx+3] = Math.round(cf * 0.78 * edgeFade * 255)
+          data[idx+3] = Math.round(cf * 0.50 * edgeFade * 255)
         } else {
           // Combined: transparent=clear → red=cloudy, over VIIRS tiles
           data[idx] = 180; data[idx+1] = 0; data[idx+2] = 10
-          data[idx+3] = Math.round(cf * 0.78 * edgeFade * 255)
+          data[idx+3] = Math.round(cf * 0.50 * edgeFade * 255)
         }
       }
     }
@@ -246,7 +249,7 @@ const CloudCanvas = L.Layer.extend({
 })
 
 // ── Main component ────────────────────────────────────────────────────────────
-export default function HeatmapLayer({ mode, selectedHour, getCloudAt, cloudLoading }) {
+export default function HeatmapLayer({ mode, selectedHour, getCloudAt, cloudLoading, cloudData }) {
   const map          = useMap()
   const tileLayerRef = useRef(null)
   const canvasRef    = useRef(null)
@@ -279,7 +282,7 @@ export default function HeatmapLayer({ mode, selectedHour, getCloudAt, cloudLoad
       canvasRef.current = null
     }
     // When cloudLoading, leave any existing canvas in place (don't clear it)
-  }, [showCanvas, mode, selectedHour, getCloudAt, cloudLoading, bortleGrid, map])
+  }, [showCanvas, mode, selectedHour, getCloudAt, cloudLoading, cloudData, bortleGrid, map])
 
   useEffect(() => () => {
     if (tileLayerRef.current) { map.removeLayer(tileLayerRef.current); tileLayerRef.current = null }
