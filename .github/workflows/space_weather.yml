@@ -68,7 +68,7 @@ jobs:
           # Retry loop — abort any stuck rebase before each attempt
           for attempt in 1 2 3; do
             git rebase --abort 2>/dev/null || true
-            git pull --rebase --autostash origin main && git push --force-with-lease && break
+            git pull --rebase --autostash -X ours origin main && git push --force-with-lease && break
             echo "Push attempt $attempt failed, retrying in 10s..."
             sleep 10
           done
