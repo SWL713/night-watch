@@ -118,9 +118,9 @@ function App() {
       fontFamily: FONT, overflow: 'hidden',
       paddingTop: 'env(safe-area-inset-top, 6px)',
       filter: peruMode
-        ? 'grayscale(1) sepia(1) saturate(12) hue-rotate(270deg) brightness(0.7)'
+        ? 'grayscale(1) sepia(1) saturate(20) hue-rotate(240deg) brightness(0.75)'
         : nightMode
-        ? 'grayscale(1) sepia(1) saturate(8) hue-rotate(320deg) brightness(0.55)'
+        ? 'grayscale(1) brightness(0.5) sepia(1) saturate(6) hue-rotate(340deg)'
         : 'none',
     }}>
       {/* Timeline panel */}
