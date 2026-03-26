@@ -66,14 +66,25 @@ export function usePendingSpots() {
 
   async function reload() {
     if (!supabaseReady) { setLoading(false); return }
-    const [spotsRes, photosRes, flaggedRes] = await Promise.all([
+
+    // Fetch spots, photos, and spot names separately — avoid join syntax
+    const [spotsRes, photosRes, flaggedRes, spotNamesRes] = await Promise.all([
       supabase.from('spots').select('*').eq('approved', false).order('created_at', { ascending: false }),
-      supabase.from('photos').select('*, spots(name)').eq('approved', false).eq('deleted', false).order('created_at', { ascending: false }),
-      supabase.from('photos').select('*, spots(name)').eq('approved', true).eq('flagged', true).eq('deleted', false).order('flagged_at', { ascending: false }),
+      supabase.from('photos').select('*').eq('approved', false).eq('deleted', false).order('created_at', { ascending: false }),
+      supabase.from('photos').select('*').eq('approved', true).eq('flagged', true).eq('deleted', false).order('flagged_at', { ascending: false }),
+      supabase.from('spots').select('id, name'),
     ])
+
+    // Build spot name lookup
+    const spotNames = {}
+    for (const s of spotNamesRes.data || []) spotNames[s.id] = s.name
+
+    // Attach spot name to photos
+    const attachName = p => ({ ...p, spots: { name: spotNames[p.spot_id] || 'Unknown spot' } })
+
     setPending(spotsRes.data || [])
-    setPendingPhotos(photosRes.data || [])
-    setFlaggedPhotos(flaggedRes.data || [])
+    setPendingPhotos((photosRes.data || []).map(attachName))
+    setFlaggedPhotos((flaggedRes.data || []).map(attachName))
     setLoading(false)
   }
 
