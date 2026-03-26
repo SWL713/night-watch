@@ -51,7 +51,9 @@ export default function MapSearch({ onSelectResult }) {
 
   function isPeru(result) {
     const name = result.display_name?.toLowerCase() || ''
-    return name.includes('peru') && (name.includes('clinton') || name.includes('new york') || name.includes(', ny'))
+    const hasPeru = name.includes('peru')
+    const isNY = name.includes('clinton') || name.includes('new york') || name.includes(', ny') || name.includes('essex')
+    return hasPeru && isNY
   }
 
   function flyTo(result) {
@@ -62,7 +64,7 @@ export default function MapSearch({ onSelectResult }) {
 
   return (
     <div style={{
-      position: 'absolute', top: 12, left: 12, zIndex: 1000,
+      position: 'absolute', top: 12, left: 12, zIndex: 2000,
     }}>
       {!open ? (
         // Magnifying glass button
@@ -88,6 +90,7 @@ export default function MapSearch({ onSelectResult }) {
           background: '#070b16', border: '1px solid #1a2a3a',
           borderRadius: 2, width: 260, fontFamily: FONT,
           boxShadow: '0 4px 20px rgba(0,0,0,0.6)',
+          position: 'relative', zIndex: 2000,
         }}>
           {/* Input row */}
           <div style={{ display: 'flex', alignItems: 'center', padding: '6px 8px', gap: 6 }}>
