@@ -71,18 +71,24 @@ function sunTimesForDate(date) {
 // 90-min taper covers civil + nautical + astronomical twilight combined
 // Moon is handled separately as interference
 function computeAstroDark(t) {
-  const sun0  = sunTimesForDate(t)
-  const sun1  = sunTimesForDate(new Date(t.getTime() + 86400000))
-  const TAPER = 90 * 60000  // 90 min: sun at horizon → astronomical darkness
+  const TAPER = 90 * 60000
+  const tm    = t.getTime()
 
-  const ss = sun0.set.getTime()
-  const sr = sun1.rise.getTime()
-  const tm = t.getTime()
-
-  if (tm <= ss || tm >= sr) return 0           // daytime
-  if (tm < ss + TAPER) return Math.round((tm - ss) / TAPER * 100)   // evening taper
-  if (tm > sr - TAPER) return Math.round((sr - tm) / TAPER * 100)   // morning taper
-  return 100                                    // full astronomical darkness
+  // Check yesterday→today window (handles post-midnight before sunrise)
+  // and today→tomorrow window (handles post-sunset before midnight)
+  for (const offset of [-86400000, 0]) {
+    const sunA = sunTimesForDate(new Date(tm + offset))
+    const sunB = sunTimesForDate(new Date(tm + offset + 86400000))
+    const ss = sunA.set.getTime()
+    const sr = sunB.rise.getTime()
+    if (tm > ss && tm < sr) {
+      // We are in the night between sunA.set and sunB.rise
+      if (tm < ss + TAPER) return Math.round((tm - ss) / TAPER * 100)  // evening taper
+      if (tm > sr - TAPER) return Math.round((sr - tm) / TAPER * 100)  // morning taper
+      return 100                                                          // full darkness
+    }
+  }
+  return 0  // daytime
 }
 
 // Derive intensity from Bz at a given timeline offset
