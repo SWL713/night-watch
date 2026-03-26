@@ -115,7 +115,7 @@ function App() {
     <div style={{
       display: 'flex', flexDirection: 'column',
       height: '100vh', background: '#06080f',
-      fontFamily: FONT, overflow: 'hidden',
+      fontFamily: FONT, overflow: 'hidden', outline: 'none',
       paddingTop: 'env(safe-area-inset-top, 6px)',
       filter: peruMode
         ? 'grayscale(1) sepia(1) saturate(20) hue-rotate(240deg) brightness(0.75)'
@@ -165,7 +165,7 @@ function App() {
                 borderRadius: 2, cursor: 'pointer',
                 display: 'flex', alignItems: 'center', justifyContent: 'center',
                 fontSize: 16, color: peruMode ? '#ff44cc' : nightMode ? '#ff4400' : '#445566',
-                transition: 'all 0.15s',
+                transition: 'all 0.15s', outline: 'none',
               }}
             >
               🌙

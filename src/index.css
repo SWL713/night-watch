@@ -70,3 +70,12 @@ select {
 .leaflet-bottom {
   bottom: 58px !important;
 }
+
+/* Remove focus outline on all buttons — prevents blue ring on mobile tap */
+button:focus { outline: none; }
+button:focus-visible { outline: none; }
+
+/* Remove blue focus outlines globally */
+*:focus {
+  outline: none !important;
+}
