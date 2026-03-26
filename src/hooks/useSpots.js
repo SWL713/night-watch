@@ -32,7 +32,7 @@ export function useSpots() {
           .from('photos')
           .select('id, spot_id, photo_url, caption, photographer_name, flagged, deleted, created_at')
           .eq('approved', true)
-          .eq('deleted', false)
+          .neq('deleted', true)
 
         // Attach photos to their spots
         const photosBySpot = {}
