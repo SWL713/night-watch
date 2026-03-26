@@ -19,16 +19,29 @@ export function useSpots() {
         return
       }
       try {
-        const { data, error: err } = await supabase
+        const { data: spotsData, error: err } = await supabase
           .from('spots')
-          .select('*, photos(id, photo_url, caption, photographer_name, flagged, deleted, created_at)')
+          .select('*')
           .eq('approved', true)
           .order('name')
         if (err) throw err
-        // Filter out deleted photos from each spot
-        const cleaned = (data || []).map(s => ({
+
+        // Fetch approved, non-deleted photos separately
+        const { data: photosData } = await supabase
+          .from('photos')
+          .select('id, spot_id, photo_url, caption, photographer_name, flagged, deleted, created_at')
+          .eq('approved', true)
+          .eq('deleted', false)
+
+        // Attach photos to their spots
+        const photosBySpot = {}
+        for (const p of photosData || []) {
+          if (!photosBySpot[p.spot_id]) photosBySpot[p.spot_id] = []
+          photosBySpot[p.spot_id].push(p)
+        }
+        const cleaned = (spotsData || []).map(s => ({
           ...s,
-          photos: (s.photos || []).filter(p => !p.deleted),
+          photos: photosBySpot[s.id] || [],
         }))
         setSpots(cleaned)
       } catch (e) {
