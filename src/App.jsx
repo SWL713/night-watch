@@ -357,7 +357,6 @@ function App() {
               return <div style={{ color, fontSize: 9 }}>{`CL: ${new Date(cu).toUTCString().slice(17,22)} UTC`}</div>
             })()}
           </div>
-          </div>
         </div>
       </div>
 
