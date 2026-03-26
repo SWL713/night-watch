@@ -114,6 +114,7 @@ function App() {
       display: 'flex', flexDirection: 'column',
       height: '100vh', background: '#06080f',
       fontFamily: FONT, overflow: 'hidden',
+      paddingTop: 'env(safe-area-inset-top, 6px)',
     }}>
       {/* Timeline panel */}
       <TimelinePanel
