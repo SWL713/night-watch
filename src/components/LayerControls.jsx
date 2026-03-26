@@ -16,7 +16,7 @@ export default function LayerControls({ layers, onToggle }) {
 
   return (
     <div style={{
-      position: 'absolute', bottom: 58, left: 10, zIndex: 1000,
+      position: 'absolute', bottom: 76, left: 10, zIndex: 1000,
       display: 'flex', flexDirection: 'column', gap: 4,
     }}>
       {/* Heatmap mode label */}

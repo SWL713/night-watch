@@ -68,5 +68,5 @@ select {
 
 /* Push Leaflet bottom controls above the action bar */
 .leaflet-bottom {
-  bottom: 52px !important;
+  bottom: 70px !important;
 }
