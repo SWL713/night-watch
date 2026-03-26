@@ -254,8 +254,8 @@ function App() {
         <div style={{
           position: 'absolute', bottom: 0, left: 0, right: 0,
           background: '#06080f', borderTop: '1px solid #1a2035',
-          display: 'flex', alignItems: 'center',
-          padding: '0 0', height: 56, zIndex: 1000,
+          display: 'flex', flexDirection: 'column', justifyContent: 'center',
+          padding: '0 0', zIndex: 1000,
         }}>
           {/* Action buttons — span same width as layer controls (110px total) */}
           <div style={{ display: 'flex', gap: 4, alignItems: 'stretch',
@@ -356,6 +356,15 @@ function App() {
               const color = ageMin > 180 ? '#ff5544' : ageMin > 90 ? '#ffaa33' : '#334455'
               return <div style={{ color, fontSize: 9 }}>{`CL: ${new Date(cu).toUTCString().slice(17,22)} UTC`}</div>
             })()}
+          </div>
+
+          {/* Attribution row */}
+          <div style={{
+            borderTop: '1px solid #0d1525',
+            padding: '2px 12px',
+            color: '#1e2e40', fontSize: 8, letterSpacing: 0.5, fontFamily: FONT,
+          }}>
+            Developed by Scott W. LeFevre — 2026
           </div>
         </div>
       </div>
