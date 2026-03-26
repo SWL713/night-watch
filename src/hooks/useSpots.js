@@ -23,6 +23,7 @@ export function useSpots() {
           .from('spots')
           .select('*')
           .eq('approved', true)
+          .eq('rejected', false)
           .order('name')
         if (err) throw err
 
@@ -69,7 +70,7 @@ export function usePendingSpots() {
 
     // Fetch spots, photos, and spot names separately — avoid join syntax
     const [spotsRes, photosRes, flaggedRes, spotNamesRes] = await Promise.all([
-      supabase.from('spots').select('*').eq('approved', false).order('created_at', { ascending: false }),
+      supabase.from('spots').select('*').eq('approved', false).eq('rejected', false).order('created_at', { ascending: false }),
       supabase.from('photos').select('*').eq('approved', false).eq('deleted', false).order('created_at', { ascending: false }),
       supabase.from('photos').select('*').eq('approved', true).eq('flagged', true).eq('deleted', false).order('flagged_at', { ascending: false }),
       supabase.from('spots').select('id, name'),
@@ -98,7 +99,10 @@ export function usePendingSpots() {
 
   async function rejectSpot(id) {
     if (!supabaseReady) return
-    await supabase.from('spots').delete().eq('id', id)
+    // Soft delete — flag as rejected with timestamp, keep row for audit history
+    await supabase.from('spots')
+      .update({ rejected: true, rejected_at: new Date().toISOString() })
+      .eq('id', id)
     setPending(prev => prev.filter(s => s.id !== id))
   }
 
