@@ -40,7 +40,6 @@ export default function SubmitSpot({ onClose, initialCoords }) {
       view_direction: form.view_direction,
       access_notes: form.access_notes,
       horizon_rating: parseInt(form.horizon_rating),
-      photos: [],
     })
     setSubmitting(false)
     if (error) setStatus({ error: error.message || error })
