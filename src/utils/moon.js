@@ -124,9 +124,13 @@ export function getMoonData(dt = new Date()) {
 // Is the moon above the horizon at a given datetime?
 export function isMoonUp(dt, moonData) {
   const { allCrossings } = moonData
+  if (!allCrossings.length) return false
   const risesBefore = allCrossings.filter(c => c.type==='rise' && c.time <= dt).length
   const setsBefore  = allCrossings.filter(c => c.type==='set'  && c.time <= dt).length
-  return risesBefore > setsBefore
+  // If the first crossing in the window is a 'set', the moon started above the horizon —
+  // moon is up when rises >= sets (not just rises > sets)
+  const startsUp = allCrossings[0].type === 'set'
+  return startsUp ? risesBefore >= setsBefore : risesBefore > setsBefore
 }
 
 
