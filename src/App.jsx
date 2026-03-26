@@ -120,7 +120,7 @@ function App() {
       filter: peruMode
         ? 'grayscale(1) sepia(1) saturate(20) hue-rotate(240deg) brightness(0.75)'
         : nightMode
-        ? 'brightness(0.4) saturate(0.2) sepia(0.9)'
+        ? 'grayscale(1) invert(1) sepia(1) hue-rotate(140deg) saturate(5) brightness(0.5)'
         : 'none',
     }}>
       {/* Timeline panel */}
