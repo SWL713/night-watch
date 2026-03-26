@@ -708,7 +708,6 @@ def main():
     l1 = fetch_l1()
     noaa  = fetch_noaa_alerts()
     kp    = fetch_kp_data()
-    kp    = fetch_kp_data()
 
     bz_now   = l1['bz_now']   if l1 else 0.0
     v_kms    = l1['v_kms']    if l1 else 450.0
@@ -1123,6 +1122,7 @@ def main_with_clouds():
     # Space weather (existing)
     l1    = fetch_l1()
     noaa  = fetch_noaa_alerts()
+    kp    = fetch_kp_data()
 
     bz_now  = l1['bz_now']       if l1 else 0.0
     v_kms   = l1['v_kms']        if l1 else 450.0
