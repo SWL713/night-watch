@@ -73,6 +73,7 @@ export default function SubmitSpot({ onClose, initialCoords }) {
     horizon_rating: '',
   })
   const [bortleLookup, setBortleLookup] = useState(null)  // 'loading' | number | 'failed'
+  const [bortleOverride, setBortleOverride] = useState(false)
   const [spotSubmitting, setSpotSubmitting] = useState(false)
   const [spotError, setSpotError] = useState(null)
 
@@ -95,6 +96,7 @@ export default function SubmitSpot({ onClose, initialCoords }) {
     // Debounce — only look up after user stops typing
     const t = setTimeout(async () => {
       setBortleLookup('loading')
+      setBortleOverride(false)
       const b = await fetchBortleFromLPM(lat, lon)
       if (b !== null) {
         setBortleLookup(b)
@@ -250,26 +252,43 @@ export default function SubmitSpot({ onClose, initialCoords }) {
         </div>
 
         {/* Bortle with auto-lookup */}
-        <div style={{ position: 'relative' }}>
-          <input style={inputStyle} value={form.bortle}
-            onChange={e => set('bortle', e.target.value)}
-            placeholder="Bortle class (1–9) *" required />
-          {bortleLookup === 'loading' && (
-            <div style={{ position: 'absolute', right: 8, top: '50%', transform: 'translateY(-50%)',
-              color: '#334455', fontSize: 8, fontFamily: FONT }}>looking up...</div>
-          )}
-          {typeof bortleLookup === 'number' && (
-            <div style={{ position: 'absolute', right: 8, top: '50%', transform: 'translateY(-50%)',
-              color: '#44aaaa', fontSize: 8, fontFamily: FONT }}>auto ✓</div>
-          )}
-          {bortleLookup === 'failed' && (
-            <div style={{ position: 'absolute', right: 8, top: '50%', transform: 'translateY(-50%)',
-              color: '#443322', fontSize: 8, fontFamily: FONT }}>manual</div>
-          )}
-        </div>
-        {typeof bortleLookup === 'number' && (
-          <div style={{ color: '#334455', fontSize: 9, marginTop: -4 }}>
-            Auto-detected Bortle {bortleLookup} from lightpollutionmap.info — edit if you know better
+        {bortleLookup === 'loading' && (
+          <div style={{ ...inputStyle, color: '#334455', display: 'flex', alignItems: 'center',
+            justifyContent: 'space-between' }}>
+            <span>Bortle class</span>
+            <span style={{ fontSize: 9 }}>looking up...</span>
+          </div>
+        )}
+        {bortleLookup !== 'loading' && !bortleOverride && typeof bortleLookup === 'number' && (
+          <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+            <div style={{ ...inputStyle, flex: 1, display: 'flex', alignItems: 'center',
+              justifyContent: 'space-between', color: '#44ddaa' }}>
+              <span style={{ color: '#778899', fontSize: 10 }}>Bortle class</span>
+              <span style={{ fontSize: 14, fontWeight: 'bold' }}>{bortleLookup}
+                <span style={{ color: '#44aaaa', fontSize: 8, marginLeft: 6 }}>auto ✓</span>
+              </span>
+            </div>
+            <button type="button" onClick={() => setBortleOverride(true)}
+              style={{ background: '#060810', border: '1px solid #1a2a3a',
+                color: '#445566', fontSize: 8, fontFamily: FONT,
+                padding: '8px 8px', cursor: 'pointer', borderRadius: 2, whiteSpace: 'nowrap' }}>
+              OVERRIDE
+            </button>
+          </div>
+        )}
+        {(bortleOverride || bortleLookup === 'failed' || bortleLookup === null) && (
+          <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+            <input style={{ ...inputStyle, flex: 1 }} value={form.bortle}
+              onChange={e => set('bortle', e.target.value)}
+              placeholder="Bortle class (1–9) *" required />
+            {bortleOverride && (
+              <button type="button" onClick={() => { setBortleOverride(false); set('bortle', String(bortleLookup)) }}
+                style={{ background: '#060810', border: '1px solid #1a2a3a',
+                  color: '#445566', fontSize: 8, fontFamily: FONT,
+                  padding: '8px 8px', cursor: 'pointer', borderRadius: 2, whiteSpace: 'nowrap' }}>
+                RESET
+              </button>
+            )}
           </div>
         )}
 
