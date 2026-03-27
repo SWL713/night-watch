@@ -305,6 +305,20 @@ function App() {
           NIGHT WATCH · SWL713
         </div>
 
+        {/* Camera mode hint */}
+        {cameraMode && (
+          <div style={{
+            position: 'absolute', top: 28, left: '50%', transform: 'translateX(-50%)',
+            background: 'rgba(7,11,22,0.92)', border: '1px solid #44ddaa',
+            borderRadius: 3, padding: '6px 14px', zIndex: 1100,
+            color: '#44ddaa', fontSize: 10, fontFamily: FONT,
+            letterSpacing: 1, whiteSpace: 'nowrap', pointerEvents: 'none',
+            boxShadow: '0 2px 12px rgba(0,0,0,0.7)',
+          }}>
+            📷 TAP YOUR SHOOTING LOCATION ON THE MAP
+          </div>
+        )}
+
         {/* NASA attribution — bottom right overlay */}
         <div style={{
           position: 'absolute', bottom: 58, right: 48,
