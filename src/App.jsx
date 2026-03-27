@@ -133,6 +133,7 @@ function App() {
       display: 'flex', flexDirection: 'column',
       height: '100vh', background: '#06080f',
       fontFamily: FONT, overflow: 'hidden', outline: 'none',
+      cursor: (pinMode || sightingPinMode || cameraMode) ? 'crosshair' : 'default',
       paddingTop: 'env(safe-area-inset-top, 6px)',
       filter: peruMode
         ? 'grayscale(1) sepia(1) saturate(20) hue-rotate(225deg) brightness(0.75)'
