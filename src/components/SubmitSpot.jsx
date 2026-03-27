@@ -11,32 +11,7 @@ const inputStyle = {
   boxSizing: 'border-box',
 }
 
-// ── Lightpollutionmap.info API Bortle lookup ──────────────────────────────────
-async function fetchBortleFromLPM(lat, lon) {
-  try {
-    const url = `https://www.lightpollutionmap.info/PostLight.aspx?ql=wa_2015&qt=point&lng=${lon}&lat=${lat}`
-    const res = await fetch(url, { mode: 'cors' })
-    if (!res.ok) return null
-    const text = await res.text()
-    // Response is SQM value as plain text e.g. "21.45"
-    const sqm = parseFloat(text.trim())
-    if (isNaN(sqm)) return null
-    // Convert SQM to Bortle class
-    if (sqm >= 22.0) return 1
-    if (sqm >= 21.9) return 2
-    if (sqm >= 21.7) return 2
-    if (sqm >= 21.5) return 3
-    if (sqm >= 21.3) return 3
-    if (sqm >= 20.8) return 4
-    if (sqm >= 20.3) return 5
-    if (sqm >= 19.5) return 6
-    if (sqm >= 18.5) return 7
-    if (sqm >= 17.5) return 8
-    return 9
-  } catch {
-    return null
-  }
-}
+import { fetchBortleFromLPM } from '../utils/bortleLookup.js'
 
 // ── Cloudinary upload ─────────────────────────────────────────────────────────
 async function compressImage(file, maxBytes = 8 * 1024 * 1024) {
