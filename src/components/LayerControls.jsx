@@ -10,8 +10,8 @@ export default function LayerControls({ layers, onToggle }) {
     { key: 'bortle',    label: 'Bortle', group: 'toggle' },
     { key: 'ovation',   label: 'Ovation Model', group: 'toggle' },
     { key: 'pins',      label: 'Locations',     group: 'toggle' },
-    { key: 'sightings', label: 'Active Hunt',   group: 'toggle', accent: '#ff8800' },
     { key: 'cameras',   label: 'Live Cams',     group: 'toggle', accent: '#44aaff' },
+    { key: 'sightings', label: 'Active Hunt',   group: 'toggle', accent: '#ff8800' },
   ]
 
   return (
