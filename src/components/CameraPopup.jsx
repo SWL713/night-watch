@@ -43,8 +43,10 @@ export default function CameraPopup({ camera, onClose }) {
             width: '100%', height: '100%',
             border: 'none',
           }}
-          allow="autoplay; fullscreen"
+          allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
           allowFullScreen
+          referrerPolicy="strict-origin-when-cross-origin"
+          sandbox="allow-scripts allow-same-origin allow-presentation allow-popups" 
         />
       </div>
 
