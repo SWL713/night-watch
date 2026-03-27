@@ -452,7 +452,7 @@ function App() {
               <div style={{ position: 'relative' }}>
                 {queueCount > 0 && (
                   <div style={{
-                    position: 'absolute', top: -6, right: -6, zIndex: 10,
+                    position: 'absolute', top: -6, right: -6, zIndex: 3000,
                     background: '#cc4400', borderRadius: '50%',
                     width: 14, height: 14, fontSize: 8, fontFamily: FONT,
                     display: 'flex', alignItems: 'center', justifyContent: 'center',
@@ -483,7 +483,7 @@ function App() {
               <div style={{ position: 'relative' }}>
                 {queueCount > 0 && (
                   <div style={{
-                    position: 'absolute', top: -6, right: -6, zIndex: 10,
+                    position: 'absolute', top: -6, right: -6, zIndex: 3000,
                     background: '#cc4400', borderRadius: '50%',
                     width: 14, height: 14, fontSize: 8, fontFamily: FONT,
                     display: 'flex', alignItems: 'center', justifyContent: 'center',
