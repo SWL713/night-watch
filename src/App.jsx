@@ -452,11 +452,12 @@ function App() {
               <div style={{ position: 'relative' }}>
                 {queueCount > 0 && (
                   <div style={{
-                    position: 'absolute', top: -6, right: -6, zIndex: 3000,
+                    position: 'fixed', bottom: 42, right: 10, zIndex: 9999,
                     background: '#cc4400', borderRadius: '50%',
-                    width: 14, height: 14, fontSize: 8, fontFamily: FONT,
+                    width: 16, height: 16, fontSize: 8, fontFamily: FONT,
                     display: 'flex', alignItems: 'center', justifyContent: 'center',
                     color: '#fff', fontWeight: 'bold', pointerEvents: 'none',
+                    boxShadow: '0 1px 4px rgba(0,0,0,0.8)',
                   }}>{queueCount > 9 ? '9+' : queueCount}</div>
                 )}
                 <form onSubmit={handleAdminLogin} style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
@@ -483,11 +484,12 @@ function App() {
               <div style={{ position: 'relative' }}>
                 {queueCount > 0 && (
                   <div style={{
-                    position: 'absolute', top: -6, right: -6, zIndex: 3000,
+                    position: 'fixed', bottom: 42, right: 10, zIndex: 9999,
                     background: '#cc4400', borderRadius: '50%',
-                    width: 14, height: 14, fontSize: 8, fontFamily: FONT,
+                    width: 16, height: 16, fontSize: 8, fontFamily: FONT,
                     display: 'flex', alignItems: 'center', justifyContent: 'center',
                     color: '#fff', fontWeight: 'bold', pointerEvents: 'none',
+                    boxShadow: '0 1px 4px rgba(0,0,0,0.8)',
                   }}>{queueCount > 9 ? '9+' : queueCount}</div>
                 )}
                 <ActionBtn onClick={() => setModal('admin')} highlight>QUEUE</ActionBtn>
