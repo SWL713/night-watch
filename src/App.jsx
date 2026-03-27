@@ -158,7 +158,7 @@ function App() {
           minZoom={MAP_BOUNDS.minZoom}
           maxZoom={MAP_BOUNDS.maxZoom}
           zoomControl={false}
-          style={{ height: '100%', width: '100%', background: '#06080f', cursor: (pinMode || sightingPinMode || cameraMode) ? 'crosshair' : 'grab' }}
+          style={{ height: '100%', width: '100%', background: '#06080f', cursor: 'inherit' }}
         >
           {/* Dark base tile layer */}
           <TileLayer
