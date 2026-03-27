@@ -388,7 +388,7 @@ function App() {
           position: 'absolute', bottom: 0, left: 0, right: 0,
           background: '#06080f', borderTop: '1px solid #1a2035',
           display: 'flex', alignItems: 'center',
-          padding: '0 0', height: 52, zIndex: 1000,
+          padding: '0 0', height: 52, zIndex: 2000,
         }}>
           {/* Action buttons — span same width as layer controls (110px total) */}
           <div style={{ display: 'flex', gap: 4, alignItems: 'stretch',
