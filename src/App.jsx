@@ -29,7 +29,6 @@ import { getMoonData } from './utils/moon.js'
 
 import { MAP_BOUNDS, PASSPHRASE } from './config.js'
 import { loadBortleGrid, getBortle } from './utils/bortleGrid.js'
-import { fetchBortleFromLPM } from './utils/bortleLookup.js'
 
 // Fix Leaflet default marker icon path issue with Vite
 import L from 'leaflet'
@@ -105,7 +104,6 @@ function App() {
   const [cameraMode, setCameraMode] = useState(false)
   const [cameraCoords, setCameraCoords] = useState(null)
   const [showCamera, setShowCamera] = useState(false) // picking location for sighting report
-  const [cameraLpmBortle, setCameraLpmBortle] = useState(null)
   const [activeCam, setActiveCam] = useState(null)
   const [sightingPendingCoords, setSightingPendingCoords] = useState(null)
 
@@ -219,8 +217,6 @@ function App() {
                 setCameraCoords({ lat, lon })
                 setCameraMode(false)
                 setShowCamera(true)
-                setCameraLpmBortle(null)
-                fetchBortleFromLPM(lat, lon).then(b => { if (b) setCameraLpmBortle(b) })
               } else if (sightingPinMode) {
                 setSightingPendingCoords({ lat, lon })
                 setSightingPinMode(false)
@@ -290,22 +286,17 @@ function App() {
         {showCamera && cameraCoords && (() => {
           // getBortle returns 5 as default when outside grid coverage
           // For out-of-grid locations, estimate from latitude — higher lat = darker sky
-          // Use precise LPM lookup if available, fall back to grid, then latitude estimate
+          const rawBortle = bortleGrid ? getBortle(bortleGrid, cameraCoords.lat, cameraCoords.lon) : null
+          const isOutsideGrid = !rawBortle || (rawBortle === 5 && cameraCoords.lat > 52)
           let camBortle
-          if (cameraLpmBortle) {
-            camBortle = cameraLpmBortle
+          if (isOutsideGrid) {
+            const lat = cameraCoords.lat
+            if (lat > 65)      camBortle = 1
+            else if (lat > 58) camBortle = 2
+            else if (lat > 52) camBortle = 2
+            else               camBortle = Math.round(rawBortle) || 5
           } else {
-            const rawBortle = bortleGrid ? getBortle(bortleGrid, cameraCoords.lat, cameraCoords.lon) : null
-            const isOutsideGrid = !rawBortle || (rawBortle === 5 && cameraCoords.lat > 52)
-            if (isOutsideGrid) {
-              const lat = cameraCoords.lat
-              if (lat > 65)      camBortle = 1
-              else if (lat > 58) camBortle = 2
-              else if (lat > 52) camBortle = 2
-              else               camBortle = Math.round(rawBortle) || 5
-            } else {
-              camBortle = Math.round(rawBortle) || 5
-            }
+            camBortle = Math.round(rawBortle) || 5
           }
           return (
             <CameraSettings

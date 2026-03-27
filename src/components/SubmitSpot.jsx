@@ -11,7 +11,7 @@ const inputStyle = {
   boxSizing: 'border-box',
 }
 
-import { fetchBortleFromLPM } from '../utils/bortleLookup.js'
+import { loadBortleGrid, getBortle } from '../utils/bortleGrid.js'
 
 // ── Cloudinary upload ─────────────────────────────────────────────────────────
 async function compressImage(file, maxBytes = 8 * 1024 * 1024) {
@@ -88,7 +88,11 @@ export default function SubmitSpot({ onClose, initialCoords }) {
 
   function set(k, v) { setForm(f => ({ ...f, [k]: v })) }
 
-  // Auto-lookup Bortle when lat/lon are valid
+  // Load bortle grid once
+  const [bortleGrid, setBortleGrid] = useState(null)
+  useEffect(() => { loadBortleGrid().then(g => { if (g) setBortleGrid(g) }) }, [])
+
+  // Auto-lookup Bortle from grid when lat/lon are valid
   useEffect(() => {
     const lat = parseFloat(form.lat)
     const lon = parseFloat(form.lon)
@@ -97,21 +101,22 @@ export default function SubmitSpot({ onClose, initialCoords }) {
       setBortleOverride(false)
       return
     }
-    // Debounce — only look up after user stops typing
-    const t = setTimeout(async () => {
-      setBortleLookup('loading')
-      setBortleOverride(false)
-      const b = await fetchBortleFromLPM(lat, lon)
-      if (b !== null && typeof b === 'number') {
-        setBortleLookup(b)
-        set('bortle', String(b))
-      } else {
-        setBortleLookup('failed')
-        set('bortle', '')
-      }
-    }, 800)
-    return () => clearTimeout(t)
-  }, [form.lat, form.lon])
+    if (!bortleGrid) return
+    const raw = getBortle(bortleGrid, lat, lon)
+    // Latitude fallback for areas outside grid coverage
+    let b
+    if (!raw || raw === 5 && lat > 52) {
+      if (lat > 65) b = 1
+      else if (lat > 58) b = 2
+      else if (lat > 52) b = 2
+      else b = raw || 5
+    } else {
+      b = Math.round(raw)
+    }
+    setBortleLookup(b)
+    setBortleOverride(false)
+    set('bortle', String(b))
+  }, [form.lat, form.lon, bortleGrid])
 
   // ── Step 1: Submit spot ───────────────────────────────────────────────────
   async function handleSpotSubmit(e) {
