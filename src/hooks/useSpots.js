@@ -63,17 +63,19 @@ export function usePendingSpots() {
   const [pending, setPending] = useState([])
   const [pendingPhotos, setPendingPhotos] = useState([])
   const [flaggedPhotos, setFlaggedPhotos] = useState([])
+  const [pendingRemovals, setPendingRemovals] = useState([])
   const [loading, setLoading] = useState(true)
 
   async function reload() {
     if (!supabaseReady) { setLoading(false); return }
 
     // Fetch spots, photos, and spot names separately — avoid join syntax
-    const [spotsRes, photosRes, flaggedRes, spotNamesRes] = await Promise.all([
+    const [spotsRes, photosRes, flaggedRes, spotNamesRes, sightingsRes] = await Promise.all([
       supabase.from('spots').select('*').eq('approved', false).eq('rejected', false).order('created_at', { ascending: false }),
       supabase.from('photos').select('*').eq('approved', false).eq('deleted', false).order('created_at', { ascending: false }),
       supabase.from('photos').select('*').eq('approved', true).eq('flagged', true).eq('deleted', false).order('flagged_at', { ascending: false }),
       supabase.from('spots').select('id, name'),
+      supabase.from('sightings').select('*').eq('removal_requested', true).order('removal_requested_at', { ascending: false }),
     ])
 
     // Build spot name lookup
@@ -86,6 +88,7 @@ export function usePendingSpots() {
     setPending(spotsRes.data || [])
     setPendingPhotos((photosRes.data || []).map(attachName))
     setFlaggedPhotos((flaggedRes.data || []).map(attachName))
+    setPendingRemovals(sightingsRes.data || [])
     setLoading(false)
   }
 
@@ -131,7 +134,7 @@ export function usePendingSpots() {
   }
 
   return {
-    pending, pendingPhotos, flaggedPhotos, loading,
+    pending, pendingPhotos, flaggedPhotos, pendingRemovals, loading,
     approveSpot, rejectSpot, approvePhoto, rejectPhoto, deletePhoto, dismissFlag,
   }
 }
@@ -205,6 +208,51 @@ export function useSightings() {
   return { sightings, loading, deleteSighting, reload: load }
 }
 
+// ── localStorage helpers ─────────────────────────────────────────────────────
+const LS_KEY = 'nightwatch_my_sightings'
+
+export function getMySubmittedSightings() {
+  try { return JSON.parse(localStorage.getItem(LS_KEY) || '[]') } catch { return [] }
+}
+
+function addMySubmittedSighting(id) {
+  try {
+    const ids = getMySubmittedSightings()
+    ids.push(id)
+    localStorage.setItem(LS_KEY, JSON.stringify(ids))
+  } catch {}
+}
+
+function removeMySubmittedSighting(id) {
+  try {
+    const ids = getMySubmittedSightings().filter(x => x !== id)
+    localStorage.setItem(LS_KEY, JSON.stringify(ids))
+  } catch {}
+}
+
+export function isMySubmittedSighting(id) {
+  return getMySubmittedSightings().includes(id)
+}
+
+export async function undoSighting(id) {
+  if (!supabaseReady) return { error: 'Database not configured yet' }
+  const { error } = await supabase.from('sightings').delete().eq('id', id)
+  if (!error) removeMySubmittedSighting(id)
+  return { error }
+}
+
+export async function requestSightingRemoval(id, comment) {
+  if (!supabaseReady) return { error: 'Database not configured yet' }
+  const { error } = await supabase.from('sightings')
+    .update({
+      removal_requested: true,
+      removal_comment: comment,
+      removal_requested_at: new Date().toISOString(),
+    })
+    .eq('id', id)
+  return { error }
+}
+
 export async function submitSighting(lat, lon, observations) {
   if (!supabaseReady) return { error: 'Database not configured yet' }
   const now = new Date()
@@ -213,6 +261,9 @@ export async function submitSighting(lat, lon, observations) {
     lat, lon, observations,
     created_at: now.toISOString(),
     expires_at: expires.toISOString(),
-  }])
+  }]).select()
+  if (!error && data?.[0]?.id) {
+    addMySubmittedSighting(data[0].id)
+  }
   return { data, error }
 }

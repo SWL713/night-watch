@@ -306,6 +306,7 @@ function App() {
             screenPos={sightingScreen}
             adminAuthed={adminAuthed}
             onDelete={deleteSighting}
+            onRefresh={reloadSightings}
             onClose={() => { setSelectedSighting(null); setSightingScreen(null) }}
           />
         )}
