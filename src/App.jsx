@@ -18,7 +18,7 @@ import CameraLayer from './components/CameraLayer.jsx'
 import CameraPopup from './components/CameraPopup.jsx'
 import CameraSettings from './components/CameraSettings.jsx'
 import SightingPopup from './components/SightingPopup.jsx'
-import { useSightings } from './hooks/useSpots.js'
+import { useSightings, usePendingSpots } from './hooks/useSpots.js'
 import SubmitPhoto from './components/SubmitPhoto.jsx'
 import AdminQueue from './components/AdminQueue.jsx'
 
@@ -78,6 +78,10 @@ function App() {
   const { data: sw } = useSpaceWeather()
   const { spots } = useSpots()
   const { sightings, deleteSighting, reload: reloadSightings } = useSightings()
+  const { pending: pendingSpots, pendingPhotos, flaggedPhotos } = usePendingSpots()
+  const { sightings: allSightings } = useSightings()
+  const pendingRemovals = (allSightings || []).filter(s => s.removal_requested)
+  const queueCount = (pendingSpots?.length || 0) + (pendingPhotos?.length || 0) + (flaggedPhotos?.length || 0) + pendingRemovals.length
   const [selectedSighting, setSelectedSighting] = useState(null)
   const [sightingScreen, setSightingScreen] = useState(null)
   const { getCloudAt, loading: cloudLoading, progress, coverage, total, phase, cloudData } = useCloudCover()
@@ -445,27 +449,49 @@ function App() {
 
             {/* Admin — input + GO stacked vertically to save lateral space */}
             {!adminAuthed && (
-              <form onSubmit={handleAdminLogin} style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-                <input
-                  type="password"
-                  value={adminInput}
-                  onChange={e => setAdminInput(e.target.value)}
-                  placeholder="admin..."
-                  style={{
-                    background: '#0a0e18', border: '1px solid #1a2035',
-                    color: '#445566', padding: '2px 8px', fontSize: 9,
-                    fontFamily: FONT, width: 80, outline: 'none', borderRadius: 2,
-                  }}
-                />
-                <button type="submit" style={{
-                  background: '#060810', border: '1px solid #1a2035',
-                  color: '#334455', padding: '2px 0', fontSize: 9, width: 80,
-                  fontFamily: FONT, cursor: 'pointer', borderRadius: 2, textAlign: 'center',
-                }}>GO</button>
-              </form>
+              <div style={{ position: 'relative' }}>
+                {queueCount > 0 && (
+                  <div style={{
+                    position: 'absolute', top: -6, right: -6, zIndex: 10,
+                    background: '#cc4400', borderRadius: '50%',
+                    width: 14, height: 14, fontSize: 8, fontFamily: FONT,
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    color: '#fff', fontWeight: 'bold', pointerEvents: 'none',
+                  }}>{queueCount > 9 ? '9+' : queueCount}</div>
+                )}
+                <form onSubmit={handleAdminLogin} style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                  <input
+                    type="password"
+                    value={adminInput}
+                    onChange={e => setAdminInput(e.target.value)}
+                    placeholder="admin..."
+                    style={{
+                      background: '#0a0e18', border: '1px solid #1a2035',
+                      color: '#445566', padding: '2px 8px', fontSize: 9,
+                      fontFamily: FONT, width: 80, outline: 'none', borderRadius: 2,
+                    }}
+                  />
+                  <button type="submit" style={{
+                    background: '#060810', border: '1px solid #1a2035',
+                    color: '#334455', padding: '2px 0', fontSize: 9, width: 80,
+                    fontFamily: FONT, cursor: 'pointer', borderRadius: 2, textAlign: 'center',
+                  }}>GO</button>
+                </form>
+              </div>
             )}
             {adminAuthed && (
-              <ActionBtn onClick={() => setModal('admin')} highlight>QUEUE</ActionBtn>
+              <div style={{ position: 'relative' }}>
+                {queueCount > 0 && (
+                  <div style={{
+                    position: 'absolute', top: -6, right: -6, zIndex: 10,
+                    background: '#cc4400', borderRadius: '50%',
+                    width: 14, height: 14, fontSize: 8, fontFamily: FONT,
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    color: '#fff', fontWeight: 'bold', pointerEvents: 'none',
+                  }}>{queueCount > 9 ? '9+' : queueCount}</div>
+                )}
+                <ActionBtn onClick={() => setModal('admin')} highlight>QUEUE</ActionBtn>
+              </div>
             )}
           </div>
 

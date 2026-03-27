@@ -146,7 +146,7 @@ export async function submitSpot(spotData) {
     approved: false,
     submitted_by: 'community',
     created_at: new Date().toISOString(),
-  }])
+  }]).select()
   return { data, error }
 }
 
