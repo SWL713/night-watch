@@ -6,9 +6,8 @@ const HEATMAP_MODES = ['heatmap', 'clouds', 'bortle']
 
 export default function LayerControls({ layers, onToggle }) {
   const LAYER_DEFS = [
-    { key: 'heatmap',   label: 'Combined',      group: 'heatmap' },
-    { key: 'clouds',    label: 'Clouds only',   group: 'heatmap' },
-    { key: 'bortle',    label: 'Bortle only',   group: 'heatmap' },
+    { key: 'clouds',    label: 'Clouds',        group: 'toggle' },
+    { key: 'bortle',    label: 'Light Pollution', group: 'toggle' },
     { key: 'ovation',   label: 'Ovation Model', group: 'toggle' },
     { key: 'pins',      label: 'Locations',     group: 'toggle' },
     { key: 'sightings', label: 'Active Hunt',   group: 'toggle', accent: '#ff8800' },
@@ -57,9 +56,8 @@ export default function LayerControls({ layers, onToggle }) {
 
 export function initLayers() {
   return {
-    heatmap:   true,
-    clouds:    false,
-    bortle:    false,
+    clouds:    true,
+    bortle:    true,
     ovation:   true,
     pins:      true,
     sightings: true,

@@ -85,7 +85,11 @@ function App() {
   useEffect(() => { loadBortleGrid().then(g => { if (g) setBortleGrid(g) }) }, [])
 
   // Determine active heatmap mode from layer toggles
-  const heatmapMode = layers.clouds ? 'clouds' : layers.bortle ? 'bortle' : 'combined'
+  // Derive heatmap render mode from independent cloud and bortle toggles
+  const heatmapMode = layers.clouds && layers.bortle ? 'combined'
+                    : layers.clouds ? 'clouds'
+                    : layers.bortle ? 'bortle'
+                    : null
   const [pendingPin, setPendingPin] = useState(null)
   const [pinMode, setPinMode] = useState(false) // true = user clicked "place pin" button
   const [sightingPinMode, setSightingPinMode] = useState(false)
@@ -97,19 +101,7 @@ function App() {
   const [sightingPendingCoords, setSightingPendingCoords] = useState(null)
 
   function toggleLayer(key) {
-    setLayers(prev => {
-      const next = { ...prev }
-      if (['heatmap', 'clouds', 'bortle'].includes(key)) {
-        // Heatmap modes are mutually exclusive — turn off others when one is selected
-        next.heatmap = false
-        next.clouds  = false
-        next.bortle  = false
-        next[key]    = !prev[key]
-      } else {
-        next[key] = !prev[key]
-      }
-      return next
-    })
+    setLayers(prev => ({ ...prev, [key]: !prev[key] }))
   }
 
   const handleSubmitPhoto = useCallback((spot) => {
@@ -126,7 +118,7 @@ function App() {
     setAdminInput('')
   }
 
-  const heatmapActive = layers.heatmap || layers.clouds || layers.bortle
+  const heatmapActive = layers.clouds || layers.bortle
 
   return (
     <div style={{
