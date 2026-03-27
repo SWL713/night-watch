@@ -14,6 +14,7 @@ import SubmitSpot from './components/SubmitSpot.jsx'
 import MapSearch from './components/MapSearch.jsx'
 import SightingLayer from './components/SightingLayer.jsx'
 import SightingForm from './components/SightingForm.jsx'
+import CameraSettings from './components/CameraSettings.jsx'
 import SightingPopup from './components/SightingPopup.jsx'
 import { useSightings } from './hooks/useSpots.js'
 import SubmitPhoto from './components/SubmitPhoto.jsx'
@@ -89,7 +90,10 @@ function App() {
   const [pinMode, setPinMode] = useState(false) // true = user clicked "place pin" button
   const [sightingPinMode, setSightingPinMode] = useState(false)
   const [nightMode, setNightMode] = useState(false)
-  const [peruMode, setPeruMode] = useState(false) // picking location for sighting report
+  const [peruMode, setPeruMode] = useState(false)
+  const [cameraMode, setCameraMode] = useState(false)
+  const [cameraCoords, setCameraCoords] = useState(null)
+  const [showCamera, setShowCamera] = useState(false) // picking location for sighting report
   const [sightingPendingCoords, setSightingPendingCoords] = useState(null)
 
   function toggleLayer(key) {
@@ -153,7 +157,7 @@ function App() {
           minZoom={MAP_BOUNDS.minZoom}
           maxZoom={MAP_BOUNDS.maxZoom}
           zoomControl={false}
-          style={{ height: '100%', width: '100%', background: '#06080f', cursor: (pinMode || sightingPinMode) ? 'crosshair' : 'grab' }}
+          style={{ height: '100%', width: '100%', background: '#06080f', cursor: (pinMode || sightingPinMode || cameraMode) ? 'crosshair' : 'grab' }}
         >
           {/* Dark base tile layer */}
           <TileLayer
@@ -186,11 +190,34 @@ function App() {
             </button>
           </div>
 
+          {/* Camera advisor button */}
+          <div style={{ position: 'absolute', top: 100, left: 12, zIndex: 1000 }}>
+            <button
+              onClick={() => { setCameraMode(m => !m); setShowCamera(false) }}
+              title="Camera settings advisor"
+              style={{
+                width: 36, height: 36,
+                background: cameraMode ? '#001a0d' : '#070b16',
+                border: `1px solid ${cameraMode ? '#44ddaa' : '#1a2a3a'}`,
+                borderRadius: 2, cursor: 'pointer',
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                fontSize: 16, color: cameraMode ? '#44ddaa' : '#445566',
+                transition: 'all 0.15s', outline: 'none',
+              }}
+            >
+              📷
+            </button>
+          </div>
+
           {/* Map click handler — only active in pin placement mode */}
           <MapClickHandler
-            active={pinMode || sightingPinMode}
+            active={pinMode || sightingPinMode || cameraMode}
             onMapClick={(lat, lon) => {
-              if (sightingPinMode) {
+              if (cameraMode) {
+                setCameraCoords({ lat, lon })
+                setCameraMode(false)
+                setShowCamera(true)
+              } else if (sightingPinMode) {
                 setSightingPendingCoords({ lat, lon })
                 setSightingPinMode(false)
                 setModal('reportAurora')
@@ -238,6 +265,22 @@ function App() {
           )}
 
         </MapContainer>
+
+        {/* Camera advisor panel */}
+        {showCamera && cameraCoords && (
+          <CameraSettings
+            onClose={() => { setShowCamera(false); setCameraCoords(null) }}
+            locationData={{
+              lat: cameraCoords.lat,
+              lon: cameraCoords.lon,
+              bortle: 5,
+              moonUp: false,
+              moonIllum: 0,
+              mlat: null,
+            }}
+            spaceWeather={{ intensity: sw?.intensity || 'Weak' }}
+          />
+        )}
 
         {/* Sighting popup — outside MapContainer so it's a plain div */}
         {selectedSighting && sightingScreen && (
