@@ -268,7 +268,21 @@ function App() {
 
         {/* Camera advisor panel */}
         {showCamera && cameraCoords && (() => {
-          const camBortle = (bortleGrid ? Math.round(getBortle(bortleGrid, cameraCoords.lat, cameraCoords.lon)) : 5) || 5
+          // getBortle returns 5 as default when outside grid coverage
+          // For out-of-grid locations, estimate from latitude — higher lat = darker sky
+          const rawBortle = bortleGrid ? getBortle(bortleGrid, cameraCoords.lat, cameraCoords.lon) : null
+          const isOutsideGrid = !rawBortle || rawBortle === 5 && cameraCoords.lat > 52
+          let camBortle
+          if (isOutsideGrid) {
+            // Rough latitude-based estimate for areas north of grid coverage
+            const lat = cameraCoords.lat
+            if (lat > 65)      camBortle = 1   // Arctic — essentially pristine
+            else if (lat > 58) camBortle = 2   // Northern Canada/Scandinavia
+            else if (lat > 52) camBortle = 2   // Rural Canada
+            else               camBortle = Math.round(rawBortle) || 5
+          } else {
+            camBortle = Math.round(rawBortle) || 5
+          }
           return (
             <CameraSettings
               onClose={() => { setShowCamera(false); setCameraCoords(null) }}
