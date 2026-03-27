@@ -70,6 +70,10 @@ export default function CameraSettings({ onClose, locationData, spaceWeather }) 
   // Conditions
   const [intensity, setIntensity]         = useState(spaceWeather?.intensity || 'Weak')
   const [overrideConditions, setOverride] = useState(false)
+  const [overrideBortle, setOverrideBortle] = useState(locationData?.bortle || 5)
+  const [overrideMoonUp, setOverrideMoonUp] = useState(locationData?.moonUp ?? false)
+  const [overrideMoonIllum, setOverrideMoonIllum] = useState(locationData?.moonIllum ?? 0)
+  const [overrideLatitude, setOverrideLatitude] = useState(locationData?.lat ?? 44)
   const [moonUp]   = useState(locationData?.moonUp ?? false)
   const [moonIllum] = useState(locationData?.moonIllum ?? 0)
   const [bortle]   = useState(locationData?.bortle ?? 5)
@@ -105,10 +109,10 @@ export default function CameraSettings({ onClose, locationData, spaceWeather }) 
       hasTripod,
       hasStarTracker,
       intensity,
-      moonUp,
-      moonIllumination: moonIllum,
-      bortle,
-      latitude,
+      moonUp:          overrideConditions ? overrideMoonUp    : moonUp,
+      moonIllumination: overrideConditions ? overrideMoonIllum : moonIllum,
+      bortle:          overrideConditions ? overrideBortle    : bortle,
+      latitude:        overrideConditions ? overrideLatitude  : latitude,
     })
     setResult(r)
     setStep('results')
@@ -264,49 +268,98 @@ export default function CameraSettings({ onClose, locationData, spaceWeather }) 
             {/* Conditions */}
             <div style={{ marginBottom: 12 }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
-                <Label>AURORA CONDITIONS</Label>
+                <Label>CONDITIONS</Label>
                 <label style={{ display: 'flex', alignItems: 'center', gap: 4,
-                  color: '#334455', fontSize: 8, cursor: 'pointer' }}>
+                  color: overrideConditions ? '#44ddaa' : '#334455', fontSize: 8, cursor: 'pointer' }}>
                   <input type="checkbox" checked={overrideConditions}
                     onChange={e => setOverride(e.target.checked)} />
-                  override
+                  override all
                 </label>
               </div>
-              {!overrideConditions ? (
-                <div style={{ background: '#060810', border: '1px solid #1a2a3a',
-                  borderRadius: 2, padding: '5px 8px', fontSize: 9,
-                  color: INTENSITY_COLORS[intensity] || '#aabbcc' }}>
-                  {intensity} (from live conditions)
+
+              {/* Aurora intensity */}
+              <div style={{ marginBottom: 6 }}>
+                <Label>AURORA INTENSITY</Label>
+                {!overrideConditions ? (
+                  <div style={{ background: '#060810', border: '1px solid #1a2a3a',
+                    borderRadius: 2, padding: '5px 8px', fontSize: 9,
+                    color: INTENSITY_COLORS[intensity] || '#aabbcc' }}>
+                    {intensity} (from live conditions)
+                  </div>
+                ) : (
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }}>
+                    {INTENSITIES.map(i => (
+                      <button key={i} onClick={() => setIntensity(i)} style={{
+                        padding: '3px 6px', fontSize: 8, fontFamily: FONT, borderRadius: 2,
+                        cursor: 'pointer', letterSpacing: 0.5,
+                        background: intensity === i ? '#0d2a1a' : '#060810',
+                        border: `1px solid ${intensity === i ? (INTENSITY_COLORS[i] || '#44ddaa') : '#1a2a3a'}`,
+                        color: intensity === i ? (INTENSITY_COLORS[i] || '#44ddaa') : '#445566',
+                      }}>{i}</button>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              {/* Bortle, Moon, Latitude overrides */}
+              {overrideConditions && (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginTop: 6 }}>
+                  <div>
+                    <Label>BORTLE CLASS (1=darkest, 9=city)</Label>
+                    <select style={selectStyle} value={overrideBortle}
+                      onChange={e => setOverrideBortle(parseInt(e.target.value))}>
+                      {[1,2,3,4,5,6,7,8,9].map(b => (
+                        <option key={b} value={b}>
+                          {b} — {['Exceptional', 'Truly Dark', 'Rural Sky', 'Rural/Suburban', 'Suburban',
+                            'Bright Suburban', 'Suburban/Urban', 'City', 'Inner City'][b-1]}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <div>
+                    <Label>MOON</Label>
+                    <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+                      <label style={{ display: 'flex', alignItems: 'center', gap: 4,
+                        color: '#aabbcc', fontSize: 9, cursor: 'pointer' }}>
+                        <input type="checkbox" checked={overrideMoonUp}
+                          onChange={e => setOverrideMoonUp(e.target.checked)} />
+                        Moon is up
+                      </label>
+                      {overrideMoonUp && (
+                        <input type="number" style={{ ...inputStyle, width: 60 }}
+                          value={overrideMoonIllum} min={0} max={100}
+                          onChange={e => setOverrideMoonIllum(parseInt(e.target.value))}
+                          placeholder="%" />
+                      )}
+                      {overrideMoonUp && <span style={{ color: '#445566', fontSize: 8 }}>% illuminated</span>}
+                    </div>
+                  </div>
+                  <div>
+                    <Label>LATITUDE (degrees)</Label>
+                    <input type="number" style={inputStyle} value={overrideLatitude}
+                      min={30} max={70} step={0.1}
+                      onChange={e => setOverrideLatitude(parseFloat(e.target.value))} />
+                  </div>
                 </div>
-              ) : (
-                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }}>
-                  {INTENSITIES.map(i => (
-                    <button key={i} onClick={() => setIntensity(i)} style={{
-                      padding: '3px 6px', fontSize: 8, fontFamily: FONT, borderRadius: 2,
-                      cursor: 'pointer', letterSpacing: 0.5,
-                      background: intensity === i ? '#0d2a1a' : '#060810',
-                      border: `1px solid ${intensity === i ? (INTENSITY_COLORS[i] || '#44ddaa') : '#1a2a3a'}`,
-                      color: intensity === i ? (INTENSITY_COLORS[i] || '#44ddaa') : '#445566',
-                    }}>{i}</button>
+              )}
+
+              {/* Summary when not overriding */}
+              {!overrideConditions && (
+                <div style={{ background: '#060810', border: '1px solid #0d1525',
+                  borderRadius: 2, padding: '6px 8px', marginTop: 6,
+                  display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+                  {[
+                    { label: 'Bortle', value: bortle },
+                    { label: 'Moon', value: moonUp ? `Up · ${moonIllum}%` : 'Down' },
+                    { label: 'Latitude', value: `${latitude?.toFixed(1)}°` },
+                  ].map(({ label, value }) => (
+                    <div key={label} style={{ fontSize: 8 }}>
+                      <span style={{ color: '#334455' }}>{label}: </span>
+                      <span style={{ color: '#778899' }}>{value}</span>
+                    </div>
                   ))}
                 </div>
               )}
-            </div>
-
-            {/* Conditions summary */}
-            <div style={{ background: '#060810', border: '1px solid #0d1525',
-              borderRadius: 2, padding: '6px 8px', marginBottom: 12,
-              display: 'flex', gap: 10, flexWrap: 'wrap' }}>
-              {[
-                { label: 'Bortle', value: bortle },
-                { label: 'Moon', value: moonUp ? `Up · ${moonIllum}%` : 'Down' },
-                { label: 'Latitude', value: `${latitude?.toFixed(1)}°` },
-              ].map(({ label, value }) => (
-                <div key={label} style={{ fontSize: 8 }}>
-                  <span style={{ color: '#334455' }}>{label}: </span>
-                  <span style={{ color: '#778899' }}>{value}</span>
-                </div>
-              ))}
             </div>
 
             <button

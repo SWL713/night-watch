@@ -26,7 +26,7 @@ import { useCloudCover } from './hooks/useCloudCover.js'
 import { getMoonData } from './utils/moon.js'
 
 import { MAP_BOUNDS, PASSPHRASE } from './config.js'
-import { loadBortleGrid } from './utils/bortleGrid.js'
+import { loadBortleGrid, getBortle } from './utils/bortleGrid.js'
 
 // Fix Leaflet default marker icon path issue with Vite
 import L from 'leaflet'
@@ -267,20 +267,23 @@ function App() {
         </MapContainer>
 
         {/* Camera advisor panel */}
-        {showCamera && cameraCoords && (
-          <CameraSettings
-            onClose={() => { setShowCamera(false); setCameraCoords(null) }}
-            locationData={{
-              lat: cameraCoords.lat,
-              lon: cameraCoords.lon,
-              bortle: 5,
-              moonUp: false,
-              moonIllum: 0,
-              mlat: null,
-            }}
-            spaceWeather={{ intensity: sw?.intensity || 'Weak' }}
-          />
-        )}
+        {showCamera && cameraCoords && (() => {
+          const camBortle = (bortleGrid ? Math.round(getBortle(bortleGrid, cameraCoords.lat, cameraCoords.lon)) : 5) || 5
+          return (
+            <CameraSettings
+              onClose={() => { setShowCamera(false); setCameraCoords(null) }}
+              locationData={{
+                lat: cameraCoords.lat,
+                lon: cameraCoords.lon,
+                bortle: camBortle,
+                moonIllum: Math.round((moonData?.illumination || 0) * 100),
+                moonUp: (moonData?.illumination || 0) > 0,
+                mlat: null,
+              }}
+              spaceWeather={{ intensity: sw?.intensity || 'Weak' }}
+            />
+          )
+        })()}
 
         {/* Sighting popup — outside MapContainer so it's a plain div */}
         {selectedSighting && sightingScreen && (
