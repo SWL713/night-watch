@@ -14,6 +14,8 @@ import SubmitSpot from './components/SubmitSpot.jsx'
 import MapSearch from './components/MapSearch.jsx'
 import SightingLayer from './components/SightingLayer.jsx'
 import SightingForm from './components/SightingForm.jsx'
+import CameraLayer from './components/CameraLayer.jsx'
+import CameraPopup from './components/CameraPopup.jsx'
 import CameraSettings from './components/CameraSettings.jsx'
 import SightingPopup from './components/SightingPopup.jsx'
 import { useSightings } from './hooks/useSpots.js'
@@ -98,9 +100,11 @@ function App() {
   const [cameraMode, setCameraMode] = useState(false)
   const [cameraCoords, setCameraCoords] = useState(null)
   const [showCamera, setShowCamera] = useState(false) // picking location for sighting report
+  const [activeCam, setActiveCam] = useState(null)
   const [sightingPendingCoords, setSightingPendingCoords] = useState(null)
 
   function toggleLayer(key) {
+    if (key === 'cameras') setActiveCam(null)
     setLayers(prev => ({ ...prev, [key]: !prev[key] }))
   }
 
@@ -248,6 +252,14 @@ function App() {
             />
           )}
 
+          {/* Camera markers */}
+          {layers.cameras && (
+            <CameraLayer
+              onCameraClick={cam => setActiveCam(cam)}
+              activeId={activeCam?.id}
+            />
+          )}
+
           {/* Sighting rings */}
           {layers.sightings && (
             <SightingLayer
@@ -257,6 +269,14 @@ function App() {
           )}
 
         </MapContainer>
+
+        {/* Live cam popup */}
+        {activeCam && (
+          <CameraPopup
+            camera={activeCam}
+            onClose={() => setActiveCam(null)}
+          />
+        )}
 
         {/* Camera advisor panel */}
         {showCamera && cameraCoords && (() => {
