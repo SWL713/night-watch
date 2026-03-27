@@ -199,7 +199,7 @@ const CloudCanvas = L.Layer.extend({
 
     const latMax = lats[0], lonMin = lons[0]
     const spacing = Math.abs(lats[0] - lats[1])
-    const FADE = spacing * 2
+    const FADE = spacing * 8
     const mode = this._mode
     const imageData = ctx.createImageData(W, H)
     const data = imageData.data
@@ -224,23 +224,26 @@ const CloudCanvas = L.Layer.extend({
           : vals.reduce((a,b) => a+b, 0) / vals.length
         cf = Math.max(0, Math.min(1, cf))  // cloud fraction 0-1
 
-        const edgeFade = Math.max(0, Math.min(1,
+        const rawFade = Math.max(0, Math.min(1,
           Math.min(ll.lat - lats[rows-1], latMax - ll.lat,
                    ll.lng - lonMin, lons[cols-1] - ll.lng) / FADE))
+        // Smooth power curve — fades gradually rather than linearly
+        const edgeFade = Math.pow(rawFade, 0.4)
 
         const idx = (py * W + px) * 4
 
-        // Don't render below 25% cloud cover — that's essentially clear sky
-        if (cf < 0.25) continue
+        // Soft ramp below 30% — fades to transparent rather than hard cutoff
+        if (cf < 0.10) continue
+        const cloudFade = cf < 0.30 ? (cf - 0.10) / 0.20 : 1.0
 
         if (mode === 'clouds') {
           // Standalone: transparent=clear → red=cloudy
           data[idx] = 180; data[idx+1] = 0; data[idx+2] = 10
-          data[idx+3] = Math.round(cf * 0.50 * edgeFade * 255)
+          data[idx+3] = Math.round(cf * 0.50 * edgeFade * cloudFade * 255)
         } else {
           // Combined: transparent=clear → red=cloudy, over VIIRS tiles
           data[idx] = 180; data[idx+1] = 0; data[idx+2] = 10
-          data[idx+3] = Math.round(cf * 0.50 * edgeFade * 255)
+          data[idx+3] = Math.round(cf * 0.50 * edgeFade * cloudFade * 255)
         }
       }
     }
