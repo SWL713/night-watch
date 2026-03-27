@@ -388,7 +388,7 @@ function App() {
           position: 'absolute', bottom: 0, left: 0, right: 0,
           background: '#06080f', borderTop: '1px solid #1a2035',
           display: 'flex', alignItems: 'center',
-          padding: '0 0', height: 52, zIndex: 2000,
+          padding: '0 0', height: 52, zIndex: 2000, overflow: 'visible',
         }}>
           {/* Action buttons — span same width as layer controls (110px total) */}
           <div style={{ display: 'flex', gap: 4, alignItems: 'stretch',
@@ -432,7 +432,7 @@ function App() {
 
           {/* Rest of bar */}
           <div style={{ display: 'flex', flex: 1, alignItems: 'center',
-            gap: 8, padding: '0 10px', overflow: 'hidden' }}>
+            gap: 8, padding: '0 10px', overflow: 'visible' }}>
             {/* Pending pin coords */}
             {pendingPin && !pinMode && (
               <>
@@ -449,10 +449,10 @@ function App() {
 
             {/* Admin — input + GO stacked vertically to save lateral space */}
             {!adminAuthed && (
-              <div style={{ position: 'relative' }}>
+              <div style={{ position: 'relative', overflow: 'visible' }}>
                 {queueCount > 0 && (
                   <div style={{
-                    position: 'fixed', bottom: 42, right: 10, zIndex: 9999,
+                    position: 'absolute', top: -8, right: -8, zIndex: 9999,
                     background: '#cc4400', borderRadius: '50%',
                     width: 16, height: 16, fontSize: 8, fontFamily: FONT,
                     display: 'flex', alignItems: 'center', justifyContent: 'center',
@@ -481,10 +481,10 @@ function App() {
               </div>
             )}
             {adminAuthed && (
-              <div style={{ position: 'relative' }}>
+              <div style={{ position: 'relative', overflow: 'visible' }}>
                 {queueCount > 0 && (
                   <div style={{
-                    position: 'fixed', bottom: 42, right: 10, zIndex: 9999,
+                    position: 'absolute', top: -8, right: -8, zIndex: 9999,
                     background: '#cc4400', borderRadius: '50%',
                     width: 16, height: 16, fontSize: 8, fontFamily: FONT,
                     display: 'flex', alignItems: 'center', justifyContent: 'center',
