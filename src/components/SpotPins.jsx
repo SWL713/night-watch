@@ -71,7 +71,7 @@ function SpotPin({ spot, selectedHour, getCloudAt, spaceWeather, onSubmitPhoto, 
 
   // Size: bigger = better sky conditions
   const quality = (1 - cloudFraction) * bortleScore(bortle)
-  const size    = 10 + Math.round(quality * 7)
+  const size    = 12
 
   return (
     <Marker
