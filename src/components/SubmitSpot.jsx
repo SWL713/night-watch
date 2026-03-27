@@ -92,17 +92,22 @@ export default function SubmitSpot({ onClose, initialCoords }) {
   useEffect(() => {
     const lat = parseFloat(form.lat)
     const lon = parseFloat(form.lon)
-    if (isNaN(lat) || isNaN(lon) || Math.abs(lat) > 90 || Math.abs(lon) > 180) return
+    if (isNaN(lat) || isNaN(lon) || Math.abs(lat) > 90 || Math.abs(lon) > 180) {
+      setBortleLookup(null)
+      setBortleOverride(false)
+      return
+    }
     // Debounce — only look up after user stops typing
     const t = setTimeout(async () => {
       setBortleLookup('loading')
       setBortleOverride(false)
       const b = await fetchBortleFromLPM(lat, lon)
-      if (b !== null) {
+      if (b !== null && typeof b === 'number') {
         setBortleLookup(b)
-        setForm(f => ({ ...f, bortle: String(b) }))
+        set('bortle', String(b))
       } else {
         setBortleLookup('failed')
+        set('bortle', '')
       }
     }, 800)
     return () => clearTimeout(t)
