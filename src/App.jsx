@@ -105,6 +105,7 @@ function App() {
   const [cameraMode, setCameraMode] = useState(false)
   const [cameraCoords, setCameraCoords] = useState(null)
   const [showCamera, setShowCamera] = useState(false) // picking location for sighting report
+  const [clearSkyMode, setClearSkyMode] = useState(false)
   const [activeCam, setActiveCam] = useState(null)
   const [sightingPendingCoords, setSightingPendingCoords] = useState(null)
 
