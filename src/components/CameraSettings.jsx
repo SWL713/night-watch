@@ -133,7 +133,7 @@ export default function CameraSettings({ onClose, locationData, spaceWeather }) 
   // ── Render ───────────────────────────────────────────────────────────────
   return (
     <div style={{
-      position: 'absolute', top: 56, left: 12, zIndex: 2000,
+      position: 'absolute', top: 56, left: 12, zIndex: 9999,
       background: '#070b16', border: '1px solid #1a3a2a',
       borderRadius: 4, width: 310, maxHeight: '80vh',
       overflow: 'hidden', display: 'flex', flexDirection: 'column',
