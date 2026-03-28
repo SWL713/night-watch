@@ -159,6 +159,9 @@ function App() {
           zoom={MAP_BOUNDS.zoom}
           minZoom={MAP_BOUNDS.minZoom}
           maxZoom={MAP_BOUNDS.maxZoom}
+          zoomSnap={0.25}
+          zoomDelta={0.25}
+          wheelPxPerZoomLevel={120}
           zoomControl={false}
           style={{ height: '100%', width: '100%', background: '#06080f', cursor: 'inherit' }}
         >

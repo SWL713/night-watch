@@ -23,8 +23,8 @@ export const SPACE_WEATHER_URL = 'https://raw.githubusercontent.com/SWL713/night
 export const MAP_BOUNDS = {
   center: [43.5, -74.5],
   zoom: 7,
-  minZoom: 5,
-  maxZoom: 16,
+  minZoom: 4,
+  maxZoom: 18,
 }
 
 export const GRID_BOUNDS  = { minLat: 38.5, maxLat: 47.5, minLon: -82, maxLon: -66 }
