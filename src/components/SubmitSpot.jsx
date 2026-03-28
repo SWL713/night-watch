@@ -70,6 +70,7 @@ export default function SubmitSpot({ onClose, initialCoords }) {
     bortle: '',
     view_direction: '',
     access_notes: '',
+    address: '',
     horizon_rating: '',
   })
   const [bortleLookup, setBortleLookup] = useState(null)  // 'loading' | number | 'failed'
@@ -134,6 +135,7 @@ export default function SubmitSpot({ onClose, initialCoords }) {
       bortle: parseInt(form.bortle),
       view_direction: form.view_direction,
       access_notes: form.access_notes,
+      address: form.address || null,
       horizon_rating: parseInt(form.horizon_rating),
     })
     setSpotSubmitting(false)
@@ -315,6 +317,10 @@ export default function SubmitSpot({ onClose, initialCoords }) {
           <option value="">Horizon quality *</option>
           {[1,2,3,4,5].map(n => <option key={n} value={n}>{n} star{n>1?'s':''}</option>)}
         </select>
+
+        <input style={inputStyle} value={form.address}
+          onChange={e => set('address', e.target.value)}
+          placeholder="Street address (optional — for directions)" maxLength={200} />
 
         <textarea style={{ ...inputStyle, resize: 'vertical', minHeight: 50 }}
           value={form.access_notes} onChange={e => set('access_notes', e.target.value)}

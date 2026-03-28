@@ -76,9 +76,39 @@ export default function SpotCard({ spot, onClose, spaceWeather, onSubmitPhoto })
           <Row label="View" value={spot.view_direction} />
           <Row label="Bortle" value={spot.bortle} />
           <Row label="Horizon" value={'★'.repeat(spot.horizon_rating || 3) + '☆'.repeat(5-(spot.horizon_rating||3))} />
-          <Row label="Access" value={spot.access_notes} small />
-          <div style={{ marginTop: 6, color: '#334455', fontSize: 9, letterSpacing: 1 }}>
+          {spot.access_notes && <Row label="Access" value={spot.access_notes} small />}
+          {spot.address && <Row label="Address" value={spot.address} small />}
+
+          <div style={{ color: '#223344', fontSize: 8, marginTop: 4 }}>
             {spot.lat.toFixed(4)}, {spot.lon.toFixed(4)}
+          </div>
+
+          {/* Directions buttons */}
+          <div style={{ display: 'flex', gap: 6, marginTop: 8 }}>
+            <a
+              href={`https://maps.apple.com/?daddr=${spot.address ? encodeURIComponent(spot.address) : `${spot.lat},${spot.lon}`}&dirflg=d`}
+              target="_blank" rel="noopener"
+              style={{
+                flex: 1, padding: '6px 0', fontSize: 8, letterSpacing: 1,
+                background: '#060810', border: '1px solid #1a3a5a',
+                color: '#44aaff', textDecoration: 'none', textAlign: 'center',
+                borderRadius: 2, fontFamily: FONT, display: 'block',
+              }}
+            >
+              🍎 Apple Maps
+            </a>
+            <a
+              href={`https://www.google.com/maps/dir/?api=1&destination=${spot.address ? encodeURIComponent(spot.address) : `${spot.lat},${spot.lon}`}`}
+              target="_blank" rel="noopener"
+              style={{
+                flex: 1, padding: '6px 0', fontSize: 8, letterSpacing: 1,
+                background: '#060810', border: '1px solid #1a3a5a',
+                color: '#44aaff', textDecoration: 'none', textAlign: 'center',
+                borderRadius: 2, fontFamily: FONT, display: 'block',
+              }}
+            >
+              🌐 Google Maps
+            </a>
           </div>
         </div>
       )}
