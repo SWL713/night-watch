@@ -75,8 +75,6 @@ export function locationScore(spot) {
   const hScore = (spot.horizon_rating || 3) / 5
   return (bScore * 0.6 + hScore * 0.4)
 }
-  return ranks[label] ?? 0
-}
 
 // Verify calibration
 // Bortle 2 → score should be ~1.0 (full green)
