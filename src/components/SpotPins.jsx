@@ -5,6 +5,7 @@ import { bortleScore, scoreToRGB } from '../utils/scoring.js'
 import { getBortle } from '../utils/bortleGrid.js'
 import { fetchBortleAt } from '../utils/bortleApi.js'
 import SpotCard from './SpotCard.jsx'
+import { getAvgCloudForSpot } from './ClearSkyLayer.jsx'
 
 function createPin(r, g, b, size) {
   const color = `rgb(${r},${g},${b})`
@@ -38,7 +39,7 @@ function addCloudRed(rgb, cloudFraction) {
   ]
 }
 
-function SpotPin({ spot, selectedHour, getCloudAt, spaceWeather, onSubmitPhoto, mode, bortleGrid }) {
+function SpotPin({ spot, selectedHour, getCloudAt, cloudData, spaceWeather, onSubmitPhoto, mode, bortleGrid, clearSkyMode }) {
   // Use stored bortle, or look up from grid, or fetch from API as last resort
   const storedBortle = spot.bortle ?? null
   const gridBortle   = bortleGrid ? getBortle(bortleGrid, spot.lat, spot.lon) : null
@@ -58,14 +59,22 @@ function SpotPin({ spot, selectedHour, getCloudAt, spaceWeather, onSubmitPhoto, 
 
   // Color logic per mode
   let rgb
-  if (mode === 'bortle') {
-    // Pure bortle — matches the tile colors beneath
+  if (clearSkyMode) {
+    // Clear sky mode — teal=clear, pink/red=cloudy, bortle ignored
+    const avgCloud = getAvgCloudForSpot(cloudData, spot.lat, spot.lon)
+    const avgFrac = avgCloud !== null ? Math.max(0, Math.min(1, avgCloud / 100)) : cloudFraction
+    const clearFrac = 1 - avgFrac  // 1=clear, 0=cloudy
+    // Teal (0,210,180) → pink/red (220,40,100)
+    rgb = [
+      Math.round(0   + (220 - 0)   * avgFrac),  // R: 0→220
+      Math.round(210 + (40  - 210) * avgFrac),  // G: 210→40
+      Math.round(180 + (100 - 180) * avgFrac),  // B: 180→100
+    ]
+  } else if (mode === 'bortle') {
     rgb = bortleToRGB(bortle)
   } else if (mode === 'clouds') {
-    // Pure cloud — green=clear, red=cloudy, bortle irrelevant
     rgb = scoreToRGB(1 - cloudFraction)
   } else {
-    // Combined — bortle is baseline, clouds push toward red
     rgb = addCloudRed(bortleToRGB(bortle), cloudFraction)
   }
 
@@ -90,7 +99,7 @@ function SpotPin({ spot, selectedHour, getCloudAt, spaceWeather, onSubmitPhoto, 
   )
 }
 
-export default function SpotPins({ spots, selectedHour, getCloudAt, spaceWeather, onSubmitPhoto, mode, bortleGrid }) {
+export default function SpotPins({ spots, selectedHour, getCloudAt, cloudData, spaceWeather, onSubmitPhoto, mode, bortleGrid, clearSkyMode }) {
   return (
     <>
       {spots.map(spot => (
@@ -99,10 +108,12 @@ export default function SpotPins({ spots, selectedHour, getCloudAt, spaceWeather
           spot={spot}
           selectedHour={selectedHour}
           getCloudAt={getCloudAt}
+          cloudData={cloudData}
           spaceWeather={spaceWeather}
           onSubmitPhoto={onSubmitPhoto}
           mode={mode}
           bortleGrid={bortleGrid}
+          clearSkyMode={clearSkyMode}
         />
       ))}
     </>
