@@ -63,14 +63,13 @@ function SpotPin({ spot, selectedHour, getCloudAt, cloudData, spaceWeather, onSu
     // Clear sky mode — teal=clear, pink/red=cloudy, bortle ignored
     const avgCloud = getAvgCloudForSpot(cloudData, spot.lat, spot.lon)
     const avgFrac = avgCloud !== null ? Math.max(0, Math.min(1, avgCloud / 100)) : cloudFraction
-    // Power curve: avgFrac=cloud fraction (0=clear, 1=cloudy)
-    // Steeper so 50% cloudy looks clearly bad
-    const penalized = Math.pow(avgFrac, 0.75)  // moderate curve toward bad end
-    // Teal (30,210,175) → hot pink (255,20,120)
+    // t goes 0 (clear) → 1 (cloudy), power 1.5 so midpoint leans toward red
+    const t = Math.pow(avgFrac, 1.5)
+    // Teal (0,200,170) → red (220,30,60)
     rgb = [
-      Math.round(30  + (255 - 30)  * penalized),  // R: 30→255
-      Math.round(210 + (20  - 210) * penalized),  // G: 210→20
-      Math.round(175 + (120 - 175) * penalized),  // B: 175→120
+      Math.round(0   + (220 - 0)   * t),  // R: 0→220
+      Math.round(200 + (30  - 200) * t),  // G: 200→30
+      Math.round(170 + (60  - 170) * t),  // B: 170→60
     ]
   } else if (mode === 'bortle') {
     rgb = bortleToRGB(bortle)
