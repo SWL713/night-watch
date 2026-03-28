@@ -921,80 +921,57 @@ def fetch_hrrr_cloud(grid):
 
     now = datetime.now(timezone.utc)
 
-    # HRRR files are ready ~45-60 min after the hour — subtract 60 min to be safe
-    # Try HRRR runs starting at 90-min lookback, falling back one hour at a time
-    # if NOMADS hasn't finished publishing the run yet (too few hours available).
-    # HRRR takes 60-90 min to publish all forecast hours after the model run.
-    # We try up to 4 candidates (90, 150, 210, 270 min back) to find a complete run.
-    best_messages = []
-    best_run_label = None
-    hours_needed = []
+    # Hybrid strategy: fetch fresh run for near-term accuracy, fill future gaps
+    # from the last complete run for full 8-18h forecast coverage.
+    #
+    # Step 1: identify the freshest run (45-min lookback) and a reliable
+    #         complete run (150-min lookback, ~2.5hrs old = fully published).
+    # Step 2: fetch all available hours from the fresh run.
+    # Step 3: fetch any future hours missing from the fresh run using the
+    #         complete run as a filler — giving accurate NOW + full outlook.
 
-    for lookback_min in [90, 150, 210, 270]:
-        run_dt   = now - timedelta(minutes=lookback_min)
-        run_hour = run_dt.hour
-        run_date = run_dt.strftime('%Y%m%d')
-        base_url = f'{HRRR_BASE}hrrr.{run_date}/conus/hrrr.t{run_hour:02d}z'
+    def make_run(lookback_min):
+        dt = now - timedelta(minutes=lookback_min)
+        return {
+            'dt': dt,
+            'hour': dt.hour,
+            'date': dt.strftime('%Y%m%d'),
+            'valid': dt.replace(minute=0, second=0, microsecond=0),
+            'base_url': f'{HRRR_BASE}hrrr.{dt.strftime("%Y%m%d")}/conus/hrrr.t{dt.hour:02d}z',
+        }
 
-        run_valid = run_dt.replace(minute=0, second=0, microsecond=0)
-        hours_needed = []
+    fresh_run    = make_run(45)    # most recent — may only have f00-f04
+    complete_run = make_run(150)   # ~2.5hrs old — reliably has all f00-f18
+
+    log.info(f'HRRR: fresh={fresh_run["date"]} {fresh_run["hour"]:02d}Z, '
+             f'complete={complete_run["date"]} {complete_run["hour"]:02d}Z')
+
+    def hours_for_run(run):
+        result = []
         for fh in range(0, 19):
-            valid_time = run_valid + timedelta(hours=fh)
+            valid_time = run['valid'] + timedelta(hours=fh)
             offset_hr  = (valid_time - now).total_seconds() / 3600
             if -1.5 <= offset_hr <= 18.5:
-                hours_needed.append((fh, valid_time))
+                result.append((fh, valid_time))
+        return result
 
-        if not hours_needed:
-            continue
-
-        log.info(f'HRRR: trying run {run_date} {run_hour:02d}Z (lookback={lookback_min}min)')
-
-        # Quick probe — check how many hours are available by testing a few idx files
-        available = 0
-        for fh, _ in hours_needed[:4]:  # probe first 4 hours as a quick check
-            try:
-                idx_url = f'{base_url}.wrfsfcf{fh:02d}.grib2.idx'
-                r = requests.head(idx_url, timeout=4)
-                if r.status_code == 200:
-                    available += 1
-            except Exception:
-                pass
-
-        if available < 2:
-            log.info(f'HRRR: run {run_hour:02d}Z only {available} hours probed — stepping back')
-            continue
-
-        log.info(f'HRRR: using run {run_date} {run_hour:02d}Z — {available}/4 probe hours available')
-        best_run_label = f'{run_date} {run_hour:02d}Z'
-        log.info(f'HRRR: fetching forecast hours {[h[0] for h in hours_needed]}')
-        break
-
-    if not hours_needed or best_run_label is None:
-        log.warning('HRRR: no usable run found in any lookback window')
-        return None
-
+    # We'll track which valid_times we have covered so far
+    covered_times = set()
     all_messages = []   # list of (valid_time, lat_flat, lon_flat, cloud_flat)
 
-    for fh, valid_time in hours_needed:
-        try:
-            grib_url = f'{base_url}.wrfsfcf{fh:02d}.grib2'
-            idx_url  = f'{grib_url}.idx'
+    # Fetch from a given run, only for hours whose valid_time is not yet covered
+    LAYER_TARGETS = {'TCDC': {'level_keyword': 'entire', 'weight': 1.0}}
 
-            # Fetch index file (~50KB)
+    def fetch_one_hour(run, fh, valid_time):
+        """Fetch a single HRRR forecast hour. Returns (valid_time, lat, lon, cloud) or None."""
+        import eccodes
+        grib_url = f'{run["base_url"]}.wrfsfcf{fh:02d}.grib2'
+        idx_url  = f'{grib_url}.idx'
+        try:
             idx_resp = requests.get(idx_url, timeout=10)
             if not idx_resp.ok:
                 log.warning(f'HRRR f{fh:02d}: idx HTTP {idx_resp.status_code}')
-                continue
-
-            # Fetch all cloud layers with aurora-visibility weights:
-            # TCDC entire atmosphere — smooth continuous values, naturally captures
-            # total optical depth including high cirrus. Exacerbated by light pollution
-            # in combined mode via bortle weighting. 40% frontend threshold filters
-            # truly negligible cirrus.
-            LAYER_TARGETS = {
-                'TCDC': {'level_keyword': 'entire', 'weight': 1.0},
-            }
-
+                return None
             lines = idx_resp.text.strip().split('\n')
             ranges = {}
             for i, line in enumerate(lines):
@@ -1006,19 +983,13 @@ def fetch_hrrr_cloud(grid):
                     byte_start = int(parts[1])
                     byte_end   = int(lines[i+1].split(':')[1]) - 1 if i+1 < len(lines) else None
                     ranges[var] = (byte_start, byte_end)
-
             if not ranges:
-                log.warning(f'HRRR f{fh:02d}: no cloud variables found in index')
-                continue
-
-            log.info(f'HRRR f{fh:02d}: fetching {list(ranges.keys())}')
-
-            import eccodes
+                log.warning(f'HRRR f{fh:02d}: no cloud variables in index')
+                return None
             lat_arr = lon_arr = None
             layer_data = {}
-
             for var_name, (byte_start, byte_end) in ranges.items():
-                hdrs      = {'Range': f'bytes={byte_start}-{byte_end if byte_end else ""}'}
+                hdrs = {'Range': f'bytes={byte_start}-{byte_end if byte_end else ""}'}
                 grib_resp = requests.get(grib_url, headers=hdrs, timeout=30)
                 if grib_resp.status_code not in (200, 206):
                     log.warning(f'HRRR f{fh:02d} {var_name}: GRIB HTTP {grib_resp.status_code}')
@@ -1040,30 +1011,53 @@ def fetch_hrrr_cloud(grid):
                                 eccodes.codes_release(h)
                 finally:
                     os.unlink(tmp_path)
-
             if lat_arr is not None and layer_data:
-                # Weighted average across all fetched layers
-                # TCDC provides smooth continuous base, LCDC/MCDC add precise blocking
-                # All layers at 100% = 100% cloud, all at 0% = 0% cloud
-                total_weight = sum(LAYER_TARGETS[v]['weight'] for v in layer_data)
-                weighted_sum = sum(layer_data[v] * LAYER_TARGETS[v]['weight'] for v in layer_data)
-                cloud_arr = np.clip(weighted_sum / total_weight, 0, 100)
-                all_messages.append((valid_time, lat_arr, lon_arr, cloud_arr))
+                total_w = sum(LAYER_TARGETS[v]['weight'] for v in layer_data)
+                w_sum   = sum(layer_data[v] * LAYER_TARGETS[v]['weight'] for v in layer_data)
+                cloud_arr = np.clip(w_sum / total_w, 0, 100)
                 log.info(f'HRRR f{fh:02d}: valid={valid_time.strftime("%H:%MZ")}, '
-                         f'{len(lat_arr)} pts, layers={list(layer_data.keys())}, '
-                         f'max_cc={cloud_arr.max():.0f}%')
+                         f'{len(lat_arr)} pts, max_cc={cloud_arr.max():.0f}%')
+                return (valid_time, lat_arr, lon_arr, cloud_arr)
             else:
                 log.warning(f'HRRR f{fh:02d}: no cloud data parsed')
-
+                return None
         except Exception as e:
             log.warning(f'HRRR f{fh:02d} error: {e}')
-            continue
+            return None
+
+    # ── Phase 1: Fetch all available hours from fresh run ────────────────────
+    fresh_hours = hours_for_run(fresh_run)
+    log.info(f'HRRR: Phase 1 — fresh run {fresh_run["hour"]:02d}Z, '
+             f'{len(fresh_hours)} candidate hours')
+    for fh, valid_time in fresh_hours:
+        result = fetch_one_hour(fresh_run, fh, valid_time)
+        if result:
+            all_messages.append(result)
+            covered_times.add(valid_time)
+
+    log.info(f'HRRR: Phase 1 complete — {len(all_messages)} hours from fresh run')
+
+    # ── Phase 2: Fill future gaps from complete run ──────────────────────────
+    complete_hours = hours_for_run(complete_run)
+    future_gaps = [(fh, vt) for fh, vt in complete_hours if vt not in covered_times and vt > now]
+    if future_gaps:
+        log.info(f'HRRR: Phase 2 — filling {len(future_gaps)} future hours from '
+                 f'complete run {complete_run["hour"]:02d}Z')
+        for fh, valid_time in future_gaps:
+            result = fetch_one_hour(complete_run, fh, valid_time)
+            if result:
+                all_messages.append(result)
+                covered_times.add(valid_time)
+        log.info(f'HRRR: Phase 2 complete — total {len(all_messages)} hours')
+    else:
+        log.info('HRRR: Phase 2 skipped — fresh run has complete coverage')
 
     if not all_messages:
-        log.warning('HRRR: no messages parsed — falling back to Open-Meteo')
+        log.warning('HRRR: no messages parsed')
         return None
 
-    log.info(f'HRRR: {len(all_messages)}/{len(hours_needed)} forecast hours parsed')
+    log.info(f'HRRR: {len(all_messages)} total forecast hours (hybrid fresh+complete)')
+    hours_needed = fresh_hours  # for downstream logging only
 
     # Resample from HRRR native Lambert grid to our lat/lon query points
     # using scipy griddata bilinear interpolation — much smoother than KDTree
