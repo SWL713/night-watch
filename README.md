@@ -1,7 +1,7 @@
 # 🌌 Night Watch
 
 **Aurora hunting app for the Northeast US and Southeast Canada.**
-Real-time space weather, HRRR cloud forecasts, light pollution mapping, community sighting reports, live camera network, and camera settings advisor — built for the Substorm Society aurora hunting community.
+Real-time space weather, HRRR cloud forecasts, light pollution mapping, community sighting reports, live camera network, camera settings advisor, and clear sky finder — built for the Substorm Society aurora hunting community.
 
 **Live:** [swl713.github.io/night-watch](https://swl713.github.io/night-watch)
 
@@ -9,14 +9,15 @@ Real-time space weather, HRRR cloud forecasts, light pollution mapping, communit
 
 ## What it does
 
-Night Watch combines five data sources on a single interactive map to answer one question: *where should I drive tonight to see the aurora, and is anyone seeing it right now?*
+Night Watch combines multiple data sources on a single interactive map to answer one question: *where should I drive tonight to see the aurora, and is anyone seeing it right now?*
 
 - **Space weather** — live Bz, solar wind speed and density, Kp index, G-scale storms, NOAA geomagnetic alerts, HSS detection, and an Ovation auroral oval overlay updated every 30–60 minutes
-- **Cloud cover** — HRRR model TCDC forecasts updated hourly, 18-hour forecast horizon for full overnight coverage from a single noon run
+- **Cloud cover** — HRRR model TCDC forecasts updated hourly, 18-hour forecast horizon for full overnight coverage
 - **Light pollution** — NASA GIBS VIIRS night light tiles recolored so dark sky is transparent and light-polluted areas glow orange to red
-- **Community spots** — curated dark sky viewing locations with cloud-adjusted scores, aurora photos, attribution, and a flag system
+- **Community spots** — curated dark sky viewing locations with cloud-adjusted scores, aurora photos, and directions
 - **Active Hunt sightings** — ephemeral crowdsourced aurora sighting reports with fading 30km rings that expire after 5 hours
 - **Live Cams** — 16+ aurora webcams across the Northeast US, Canada, and beyond as map markers with snapshot previews and Watch Live links
+- **Clear Sky Finder** — 8-hour average cloud heatmap showing the best opportunity windows across the region
 
 ---
 
@@ -24,11 +25,11 @@ Night Watch combines five data sources on a single interactive map to answer one
 
 | Button | What it shows |
 |--------|--------------|
-| **Clouds** | HRRR cloud cover — transparent = clear, solid red = overcast |
+| **Clouds** | HRRR cloud cover for selected hour — transparent = clear, red = overcast |
 | **Bortle** | VIIRS night light tiles — transparent = dark sky, orange/red = light polluted |
 | **Ovation Model** | NOAA Ovation auroral oval |
-| **Locations** | Community dark sky spots, color-coded by cloud-adjusted chase score |
-| **Live Cams** | Aurora webcam markers — tap for snapshot + Watch Live button |
+| **Locations** | Community dark sky spots, color-coded by chase score |
+| **Live Cams** | Aurora webcam markers — tap for snapshot + Watch Live |
 | **Active Hunt** | Live sighting reports — fading teal rings, expire in 5 hours |
 
 Both Clouds and Bortle are on by default. When both are active they render as a combined overlay. Toggle either off independently for clouds-only or bortle-only view.
@@ -42,8 +43,19 @@ Both Clouds and Bortle are on by default. When both are active they render as a 
 | 🔍 | Top-left of map | Location search via Nominatim / OpenStreetMap |
 | 🌙 | Below search | Night vision mode — red filter, defaults off |
 | 📷 | Below moon | Camera settings advisor |
-| G / HSS badges | Top-right | Current storm level; G badge updates per forecast hour |
+| ☁️ | Below camera | Clear sky finder — 8-hour average cloud heatmap |
+| G / HSS badges | Top-right | Current storm level |
 | +/− zoom | Bottom-right | Standard zoom |
+
+---
+
+## Clear Sky Finder
+
+Tap the ☁️ button to activate Clear Sky Finder mode. A teal heatmap overlay appears showing which regions have the clearest average skies across the next 8 hours. Activating it automatically turns off the Clouds and Bortle layers to reduce clutter.
+
+The spot pins switch to a cloud-only color mode: teal = consistently clear 8-hour average, red = mostly clouded in. Bortle class is not a factor in this mode.
+
+**Pairing with the Clouds layer:** Turn Clouds back on while Clear Sky Finder is active to compare the 8-hour opportunity zones (teal heatmap) against the current hourly snapshot (red overlay) as you scrub the time slider. The colors are intentionally distinct — teal = where you have a good window, red = what is in the way right now.
 
 ---
 
@@ -69,12 +81,12 @@ Both Clouds and Bortle are on by default. When both are active they render as a 
 ### Space weather (`space_weather.yml`)
 - Every 30 min active hours / 60 min quiet hours
 - Fetches: Bz, V, density, 1-min Kp, 3-hour Kp forecast, ENLIL (cached between daily runs), Ovation oval, stateful HSS detection (V ≥ 450 km/s gate)
-- Outputs `data/space_weather.json` — ~540 min/month
+- ~540 min/month
 
 ### Cloud cover (`clouds.yml`)
 - Every hour active hours + once at noon EDT
 - HRRR f00–f18 via NOMADS byte-range, 0.1° grid, σ=1.5 Gaussian smooth
-- Outputs `data/cloud_cover.json` — ~990 min/month
+- ~990 min/month
 
 ### Cloudinary cleanup (`cleanup.yml`)
 - Nightly 06:00 UTC — purges photos marked `deleted=true`
@@ -127,7 +139,8 @@ ALTER TABLE photos
 
 ALTER TABLE spots
   ADD COLUMN IF NOT EXISTS rejected boolean DEFAULT false,
-  ADD COLUMN IF NOT EXISTS rejected_at timestamptz;
+  ADD COLUMN IF NOT EXISTS rejected_at timestamptz,
+  ADD COLUMN IF NOT EXISTS address text;
 
 ALTER TABLE sightings
   ADD COLUMN IF NOT EXISTS removal_requested boolean DEFAULT false,
@@ -169,41 +182,35 @@ ALTER TABLE live_cams
 
 ## Community features
 
-**Spots** — Place Pin → tap map → fill form → admin review. Bortle auto-detected from the bortle grid on coordinate entry, with manual override. Optional photo can be attached at submission time.
+**Spots** — Place Pin → crosshair cursor → tap map → fill form → admin review. Bortle auto-detected from bortle grid on coordinate entry with manual override. Optional address for directions. Optional photo at submission time.
 
-**Photos** — Spot card → Photos tab → Submit. Compressed to <8MB client-side. Community flag (🚩) sends to admin Flagged tab.
+**Photos** — Spot card → Photos tab → Submit. Compressed to <8MB client-side. Community flag sends to admin Flagged tab.
 
 **Sightings** — Report Aurora → GPS pre-filled → check observations → Confirm. Same-device undo is immediate; different-device removal goes to admin with required comment.
 
-**Admin queue** — Four tabs: Spots, Photos, Flagged, Sightings. Orange badge appears on admin area when items are waiting. All destructive actions require confirmation.
+**Admin queue** — Four tabs: Spots, Photos, Flagged, Sightings. Orange badge appears before login when items are waiting. All destructive actions require confirmation.
 
 ---
 
 ## Live Cams
 
-Cameras are stored in the Supabase `live_cams` table. Toggle the **Live Cams** layer to show 📹 markers on the map. Tap any marker to open a popup with a refreshing snapshot (every 60s) and a **▶ WATCH LIVE** button.
+Cameras stored in Supabase `live_cams` table. Toggle Live Cams layer to show 📹 markers. Tap any marker for a refreshing snapshot (every 60s) and Watch Live button.
 
-To add a new camera: insert a row in `live_cams` with name, lat, lon, embed_url, image_url, type (`youtube` or `iframe`), and `is_active = true`. No code deploy needed.
+To add a camera: insert a row with name, lat, lon, embed_url, image_url, type (`youtube` or `iframe`), `is_active = true`. No code deploy needed.
 
-For YouTube streams use embed URL format: `https://www.youtube.com/embed/VIDEO_ID?si=XXXXX&autoplay=1&mute=1`
-For allskycam.com use image URL format: `http://www.allskycam.com/u/USER_ID/latest_full6.jpg`
-For Allsky software sites use: `https://DOMAIN/allsky/image.jpg`
+YouTube embed URL format: `https://www.youtube.com/embed/VIDEO_ID?si=XXXXX&autoplay=1&mute=1`
+allskycam.com image URL format: `http://www.allskycam.com/u/USER_ID/latest_full6.jpg`
+Allsky software image URL format: `https://DOMAIN/allsky/image.jpg`
 
 ---
 
 ## Camera Settings Advisor
 
-Tap 📷 → tap shooting location on map → panel opens with:
-- Auto-populated Bortle, latitude, moon conditions
-- Device selection: iPhone, Android, DSLR/Mirrorless
-- Output: ISO, shutter speed, aperture, WB, focus, format, mode
-- Override any condition manually
-- Troubleshooter: check symptom → get personalized fixes
+Tap 📷 → tap shooting location → panel opens with auto-populated Bortle, latitude, moon conditions, and live aurora intensity. Supports iPhone, Android, and DSLR/Mirrorless with device-specific spec lookup. Override any condition manually. Troubleshooter generates personalized fixes from symptom checkboxes.
 
-### Calculation model
-- **Shutter** = min(star trailing limit, aurora motion limit). Motion limits: Calm=20s → Extreme=1s
-- **ISO** = base by sensor × aperture penalty × moon penalty × light pollution × latitude factor
-- **WB**: Bortle 1–4 = 4000K, 5–6 = 3500K, 7–9 = 3200K
+**Shutter** = min(star trailing limit, aurora motion limit). Motion limits: Calm=20s → Extreme=1s
+**ISO** = base by sensor × aperture penalty × moon penalty × light pollution × latitude factor
+**WB**: Bortle 1–4 = 4000K, 5–6 = 3500K, 7–9 = 3200K
 
 ---
 
