@@ -223,10 +223,7 @@ export default function SubmitSpot({ onClose, initialCoords }) {
 
         <div style={{ display: 'flex', gap: 8 }}>
           {file && (
-            <div style={{ color: '#334455', fontSize: 9, lineHeight: 1.6, marginBottom: 10, fontStyle: 'italic' }}>
-        Submissions are reviewed by the community. Please only share spots that are safe, accessible, and legal to visit.
-      </div>
-      <button type="submit" disabled={photoUploading} style={{
+            <button type="submit" disabled={photoUploading} style={{
               ...inputStyle, flex: 2, cursor: 'pointer', color: '#44ddaa',
               border: '1px solid #44ddaa44', textAlign: 'center', letterSpacing: 1,
             }}>
