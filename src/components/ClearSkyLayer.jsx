@@ -118,12 +118,14 @@ const ClearSkyCanvas = L.Class.extend({
         // clearFraction: 1 = totally clear, 0 = totally cloudy
         const clearFrac = 1 - cf
 
-        // Only draw where there's meaningful clearness (> 20% clear)
-        if (clearFrac < 0.20) continue
-        const ramp = clearFrac < 0.40 ? (clearFrac - 0.20) / 0.20 : 1.0
+        // Only show teal where clear fraction is meaningful (> 40% clear avg)
+        if (clearFrac < 0.40) continue
+        // Power curve — punishes partial cloud heavily, rewards clear sky strongly
+        const penalty = Math.pow(clearFrac, 2.5)
+        const ramp = clearFrac < 0.60 ? (clearFrac - 0.40) / 0.20 : 1.0
 
-        // Teal: R=30, G=210, B=180 — more saturated toward clear
-        const alpha = Math.round(clearFrac * 0.55 * edgeFade * ramp * 255)
+        // Teal: R=30, G=210, B=180
+        const alpha = Math.round(penalty * 0.65 * edgeFade * ramp * 255)
         d[idx]   = 30
         d[idx+1] = 210
         d[idx+2] = 180
