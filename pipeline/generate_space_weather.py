@@ -922,31 +922,56 @@ def fetch_hrrr_cloud(grid):
     now = datetime.now(timezone.utc)
 
     # HRRR files are ready ~45-60 min after the hour — subtract 60 min to be safe
-    # Use 90-min lookback so we always land on a fully-published HRRR run.
-    # HRRR publishes f00-f18 over ~60-90 min after the model run hour.
-    # At 60-min lookback we often catch a run mid-publish and get only f00-f03.
-    run_dt   = now - timedelta(minutes=90)
-    run_hour = run_dt.hour
-    run_date = run_dt.strftime('%Y%m%d')
-    base_url = f'{HRRR_BASE}hrrr.{run_date}/conus/hrrr.t{run_hour:02d}z'
-    log.info(f'HRRR: using run {run_date} {run_hour:02d}Z')
-
-    # Fetch f00-f18 — covers the full +18h window so daytime runs (once/hr or
-    # once at noon) keep the timeline populated through the aurora window
-    # without needing another pull. Browser only shows +8h but caches the rest.
-    run_valid = run_dt.replace(minute=0, second=0, microsecond=0)
+    # Try HRRR runs starting at 90-min lookback, falling back one hour at a time
+    # if NOMADS hasn't finished publishing the run yet (too few hours available).
+    # HRRR takes 60-90 min to publish all forecast hours after the model run.
+    # We try up to 4 candidates (90, 150, 210, 270 min back) to find a complete run.
+    best_messages = []
+    best_run_label = None
     hours_needed = []
-    for fh in range(0, 19):
-        valid_time = run_valid + timedelta(hours=fh)
-        offset_hr  = (valid_time - now).total_seconds() / 3600
-        if -1.5 <= offset_hr <= 18.5:
-            hours_needed.append((fh, valid_time))
 
-    if not hours_needed:
-        log.warning('HRRR: no forecast hours in window')
+    for lookback_min in [90, 150, 210, 270]:
+        run_dt   = now - timedelta(minutes=lookback_min)
+        run_hour = run_dt.hour
+        run_date = run_dt.strftime('%Y%m%d')
+        base_url = f'{HRRR_BASE}hrrr.{run_date}/conus/hrrr.t{run_hour:02d}z'
+
+        run_valid = run_dt.replace(minute=0, second=0, microsecond=0)
+        hours_needed = []
+        for fh in range(0, 19):
+            valid_time = run_valid + timedelta(hours=fh)
+            offset_hr  = (valid_time - now).total_seconds() / 3600
+            if -1.5 <= offset_hr <= 18.5:
+                hours_needed.append((fh, valid_time))
+
+        if not hours_needed:
+            continue
+
+        log.info(f'HRRR: trying run {run_date} {run_hour:02d}Z (lookback={lookback_min}min)')
+
+        # Quick probe — check how many hours are available by testing a few idx files
+        available = 0
+        for fh, _ in hours_needed[:4]:  # probe first 4 hours as a quick check
+            try:
+                idx_url = f'{base_url}.wrfsfcf{fh:02d}.grib2.idx'
+                r = requests.head(idx_url, timeout=4)
+                if r.status_code == 200:
+                    available += 1
+            except Exception:
+                pass
+
+        if available < 2:
+            log.info(f'HRRR: run {run_hour:02d}Z only {available} hours probed — stepping back')
+            continue
+
+        log.info(f'HRRR: using run {run_date} {run_hour:02d}Z — {available}/4 probe hours available')
+        best_run_label = f'{run_date} {run_hour:02d}Z'
+        log.info(f'HRRR: fetching forecast hours {[h[0] for h in hours_needed]}')
+        break
+
+    if not hours_needed or best_run_label is None:
+        log.warning('HRRR: no usable run found in any lookback window')
         return None
-
-    log.info(f'HRRR: fetching forecast hours {[h[0] for h in hours_needed]}')
 
     all_messages = []   # list of (valid_time, lat_flat, lon_flat, cloud_flat)
 
