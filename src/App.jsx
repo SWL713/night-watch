@@ -308,13 +308,23 @@ function App() {
         {clearSkyMode && (
           <div style={{
             position: 'absolute', top: 28, left: '50%', transform: 'translateX(-50%)',
-            background: 'rgba(7,11,22,0.92)', border: '1px solid #44ddaa',
-            borderRadius: 3, padding: '6px 14px', zIndex: 1100,
-            color: '#44ddaa', fontSize: 10, fontFamily: FONT,
-            letterSpacing: 1, whiteSpace: 'nowrap', pointerEvents: 'none',
-            boxShadow: '0 2px 12px rgba(0,0,0,0.7)',
+            zIndex: 1100, pointerEvents: 'none', textAlign: 'center',
+            fontFamily: FONT, whiteSpace: 'nowrap',
           }}>
-            ☁️ CLEAR SKY FINDER MODE — 8 HOUR AVERAGE — TEAL = CLEAREST OPTIONS
+            <div style={{
+              background: 'rgba(7,11,22,0.92)', border: '1px solid #44ddaa',
+              borderRadius: 3, padding: '4px 14px',
+              color: '#44ddaa', fontSize: 10, letterSpacing: 1.5,
+              boxShadow: '0 2px 12px rgba(0,0,0,0.7)',
+            }}>
+              CLEAR SKY FINDER MODE
+            </div>
+            <div style={{
+              color: '#2a6655', fontSize: 8, letterSpacing: 0.8,
+              marginTop: 3,
+            }}>
+              TEAL = BEST OPTIONS · 8-HOUR AVERAGE
+            </div>
           </div>
         )}
 
