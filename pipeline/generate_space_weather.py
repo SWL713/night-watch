@@ -922,7 +922,10 @@ def fetch_hrrr_cloud(grid):
     now = datetime.now(timezone.utc)
 
     # HRRR files are ready ~45-60 min after the hour — subtract 60 min to be safe
-    run_dt   = now - timedelta(minutes=60)
+    # Use 90-min lookback so we always land on a fully-published HRRR run.
+    # HRRR publishes f00-f18 over ~60-90 min after the model run hour.
+    # At 60-min lookback we often catch a run mid-publish and get only f00-f03.
+    run_dt   = now - timedelta(minutes=90)
     run_hour = run_dt.hour
     run_date = run_dt.strftime('%Y%m%d')
     base_url = f'{HRRR_BASE}hrrr.{run_date}/conus/hrrr.t{run_hour:02d}z'
