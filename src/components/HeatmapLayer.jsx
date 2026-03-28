@@ -232,18 +232,20 @@ const CloudCanvas = L.Layer.extend({
 
         const idx = (py * W + px) * 4
 
-        // Soft ramp below 30% — fades to transparent rather than hard cutoff
-        if (cf < 0.10) continue
-        const cloudFade = cf < 0.30 ? (cf - 0.10) / 0.20 : 1.0
+        // Raised floor to 25% — thin cirrus and model noise below this is
+        // invisible to aurora chasers so don't show it as red.
+        // Full opacity ramp completes at 55% — genuinely cloudy areas show clearly.
+        if (cf < 0.25) continue
+        const cloudFade = cf < 0.55 ? (cf - 0.25) / 0.30 : 1.0
 
         if (mode === 'clouds') {
           // Standalone: transparent=clear → red=cloudy
           data[idx] = 180; data[idx+1] = 0; data[idx+2] = 10
-          data[idx+3] = Math.round(cf * 0.50 * edgeFade * cloudFade * 255)
+          data[idx+3] = Math.round(cf * 0.55 * edgeFade * cloudFade * 255)
         } else {
           // Combined: transparent=clear → red=cloudy, over VIIRS tiles
           data[idx] = 180; data[idx+1] = 0; data[idx+2] = 10
-          data[idx+3] = Math.round(cf * 0.50 * edgeFade * cloudFade * 255)
+          data[idx+3] = Math.round(cf * 0.55 * edgeFade * cloudFade * 255)
         }
       }
     }
