@@ -18,45 +18,6 @@ function sqmToBortle(sqm) {
   return 9
 }
 
-// Bortle value → color that matches lightpollutionmap.info tile palette
-// So spot pins visually match the tiles beneath them
-export function bortleToTileColor(bortle) {
-  const b = Math.max(1, Math.min(9, bortle))
-  // Matches the VIIRS tile palette: dark sky = black/dark, bright = white/red
-  const stops = [
-    [1, [  0,   0,   0]],  // black          — pristine dark
-    [2, [  0,  20,  60]],  // deep navy       — excellent
-    [3, [  0,  60, 120]],  // dark blue       — very good
-    [4, [  0, 140,  80]],  // teal-green      — good
-    [5, [100, 180,   0]],  // yellow-green    — moderate
-    [6, [200, 160,   0]],  // amber           — poor
-    [7, [220,  80,   0]],  // orange          — bad
-    [8, [200,  20,  20]],  // deep red        — very bad
-    [9, [240,   0,   0]],  // bright red      — terrible
-  ]
-  for (let i = 0; i < stops.length - 1; i++) {
-    const [b0, c0] = stops[i]
-    const [b1, c1] = stops[i + 1]
-    if (b >= b0 && b <= b1) {
-      const t = (b - b0) / (b1 - b0)
-      return c0.map((v, j) => Math.round(v + (c1[j] - v) * t))
-    }
-  }
-  return [240, 0, 0]
-}
-
-// Shift a base [r,g,b] color toward red by cloudFraction (0-1)
-export function applyCloudToColor(baseRGB, cloudFraction) {
-  const cf = Math.max(0, Math.min(1, cloudFraction))
-  const [r, g, b] = baseRGB
-  // Lerp toward [200, 0, 20] (deep red = cloudy)
-  return [
-    Math.round(r + (200 - r) * cf),
-    Math.round(g + (0   - g) * cf),
-    Math.round(b + (20  - b) * cf),
-  ]
-}
-
 // Fetch bortle for a lat/lon. Returns a number 1-9.
 // Falls back to 5 if API is unreachable.
 export async function fetchBortleAt(lat, lon) {

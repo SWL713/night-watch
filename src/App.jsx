@@ -80,8 +80,7 @@ function App() {
   const { spots } = useSpots()
   const { sightings, deleteSighting, reload: reloadSightings } = useSightings()
   const { pending: pendingSpots, pendingPhotos, flaggedPhotos } = usePendingSpots()
-  const { sightings: allSightings } = useSightings()
-  const pendingRemovals = (allSightings || []).filter(s => s.removal_requested)
+  const pendingRemovals = (sightings || []).filter(s => s.removal_requested)
   const queueCount = (pendingSpots?.length || 0) + (pendingPhotos?.length || 0) + (flaggedPhotos?.length || 0) + pendingRemovals.length
   const [selectedSighting, setSelectedSighting] = useState(null)
   const [sightingScreen, setSightingScreen] = useState(null)

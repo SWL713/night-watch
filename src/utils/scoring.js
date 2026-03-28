@@ -75,8 +75,6 @@ export function locationScore(spot) {
   const hScore = (spot.horizon_rating || 3) / 5
   return (bScore * 0.6 + hScore * 0.4)
 }
-export function intensityRank(label) {
-  const ranks = { 'Calm':0,'Weak':1,'Mild':2,'Moderate':3,'Strong':4,'Very Strong':5,'Extreme':6 }
   return ranks[label] ?? 0
 }
 

@@ -1,10 +1,7 @@
 import { useState, useEffect } from 'react'
-import { createClient } from '@supabase/supabase-js'
-import { SUPABASE_URL, SUPABASE_ANON } from '../config.js'
+import { supabase, supabaseReady } from '../lib/supabase.js'
 import spotsData from '../../data/spots.json'
 
-const supabaseReady = !SUPABASE_URL.startsWith('REPLACE_ME')
-const supabase = supabaseReady ? createClient(SUPABASE_URL, SUPABASE_ANON) : null
 
 export function useSpots() {
   const [spots, setSpots] = useState([])
@@ -19,7 +16,7 @@ export function useSpots() {
         return
       }
       try {
-        const { data: spotsData, error: err } = await supabase
+        const { data: supabaseSpots, error: err } = await supabase
           .from('spots')
           .select('*')
           .eq('approved', true)
@@ -40,7 +37,7 @@ export function useSpots() {
           if (!photosBySpot[p.spot_id]) photosBySpot[p.spot_id] = []
           photosBySpot[p.spot_id].push(p)
         }
-        const cleaned = (spotsData || []).map(s => ({
+        const cleaned = (supabaseSpots || []).map(s => ({
           ...s,
           photos: photosBySpot[s.id] || [],
         }))

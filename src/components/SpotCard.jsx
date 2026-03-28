@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { fetchSpotForecast } from '../hooks/useCloudCover.js'
 import { flagPhoto } from '../hooks/useSpots.js'
-import { combinedScore, locationScore, bortleScore, scoreToColor, scoreToLabel, pinColor } from '../utils/scoring.js'
+import { combinedScore, locationScore, bortleScore, scoreToColor, scoreToLabel } from '../utils/scoring.js'
 
 // Match HeatmapLayer combined scoring exactly
 function calcChaseScore(cloudcover, bortle) {

@@ -27,7 +27,6 @@ export const MAP_BOUNDS = {
   maxZoom: 16,
 }
 
-export const GRID_SPACING = 0.5
 export const GRID_BOUNDS  = { minLat: 38.5, maxLat: 47.5, minLon: -82, maxLon: -66 }
 
 // -- Scoring weights -----------------------------------------

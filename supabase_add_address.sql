@@ -1,1 +1,0 @@
-ALTER TABLE spots ADD COLUMN IF NOT EXISTS address text;

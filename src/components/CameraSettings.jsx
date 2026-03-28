@@ -1,9 +1,6 @@
 import { useState, useEffect } from 'react'
 import { calculateCameraSettings, getTroubleshootingFix } from '../utils/cameraEngine.js'
-import { createClient } from '@supabase/supabase-js'
-import { SUPABASE_URL, SUPABASE_ANON } from '../config.js'
-const supabaseReady = !SUPABASE_URL.startsWith('REPLACE_ME')
-const supabase = supabaseReady ? createClient(SUPABASE_URL, SUPABASE_ANON) : null
+import { supabase, supabaseReady } from '../lib/supabase.js'
 
 const FONT = 'DejaVu Sans Mono, Consolas, monospace'
 
