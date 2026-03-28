@@ -248,6 +248,101 @@ When push notifications are implemented (PWA service worker first, native app la
 
 ---
 
+## User Accounts & Private Pins — National Launch Architecture
+
+This is the foundational infrastructure decision for public launch. Everything else — push notifications, private pins, premium tier, national spots — depends on individual user accounts.
+
+### The Problem with Community Spots at Scale
+The current community spots model works for a small trusted group where every submission can be personally vetted. At national scale it becomes untenable:
+- Cannot verify safety, legality, or accuracy of thousands of submissions
+- Liability risk from promoting dangerous or trespassing locations
+- Admin moderation burden grows linearly with user base
+- One bad recommendation at scale is a serious problem
+
+### Recommended Architecture: Two-Tier Spots + Private Pins
+
+**Tier 1 — Verified Spots (current community spots, rebranded)**
+- Maintained by you and trusted regional contributors
+- Clearly labeled as verified/curated
+- Small, high-quality, manually vetted
+- Substorm Society spots remain here as the seed dataset
+- Shown to all users by default
+
+**Tier 2 — Private Pins (new feature)**
+- Every user can create unlimited private pins visible only to them
+- No moderation, no admin review, no liability
+- Stored in Supabase with Row Level Security — `user_id = auth.uid()` isolation
+- User owns their data, nobody else sees it
+- Optional "share publicly" toggle with explicit disclaimer (feeds a community suggestion queue, not live map)
+- Replaces the current Place Pin → admin review flow for most users
+
+### Account System Requirements
+Private pins require individual user accounts — the single passphrase model doesn't provide a user identity. This is the foundational unlock for:
+- Private pins (user_id per row in Supabase)
+- Push notification targeting (send to specific users at their Kp threshold)
+- Premium tier billing (Stripe customer tied to account)
+- Saved preferences (Kp threshold, quiet hours, home location)
+- Sighting history (your sightings, not just same-device localStorage)
+
+**Auth options (simplest to most complex):**
+- Supabase Auth with email + password — 2-3 days to implement, free
+- Add Sign in with Apple + Google — another 2-3 days, better UX
+- Magic link (email only, no password) — simplest possible, Supabase built-in
+
+### Implementation Phases
+
+**Phase 1 — Supabase Auth (prerequisite for everything)**
+- Replace shared passphrase with individual email accounts
+- Keep passphrase as an invite code / access gate during beta
+- Supabase Auth handles tokens, sessions, password reset — zero custom backend
+- Estimated effort: 1-2 weeks
+
+**Phase 2 — Private Pins**
+- Add `user_id` column to spots table with RLS policy
+- New "My Pins" toggle in layer controls — shows only current user's private pins
+- Place Pin flow creates private pin immediately (no admin review)
+- Private pins show with a different marker style (e.g. outline only, no fill)
+- Estimated effort: 1 week
+
+**Phase 3 — Verified Spots Curation**
+- Rename current community spots to "Verified Spots"
+- Add regional contributor roles in admin system
+- Verified spots visible to all, private pins visible only to owner
+- Estimated effort: 1 week
+
+**Phase 4 — Push Notifications (depends on Phase 1)**
+- Service worker + Web Push API
+- Per-user preference storage (Kp threshold, quiet hours, alert types)
+- See Push Notification Wishlist section for full alert type spec
+- Estimated effort: 3-4 weeks
+
+### Technical Notes — Supabase RLS for Private Pins
+```sql
+-- Add user_id to spots
+ALTER TABLE spots ADD COLUMN user_id uuid REFERENCES auth.users;
+ALTER TABLE spots ADD COLUMN is_private boolean DEFAULT false;
+
+-- Private pins: only visible to owner
+CREATE POLICY "private pins owner only"
+  ON spots FOR SELECT
+  USING (
+    NOT is_private OR user_id = auth.uid()
+  );
+
+-- Insert: user can only create pins for themselves  
+CREATE POLICY "users create own pins"
+  ON spots FOR INSERT
+  WITH CHECK (user_id = auth.uid());
+```
+
+### Timeline Recommendation
+- **Now:** continue with current model for Substorm Society community
+- **3-6 months before public launch:** implement Phase 1 + 2 (accounts + private pins)
+- **At public launch:** Phase 3 + gradual Phase 4 rollout
+- **Post-launch:** push notifications as premium upgrade driver
+
+---
+
 ## Open Questions
 - Tab bar position: above content area vs above action bar
 - Action bar on non-map tabs: hide / repurpose / leave inactive
