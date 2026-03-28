@@ -130,9 +130,31 @@ export function usePendingSpots() {
     setFlaggedPhotos(prev => prev.filter(p => p.id !== id))
   }
 
+  async function adminDeleteSpot(id) {
+    if (!supabaseReady) return { error: 'not configured' }
+    const { error } = await supabase.from('spots').delete().eq('id', id)
+    if (!error) reload()
+    return { error }
+  }
+
+  async function adminUpdateSpot(id, fields) {
+    if (!supabaseReady) return { error: 'not configured' }
+    const { error } = await supabase.from('spots').update(fields).eq('id', id)
+    if (!error) reload()
+    return { error }
+  }
+
+  async function adminDeletePhoto(id) {
+    if (!supabaseReady) return { error: 'not configured' }
+    const { error } = await supabase.from('photos').update({ deleted: true }).eq('id', id)
+    if (!error) reload()
+    return { error }
+  }
+
   return {
     pending, pendingPhotos, flaggedPhotos, pendingRemovals, loading,
     approveSpot, rejectSpot, approvePhoto, rejectPhoto, deletePhoto, dismissFlag,
+    adminDeleteSpot, adminUpdateSpot, adminDeletePhoto,
   }
 }
 
@@ -140,7 +162,6 @@ export async function submitSpot(spotData) {
   if (!supabaseReady) return { error: 'Database not configured yet' }
   const { data, error } = await supabase.from('spots').insert([{
     ...spotData,
-    approved: false,
     submitted_by: 'community',
     created_at: new Date().toISOString(),
   }]).select()
@@ -235,6 +256,14 @@ export async function undoSighting(id) {
   if (!supabaseReady) return { error: 'Database not configured yet' }
   const { error } = await supabase.from('sightings').delete().eq('id', id)
   if (!error) removeMySubmittedSighting(id)
+  return { error }
+}
+
+export async function flagSpot(id) {
+  if (!supabaseReady) return { error: 'not configured' }
+  const { error } = await supabase.from('spots')
+    .update({ flagged: true, flagged_at: new Date().toISOString() })
+    .eq('id', id)
   return { error }
 }
 

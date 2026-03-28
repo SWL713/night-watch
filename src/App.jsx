@@ -64,7 +64,10 @@ export default function AppWrapper() {
     return localStorage.getItem('nw_auth') === PASSPHRASE
   })
 
-  if (!authed) return <Auth onAuth={() => setAuthed(true)} />
+  if (!authed) return <Auth onAuth={() => {
+    setAuthed(true)
+    if (!sessionStorage.getItem('nw_guidelines_seen')) setShowGuidelines(true)
+  }} />
   return <App />
 }
 
@@ -79,7 +82,7 @@ function App() {
   const { data: sw } = useSpaceWeather()
   const { spots } = useSpots()
   const { sightings, deleteSighting, reload: reloadSightings } = useSightings()
-  const { pending: pendingSpots, pendingPhotos, flaggedPhotos } = usePendingSpots()
+  const { pending: pendingSpots, pendingPhotos, flaggedPhotos, adminDeleteSpot, adminUpdateSpot, adminDeletePhoto } = usePendingSpots()
   const pendingRemovals = (sightings || []).filter(s => s.removal_requested)
   const queueCount = (pendingSpots?.length || 0) + (pendingPhotos?.length || 0) + (flaggedPhotos?.length || 0) + pendingRemovals.length
   const [selectedSighting, setSelectedSighting] = useState(null)
@@ -106,6 +109,7 @@ function App() {
   const [showCamera, setShowCamera] = useState(false) // picking location for sighting report
   const [clearSkyMode, setClearSkyMode] = useState(false)
   const [showClearSkyIntro, setShowClearSkyIntro] = useState(false)
+  const [showGuidelines, setShowGuidelines] = useState(false)
   const [activeCam, setActiveCam] = useState(null)
   const [sightingPendingCoords, setSightingPendingCoords] = useState(null)
 
@@ -288,6 +292,10 @@ function App() {
               mode={heatmapMode}
               bortleGrid={bortleGrid}
               clearSkyMode={clearSkyMode}
+              adminAuthed={adminAuthed}
+              onAdminUpdate={adminUpdateSpot}
+              onAdminDeleteSpot={adminDeleteSpot}
+              onAdminDeletePhoto={adminDeletePhoto}
             />
           )}
 
@@ -332,6 +340,42 @@ function App() {
               marginTop: 3,
             }}>
               TEAL = BEST OPTIONS · 8-HOUR AVERAGE
+            </div>
+          </div>
+        )}
+
+        {/* Community guidelines modal */}
+        {showGuidelines && (
+          <div style={{
+            position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.8)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            zIndex: 9999,
+          }}>
+            <div style={{
+              background: '#07090f', border: '1px solid #1a2a3a',
+              borderRadius: 6, padding: '22px 24px', maxWidth: 340, width: '90%',
+              fontFamily: FONT, boxShadow: '0 8px 32px rgba(0,0,0,0.8)',
+            }}>
+              <div style={{ color: '#44ddaa', fontSize: 11, letterSpacing: 2, marginBottom: 12 }}>
+                🌌 COMMUNITY GUIDELINES
+              </div>
+              <div style={{ color: '#aabbcc', fontSize: 11, lineHeight: 1.75, marginBottom: 18 }}>
+                Night Watch is powered by our aurora hunting community. Spots and photos are submitted by members like you and are not independently verified.
+                <br /><br />
+                When visiting any location, please respect private property, posted hours, and all applicable laws. Your safety is your responsibility.
+                <br /><br />
+                Anything can be flagged for admin review — we reserve the right to edit or remove any content that does not meet community standards.
+              </div>
+              <button
+                onClick={() => { setShowGuidelines(false); sessionStorage.setItem('nw_guidelines_seen', '1') }}
+                style={{
+                  width: '100%', padding: '9px 0', fontSize: 10, letterSpacing: 2,
+                  background: '#0d1a2a', border: '1px solid #44ddaa',
+                  color: '#44ddaa', cursor: 'pointer', fontFamily: FONT, borderRadius: 3,
+                }}
+              >
+                GOT IT
+              </button>
             </div>
           </div>
         )}

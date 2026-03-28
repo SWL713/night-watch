@@ -39,7 +39,7 @@ function addCloudRed(rgb, cloudFraction) {
   ]
 }
 
-function SpotPin({ spot, selectedHour, getCloudAt, cloudData, spaceWeather, onSubmitPhoto, mode, bortleGrid, clearSkyMode }) {
+function SpotPin({ spot, selectedHour, getCloudAt, cloudData, spaceWeather, onSubmitPhoto, mode, bortleGrid, clearSkyMode, adminAuthed, onAdminUpdate, onAdminDeleteSpot, onAdminDeletePhoto }) {
   // Use stored bortle, or look up from grid, or fetch from API as last resort
   const storedBortle = spot.bortle ?? null
   const gridBortle   = bortleGrid ? getBortle(bortleGrid, spot.lat, spot.lon) : null
@@ -94,13 +94,17 @@ function SpotPin({ spot, selectedHour, getCloudAt, cloudData, spaceWeather, onSu
           onClose={() => {}}
           spaceWeather={spaceWeather}
           onSubmitPhoto={onSubmitPhoto}
+          adminAuthed={adminAuthed}
+          onAdminUpdate={onAdminUpdate}
+          onAdminDeleteSpot={onAdminDeleteSpot}
+          onAdminDeletePhoto={onAdminDeletePhoto}
         />
       </Popup>
     </Marker>
   )
 }
 
-export default function SpotPins({ spots, selectedHour, getCloudAt, cloudData, spaceWeather, onSubmitPhoto, mode, bortleGrid, clearSkyMode }) {
+export default function SpotPins({ spots, selectedHour, getCloudAt, cloudData, spaceWeather, onSubmitPhoto, mode, bortleGrid, clearSkyMode, adminAuthed, onAdminUpdate, onAdminDeleteSpot, onAdminDeletePhoto }) {
   return (
     <>
       {spots.map(spot => (
@@ -115,6 +119,10 @@ export default function SpotPins({ spots, selectedHour, getCloudAt, cloudData, s
           mode={mode}
           bortleGrid={bortleGrid}
           clearSkyMode={clearSkyMode}
+          adminAuthed={adminAuthed}
+          onAdminUpdate={onAdminUpdate}
+          onAdminDeleteSpot={onAdminDeleteSpot}
+          onAdminDeletePhoto={onAdminDeletePhoto}
         />
       ))}
     </>
