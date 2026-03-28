@@ -15,6 +15,7 @@ import MapSearch from './components/MapSearch.jsx'
 import SightingLayer from './components/SightingLayer.jsx'
 import SightingForm from './components/SightingForm.jsx'
 import CameraLayer from './components/CameraLayer.jsx'
+import ClearSkyLayer from './components/ClearSkyLayer.jsx'
 import CameraPopup from './components/CameraPopup.jsx'
 import CameraSettings from './components/CameraSettings.jsx'
 import SightingPopup from './components/SightingPopup.jsx'
@@ -210,6 +211,28 @@ function App() {
             </button>
           </div>
 
+          {/* Clear sky finder button */}
+          <div style={{ position: 'absolute', top: 144, left: 12, zIndex: 1000 }}>
+            <button
+              onClick={() => {
+                setClearSkyMode(m => {
+                  if (!m) setLayers(prev => ({ ...prev, clouds: false, bortle: false }))
+                  return !m
+                })
+              }}
+              title="Clear sky finder"
+              style={{
+                width: 36, height: 36,
+                background: clearSkyMode ? '#001a15' : '#070b16',
+                border: `1px solid ${clearSkyMode ? '#44ddaa' : '#1a2a3a'}`,
+                borderRadius: 2, cursor: 'pointer',
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                fontSize: 16, color: clearSkyMode ? '#44ddaa' : '#445566',
+                transition: 'all 0.15s', outline: 'none',
+              }}
+            >☁️</button>
+          </div>
+
           {/* Map click handler — only active in pin placement mode */}
           <MapClickHandler
             active={pinMode || sightingPinMode || cameraMode}
@@ -250,11 +273,17 @@ function App() {
               spots={spots}
               selectedHour={selectedHour}
               getCloudAt={getCloudAt}
+              cloudData={cloudData}
               spaceWeather={sw}
               onSubmitPhoto={handleSubmitPhoto}
               mode={heatmapMode}
               bortleGrid={bortleGrid}
+              clearSkyMode={clearSkyMode}
             />
+          )}
+
+          {clearSkyMode && cloudData && (
+            <ClearSkyLayer cloudData={cloudData} />
           )}
 
           {/* Camera markers */}
@@ -274,6 +303,19 @@ function App() {
           )}
 
         </MapContainer>
+
+        {clearSkyMode && (
+          <div style={{
+            position: 'absolute', top: 28, left: '50%', transform: 'translateX(-50%)',
+            background: 'rgba(7,11,22,0.92)', border: '1px solid #44ddaa',
+            borderRadius: 3, padding: '6px 14px', zIndex: 1100,
+            color: '#44ddaa', fontSize: 10, fontFamily: FONT,
+            letterSpacing: 1, whiteSpace: 'nowrap', pointerEvents: 'none',
+            boxShadow: '0 2px 12px rgba(0,0,0,0.7)',
+          }}>
+            ☁️ CLEAR SKY FINDER MODE — 8 HOUR AVERAGE — TEAL = CLEAREST OPTIONS
+          </div>
+        )}
 
         {/* Live cam popup */}
         {activeCam && (
