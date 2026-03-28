@@ -1,5 +1,13 @@
 * { box-sizing: border-box; margin: 0; padding: 0; }
 
+html {
+  height: -webkit-fill-available;
+}
+
+body {
+  min-height: -webkit-fill-available;
+}
+
 html, body, #root {
   height: 100%;
   background: #06080f;

@@ -131,7 +131,7 @@ function App() {
   return (
     <div style={{
       display: 'flex', flexDirection: 'column',
-      height: '100vh', background: '#06080f',
+      height: '100vh', minHeight: '-webkit-fill-available', background: '#06080f',
       fontFamily: FONT, overflow: 'hidden', outline: 'none',
       cursor: (pinMode || sightingPinMode || cameraMode) ? 'crosshair' : 'default',
       paddingTop: 'env(safe-area-inset-top, 6px)',
