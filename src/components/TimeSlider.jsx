@@ -18,6 +18,7 @@ export default function TimeSlider({ value, onChange }) {
       borderTop: '1px solid #1a2035',
       fontFamily: FONT,
       userSelect: 'none',
+      paddingBottom: 'max(env(safe-area-inset-bottom, 0px), 34px)',
     }}>
       {/* Header row */}
       <div style={{
