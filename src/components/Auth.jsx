@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { PASSPHRASE } from '../config.js'
 
 const STORAGE_KEY = 'nw_auth'
+const FONT = 'DejaVu Sans Mono, Consolas, monospace'
 
 export function useAuth() {
   const [authed, setAuthed] = useState(false)
@@ -31,12 +32,18 @@ export function useAuth() {
 export default function Auth({ onAuth }) {
   const [phrase, setPhrase] = useState('')
   const [error, setError] = useState(false)
+  const [showGuidelines, setShowGuidelines] = useState(false)
 
   function handleSubmit(e) {
     e.preventDefault()
     if (phrase.trim().toLowerCase() === PASSPHRASE.toLowerCase()) {
       localStorage.setItem(STORAGE_KEY, PASSPHRASE)
-      onAuth()
+      // Show guidelines first if not seen this session
+      if (!sessionStorage.getItem('nw_guidelines_seen')) {
+        setShowGuidelines(true)
+      } else {
+        onAuth()
+      }
     } else {
       setError(true)
       setPhrase('')
@@ -44,6 +51,49 @@ export default function Auth({ onAuth }) {
     }
   }
 
+  function acknowledgeGuidelines() {
+    sessionStorage.setItem('nw_guidelines_seen', '1')
+    setShowGuidelines(false)
+    onAuth()
+  }
+
+  // Guidelines screen — full overlay, must acknowledge to proceed
+  if (showGuidelines) return (
+    <div style={{
+      minHeight: '100vh', background: '#04060e',
+      display: 'flex', alignItems: 'center', justifyContent: 'center',
+      fontFamily: FONT, padding: 20,
+    }}>
+      <div style={{
+        background: '#07090f', border: '1px solid #1a2a3a',
+        borderRadius: 6, padding: '28px 26px', maxWidth: 360, width: '100%',
+        boxShadow: '0 8px 40px rgba(0,0,0,0.9)',
+      }}>
+        <div style={{ color: '#44ddaa', fontSize: 11, letterSpacing: 2, marginBottom: 16 }}>
+          🌌 COMMUNITY GUIDELINES
+        </div>
+        <div style={{ color: '#aabbcc', fontSize: 11, lineHeight: 1.8, marginBottom: 22 }}>
+          Night Watch is powered by our aurora hunting community. Spots and photos are submitted by members like you and are not independently verified.
+          <br /><br />
+          When visiting any location, please respect private property, posted hours, and all applicable laws. Your safety is your responsibility.
+          <br /><br />
+          Anything can be flagged for admin review — we reserve the right to edit or remove any content that does not meet community standards.
+        </div>
+        <button
+          onClick={acknowledgeGuidelines}
+          style={{
+            width: '100%', padding: '11px 0', fontSize: 11, letterSpacing: 2,
+            background: '#0d1a2a', border: '1px solid #44ddaa',
+            color: '#44ddaa', cursor: 'pointer', fontFamily: FONT, borderRadius: 3,
+          }}
+        >
+          GOT IT — ENTER NIGHT WATCH
+        </button>
+      </div>
+    </div>
+  )
+
+  // Login screen
   return (
     <div style={{
       minHeight: '100vh', background: '#060810',
