@@ -355,7 +355,7 @@ function App() {
                 Shows the clearest areas averaged across the <span style={{ color: '#44ddaa' }}>next 8 hours</span> — not just right now.
               </div>
               <div style={{ color: '#778899', fontSize: 10, lineHeight: 1.7, marginBottom: 18 }}>
-                <span style={{ color: '#44ddaa' }}>Teal = clear skies all night.</span> Fading = increasing clouds. No teal = clouded in.
+                <span style={{ color: '#44ddaa' }}>Green = clearest skies.</span> Fading = partly clear. No green = cloud covered.
               </div>
 
               <button
