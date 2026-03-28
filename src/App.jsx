@@ -106,6 +106,7 @@ function App() {
   const [cameraCoords, setCameraCoords] = useState(null)
   const [showCamera, setShowCamera] = useState(false) // picking location for sighting report
   const [clearSkyMode, setClearSkyMode] = useState(false)
+  const [showClearSkyIntro, setShowClearSkyIntro] = useState(false)
   const [activeCam, setActiveCam] = useState(null)
   const [sightingPendingCoords, setSightingPendingCoords] = useState(null)
 
@@ -217,7 +218,12 @@ function App() {
             <button
               onClick={() => {
                 setClearSkyMode(m => {
-                  if (!m) setLayers(prev => ({ ...prev, clouds: false, bortle: false }))
+                  if (!m) {
+                    setLayers(prev => ({ ...prev, clouds: false, bortle: false }))
+                    if (!sessionStorage.getItem('nw_clearsky_seen')) {
+                      setShowClearSkyIntro(true)
+                    }
+                  }
                   return !m
                 })
               }}
@@ -324,6 +330,48 @@ function App() {
               marginTop: 3,
             }}>
               TEAL = BEST OPTIONS · 8-HOUR AVERAGE
+            </div>
+          </div>
+        )}
+
+        {/* Clear sky finder intro modal */}
+        {showClearSkyIntro && (
+          <div style={{
+            position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.75)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            zIndex: 9999,
+          }}
+            onClick={() => { setShowClearSkyIntro(false); sessionStorage.setItem('nw_clearsky_seen', '1') }}
+          >
+            <div onClick={e => e.stopPropagation()} style={{
+              background: '#07090f', border: '1px solid #44ddaa',
+              borderRadius: 6, padding: '20px 22px', maxWidth: 340,
+              fontFamily: FONT, boxShadow: '0 8px 32px rgba(0,0,0,0.8)',
+            }}>
+              <div style={{ color: '#44ddaa', fontSize: 11, letterSpacing: 2, marginBottom: 10 }}>
+                ☁️ CLEAR SKY FINDER
+              </div>
+              <div style={{ color: '#aabbcc', fontSize: 11, lineHeight: 1.7, marginBottom: 14 }}>
+                This mode shows a <span style={{ color: '#44ddaa' }}>teal heatmap</span> of the clearest areas across the <span style={{ color: '#44ddaa' }}>next 8 hours</span> — not just right now.
+              </div>
+              <div style={{ color: '#778899', fontSize: 10, lineHeight: 1.7, marginBottom: 14 }}>
+                <span style={{ color: '#44ddaa' }}>Teal = consistently clear</span> skies over the full window.
+                Fading to transparent = increasing average cloud coverage.
+                Spots with no teal are mostly clouded in all night.
+              </div>
+              <div style={{ color: '#778899', fontSize: 10, lineHeight: 1.7, marginBottom: 18 }}>
+                <span style={{ color: '#aabbcc' }}>Pro tip:</span> Re-enable the Clouds layer while this is active to compare the 8-hr average (teal) against the current hour (red) as you scrub the timeline.
+              </div>
+              <button
+                onClick={() => { setShowClearSkyIntro(false); sessionStorage.setItem('nw_clearsky_seen', '1') }}
+                style={{
+                  width: '100%', padding: '8px 0', fontSize: 10, letterSpacing: 2,
+                  background: '#0d2a1a', border: '1px solid #44ddaa',
+                  color: '#44ddaa', cursor: 'pointer', fontFamily: FONT, borderRadius: 3,
+                }}
+              >
+                GOT IT
+              </button>
             </div>
           </div>
         )}
