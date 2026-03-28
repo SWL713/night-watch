@@ -1,7 +1,7 @@
 # 🌌 Night Watch
 
 **Aurora hunting app for the Northeast US and Southeast Canada.**
-Real-time space weather, HRRR cloud forecasts, light pollution mapping, community sighting reports, and night vision mode — built for the Substorm Society aurora hunting community.
+Real-time space weather, HRRR cloud forecasts, light pollution mapping, community sighting reports, live camera network, and camera settings advisor — built for the Substorm Society aurora hunting community.
 
 **Live:** [swl713.github.io/night-watch](https://swl713.github.io/night-watch)
 
@@ -16,6 +16,7 @@ Night Watch combines five data sources on a single interactive map to answer one
 - **Light pollution** — NASA GIBS VIIRS night light tiles recolored so dark sky is transparent and light-polluted areas glow orange to red
 - **Community spots** — curated dark sky viewing locations with cloud-adjusted scores, aurora photos, attribution, and a flag system
 - **Active Hunt sightings** — ephemeral crowdsourced aurora sighting reports with fading 30km rings that expire after 5 hours
+- **Live Cams** — 16+ aurora webcams across the Northeast US, Canada, and beyond as map markers with snapshot previews and Watch Live links
 
 ---
 
@@ -26,10 +27,11 @@ Night Watch combines five data sources on a single interactive map to answer one
 | **Clouds** | HRRR cloud cover — transparent = clear, solid red = overcast |
 | **Bortle** | VIIRS night light tiles — transparent = dark sky, orange/red = light polluted |
 | **Ovation Model** | NOAA Ovation auroral oval |
-| **Locations** | Community dark sky spots with cloud-adjusted pin colors |
-| **Active Hunt** | Live sighting reports as fading teal rings |
+| **Locations** | Community dark sky spots, color-coded by cloud-adjusted chase score |
+| **Live Cams** | Aurora webcam markers — tap for snapshot + Watch Live button |
+| **Active Hunt** | Live sighting reports — fading teal rings, expire in 5 hours |
 
-Both Clouds and Bortle are on by default. When both are active they render as a combined overlay — VIIRS tiles with cloud cover on top. Toggle either off independently for clouds-only or bortle-only view.
+Both Clouds and Bortle are on by default. When both are active they render as a combined overlay. Toggle either off independently for clouds-only or bortle-only view.
 
 ---
 
@@ -72,14 +74,13 @@ Both Clouds and Bortle are on by default. When both are active they render as a 
 ### Cloud cover (`clouds.yml`)
 - Every hour active hours + once at noon EDT
 - HRRR f00–f18 via NOMADS byte-range, 0.1° grid, σ=1.5 Gaussian smooth
-- Cloud overlay: 10% floor with soft ramp to 30%, 0.50 alpha, 8x edge fade zone
 - Outputs `data/cloud_cover.json` — ~990 min/month
 
 ### Cloudinary cleanup (`cleanup.yml`)
-- Nightly 06:00 UTC — purges photos marked `deleted=true` from Cloudinary and Supabase
+- Nightly 06:00 UTC — purges photos marked `deleted=true`
 - Requires: `SUPABASE_SERVICE_KEY`, `CLOUDINARY_API_KEY`, `CLOUDINARY_SECRET`, `CLOUDINARY_CLOUD`
 
-**Total budget: ~1,565 min/month** (GitHub Free: 2,000 / Paid upgrade: 3,000)
+**Total budget: ~1,565 min/month** (GitHub Free: 2,000)
 
 ---
 
@@ -103,13 +104,13 @@ Run in Supabase SQL Editor in this order:
 2. `supabase_sightings.sql`
 3. `supabase_camera_profiles.sql`
 4. `supabase_sightings_removal.sql`
+5. `supabase_live_cams.sql`
 
 Set up Cloudinary upload preset named `night_watch_unsigned` with Unsigned signing mode.
 
 Add GitHub Secrets: `SUPABASE_SERVICE_KEY`, `CLOUDINARY_CLOUD`, `CLOUDINARY_API_KEY`, `CLOUDINARY_SECRET`.
 
 ```bash
-python pipeline/seed_supabase.py
 npm run dev
 ```
 
@@ -132,6 +133,9 @@ ALTER TABLE sightings
   ADD COLUMN IF NOT EXISTS removal_requested boolean DEFAULT false,
   ADD COLUMN IF NOT EXISTS removal_comment text,
   ADD COLUMN IF NOT EXISTS removal_requested_at timestamptz;
+
+ALTER TABLE live_cams
+  ADD COLUMN IF NOT EXISTS image_url text;
 ```
 
 ---
@@ -151,9 +155,9 @@ ALTER TABLE sightings
 
 ### Intensity labels
 
-| Label | Bz range |
+| Label | Bz (nT) |
 |-------|---------|
-| Calm | > −2 nT |
+| Calm | > −2 |
 | Weak | −2 to −5 |
 | Mild | −5 to −10 |
 | Moderate | −10 to −20 |
@@ -165,36 +169,47 @@ ALTER TABLE sightings
 
 ## Community features
 
-**Spots** — Place Pin → tap map → fill form → admin review. Bortle, view direction, horizon rating all blank by default — must be filled in.
+**Spots** — Place Pin → tap map → fill form → admin review. Bortle auto-detected from the bortle grid on coordinate entry, with manual override. Optional photo can be attached at submission time.
 
-**Photos** — Spot card → Photos tab → Submit. Compressed to <8MB client-side. Optional photographer name + caption. Community flag (🚩) sends to admin Flagged tab.
+**Photos** — Spot card → Photos tab → Submit. Compressed to <8MB client-side. Community flag (🚩) sends to admin Flagged tab.
 
-**Sightings** — Report Aurora → GPS pre-filled → check observations → Confirm. "Pick different location" lets you report for others. Expires after 5 hours. Same-device undo available instantly; different-device removal requires admin approval with comment.
+**Sightings** — Report Aurora → GPS pre-filled → check observations → Confirm. Same-device undo is immediate; different-device removal goes to admin with required comment.
 
-**Admin queue** — Enter admin passphrase → GO → QUEUE. Four tabs: Spots, Photos, Flagged, Sightings. Rejected spots soft-deleted with timestamp. All destructive actions require confirmation.
+**Admin queue** — Four tabs: Spots, Photos, Flagged, Sightings. Orange badge appears on admin area when items are waiting. All destructive actions require confirmation.
+
+---
+
+## Live Cams
+
+Cameras are stored in the Supabase `live_cams` table. Toggle the **Live Cams** layer to show 📹 markers on the map. Tap any marker to open a popup with a refreshing snapshot (every 60s) and a **▶ WATCH LIVE** button.
+
+To add a new camera: insert a row in `live_cams` with name, lat, lon, embed_url, image_url, type (`youtube` or `iframe`), and `is_active = true`. No code deploy needed.
+
+For YouTube streams use embed URL format: `https://www.youtube.com/embed/VIDEO_ID?si=XXXXX&autoplay=1&mute=1`
+For allskycam.com use image URL format: `http://www.allskycam.com/u/USER_ID/latest_full6.jpg`
+For Allsky software sites use: `https://DOMAIN/allsky/image.jpg`
 
 ---
 
 ## Camera Settings Advisor
 
-Tap 📷 on the map → tap your shooting location → panel opens with:
-- Auto-populated Bortle, latitude, moon conditions from location and live data
-- Device selection: iPhone (model lookup), Android (Samsung/Pixel model lookup), DSLR/Mirrorless (manual sensor/lens entry)
-- Outputs: ISO, shutter speed, aperture, white balance, focus instructions, format, mode
-- Troubleshooter: check symptom boxes → get personalized fixes referencing your actual settings
-- Override any condition manually (Bortle, moon, latitude, aurora intensity)
+Tap 📷 → tap shooting location on map → panel opens with:
+- Auto-populated Bortle, latitude, moon conditions
+- Device selection: iPhone, Android, DSLR/Mirrorless
+- Output: ISO, shutter speed, aperture, WB, focus, format, mode
+- Override any condition manually
+- Troubleshooter: check symptom → get personalized fixes
 
 ### Calculation model
-
-- **Shutter** = min(star trailing limit, aurora motion limit). Star trailing: 500 / (crop × focal_length). Aurora motion limits: Calm=20s, Weak=15s, Mild=10s, Moderate=6s, Strong=4s, Very Strong=2s, Extreme=1s
-- **ISO** = base by sensor tier × aperture penalty × moon penalty × light pollution factor × latitude factor, capped by device max
-- **White balance**: Bortle 1–4 = 4000K, Bortle 5–6 = 3500K, Bortle 7–9 = 3200K
+- **Shutter** = min(star trailing limit, aurora motion limit). Motion limits: Calm=20s → Extreme=1s
+- **ISO** = base by sensor × aperture penalty × moon penalty × light pollution × latitude factor
+- **WB**: Bortle 1–4 = 4000K, 5–6 = 3500K, 7–9 = 3200K
 
 ---
 
 ## Night vision mode
 
-🌙 button applies `grayscale + sepia + hue-rotate` CSS filter to the entire app. Deep red/black for dark-adapted field use. Defaults off every page load. Peru, NY easter egg: search and select Peru, NY for hot pink mode 🎉
+🌙 applies red CSS filter to entire app. Defaults off every page load. Peru, NY easter egg: search Peru, NY for hot pink mode 🎉
 
 ---
 
