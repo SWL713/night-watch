@@ -68,9 +68,27 @@ const LorenzWarmLayer = L.GridLayer.extend({
         intensity[px] = lorenzToIntensity(d[i], d[i+1], d[i+2])
       }
 
-      // Use original intensity for color mapping (no blur artifacts on zone values)
-      // Only blur the alpha channel for smooth edges — color stays zone-accurate
-      const blurred = intensity  // color mapped from exact zone values
+      // Gentle 3x3 blur on intensity — softens jagged zone edges
+      // Safe: only blends with same-zone or adjacent neighbors, never crosses zero
+      const blurred = new Float32Array(w * h)
+      for (let y = 0; y < h; y++) {
+        for (let x = 0; x < w; x++) {
+          const c = intensity[y*w+x]
+          if (c === 0) { blurred[y*w+x] = 0; continue }
+          // Weighted: center=4, cardinal=2, diagonal=1 (standard Gaussian 3x3)
+          let sum = c * 4, wt = 4
+          const dirs = [[-1,0,2],[1,0,2],[0,-1,2],[0,1,2],[-1,-1,1],[1,-1,1],[-1,1,1],[1,1,1]]
+          for (const [dy, dx, w2] of dirs) {
+            const nx = x+dx, ny = y+dy
+            if (nx<0||nx>=w||ny<0||ny>=h) continue
+            const nb = intensity[ny*w+nx]
+            if (nb === 0) continue  // never blend across zero boundary
+            sum += nb * w2; wt += w2
+          }
+          // Never raise above center value — edges can only soften inward
+          blurred[y*w+x] = Math.min(c, sum / wt)
+        }
+      }
 
       // Remap: yellow → amber → orange → red → pink/red
       // Fully transparent below threshold, opacity scales up with intensity

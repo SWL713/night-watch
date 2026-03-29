@@ -93,7 +93,8 @@ export default function SubmitSpot({ onClose, initialCoords }) {
   const [bortleGrid, setBortleGrid] = useState(null)
   useEffect(() => { loadBortleGrid().then(g => { if (g) setBortleGrid(g) }) }, [])
 
-  // Auto-lookup Bortle: LPM point API first (matches visual map), grid as fallback
+  // Auto-lookup Bortle: debounced 800ms so we don't fire on every keystroke
+  // LPM point API first (matches visual map), grid as fallback
   useEffect(() => {
     const lat = parseFloat(form.lat)
     const lon = parseFloat(form.lon)
@@ -104,7 +105,7 @@ export default function SubmitSpot({ onClose, initialCoords }) {
     }
     setBortleLookup('loading')
 
-    async function lookup() {
+    const timer = setTimeout(async () => {
       // Primary: lightpollutionmap.info point query — matches Lorenz visual layer
       let b = await fetchBortleAt(lat, lon)
 
@@ -114,7 +115,6 @@ export default function SubmitSpot({ onClose, initialCoords }) {
         if (raw && raw !== 5) {
           b = Math.round(raw)
         } else {
-          // Arctic latitude fallback
           if (lat > 65) b = 1
           else if (lat > 58) b = 2
           else if (lat > 52) b = 2
@@ -125,8 +125,9 @@ export default function SubmitSpot({ onClose, initialCoords }) {
       setBortleLookup(b)
       setBortleOverride(false)
       set('bortle', String(b))
-    }
-    lookup()
+    }, 800)
+
+    return () => clearTimeout(timer)
   }, [form.lat, form.lon, bortleGrid])
 
   // ── Step 1: Submit spot ───────────────────────────────────────────────────

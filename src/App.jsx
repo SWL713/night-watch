@@ -622,6 +622,38 @@ function App() {
         </div>
       </div>
 
+      {/* Sky brightness color key — shown when bortle layer is active */}
+      {layers.bortle && (
+        <div style={{
+          background: '#06080f', borderTop: '1px solid #0d1525',
+          padding: '4px 12px',
+          display: 'flex', alignItems: 'center', gap: 6,
+          flexShrink: 0, overflowX: 'auto',
+        }}>
+          <span style={{ color: '#334455', fontSize: 7, fontFamily: FONT, letterSpacing: 0.5, whiteSpace: 'nowrap' }}>SKY BRIGHTNESS</span>
+          {[
+            { color: 'rgba(255,235,0,0.12)', label: '1-2' },
+            { color: 'rgba(255,225,0,0.22)', label: '3' },
+            { color: 'rgba(255,215,0,0.35)', label: '4' },
+            { color: 'rgba(255,205,0,0.50)', label: '5' },
+            { color: 'rgba(255,175,0,0.65)', label: '6' },
+            { color: 'rgba(255,90,0,0.78)',  label: '7' },
+            { color: 'rgba(255,10,0,0.88)',  label: '8' },
+            { color: 'rgba(255,0,40,0.95)',  label: '9' },
+          ].map(({ color, label }) => (
+            <div key={label} style={{ display: 'flex', alignItems: 'center', gap: 3, flexShrink: 0 }}>
+              <div style={{
+                width: 14, height: 14, borderRadius: 2,
+                background: color,
+                border: '1px solid rgba(255,255,255,0.08)',
+              }} />
+              <span style={{ color: '#445566', fontSize: 7, fontFamily: FONT }}>{label}</span>
+            </div>
+          ))}
+          <span style={{ color: '#223344', fontSize: 7, fontFamily: FONT, marginLeft: 2, whiteSpace: 'nowrap' }}>BORTLE</span>
+        </div>
+      )}
+
       {/* Developer attribution — between action bar and time slider */}
       <div style={{
         background: '#06080f', borderTop: '1px solid #0d1525',
