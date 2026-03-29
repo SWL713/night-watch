@@ -19,14 +19,32 @@ function toRgba(c, alpha) {
   return `rgba(${c.r},${c.g},${c.b},${alpha})`
 }
 
-// Safe cosine interpolation — only between close longitudes
-function smoothLine(points, steps = 3) {
-  if (points.length < 2) return points
+// Smooth latitude values across neighboring longitude bins using a weighted average,
+// then densify with cosine interpolation to remove the staircase effect
+function smoothLine(points, steps = 8) {
+  if (points.length < 3) return points
+
+  // Step 1: Gaussian blur latitudes across neighbors (radius 3)
+  const RADIUS = 3
+  const weights = [1, 2, 4, 6, 4, 2, 1]  // kernel sum = 20
+  const wSum = weights.reduce((a, b) => a + b, 0)
+  const blurred = points.map((p, i) => {
+    let latSum = 0
+    for (let k = -RADIUS; k <= RADIUS; k++) {
+      const idx = Math.max(0, Math.min(points.length - 1, i + k))
+      const neighbor = points[idx]
+      // Don't blur across antimeridian gaps
+      if (Math.abs(neighbor[1] - p[1]) > 20) { latSum += p[0] * weights[k + RADIUS]; continue }
+      latSum += neighbor[0] * weights[k + RADIUS]
+    }
+    return [latSum / wSum, p[1]]
+  })
+
+  // Step 2: Cosine densification between blurred points
   const out = []
-  for (let i = 0; i < points.length; i++) {
-    const a = points[i]
-    const b = points[(i + 1) % points.length]
-    // Skip large longitude gaps
+  for (let i = 0; i < blurred.length; i++) {
+    const a = blurred[i]
+    const b = blurred[(i + 1) % blurred.length]
     if (Math.abs(b[1] - a[1]) > 20) { out.push(a); continue }
     for (let s = 0; s < steps; s++) {
       const t = s / steps
