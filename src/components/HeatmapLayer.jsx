@@ -74,29 +74,9 @@ const LorenzWarmLayer = L.GridLayer.extend({
         intensity[px] = lorenzToIntensity(d[i], d[i+1], d[i+2])
       }
 
-      // Edge-safe blur — only blends pixels with other non-zero neighbors
-      // and never raises a pixel above its own value, preventing halos
-      const blurred = new Float32Array(w * h)
-      for (let y = 0; y < h; y++) {
-        for (let x = 0; x < w; x++) {
-          const center = intensity[y*w+x]
-          if (center === 0) { blurred[y*w+x] = 0; continue }
-          let sum = center * 2, n = 2  // weight center double
-          for (let dy = -1; dy <= 1; dy++) {
-            for (let dx = -1; dx <= 1; dx++) {
-              if (dx === 0 && dy === 0) continue
-              const nx = x+dx, ny = y+dy
-              if (nx < 0 || nx >= w || ny < 0 || ny >= h) continue
-              const nb = intensity[ny*w+nx]
-              if (nb === 0) continue  // never blend across zero boundary
-              sum += nb; n++
-            }
-          }
-          // Never raise above center value — only smooth downward at edges
-          // Clamp to 80% of center so edges fade slightly but never disappear
-          blurred[y*w+x] = Math.max(center * 0.80, Math.min(center, sum / n))
-        }
-      }
+      // Use original intensity for color mapping (no blur artifacts on zone values)
+      // Only blur the alpha channel for smooth edges — color stays zone-accurate
+      const blurred = intensity  // color mapped from exact zone values
 
       // Remap: yellow → amber → orange → red → pink/red
       // Fully transparent below threshold, opacity scales up with intensity
