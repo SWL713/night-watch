@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect } from 'react'
+import { useState, useCallback, useEffect, useMemo } from 'react'
 import { MapContainer, TileLayer, ZoomControl, useMapEvents, useMap } from 'react-leaflet'
 import 'leaflet/dist/leaflet.css'
 
@@ -86,7 +86,8 @@ function App() {
   const [sightingScreen, setSightingScreen] = useState(null)
   const { getCloudAt, loading: cloudLoading, progress, coverage, total, phase, cloudData } = useCloudCover()
 
-  const moonData = getMoonData()
+  // useMemo so expensive astronomy math only recalculates every 5 minutes, not every render
+  const moonData = useMemo(() => getMoonData(), [Math.floor(Date.now() / 300000)])
   const [bortleGrid, setBortleGrid] = useState(null)
   useEffect(() => { loadBortleGrid().then(g => { if (g) setBortleGrid(g) }) }, [])
 

@@ -82,53 +82,49 @@ export default function OvationLines({ spaceWeather }) {
   const oval     = spaceWeather?.ovation_oval    || []
   const viewLine = spaceWeather?.ovation_viewline || []
 
-  if (!oval.length && !viewLine.length) return null
+  // All heavy smoothing cached — only reruns when space weather data changes
+  const derived = useMemo(() => {
+    if (!oval.length && !viewLine.length) return null
 
-  // Filter bad coords, sort by longitude
-  const sorted = oval
-    .filter(p => Array.isArray(p) && isFinite(p[0]) && isFinite(p[1]))
-    .sort((a, b) => a[1] - b[1])
+    const sorted = oval
+      .filter(p => Array.isArray(p) && isFinite(p[0]) && isFinite(p[1]))
+      .sort((a, b) => a[1] - b[1])
 
-  // Extract south boundary and north edge (with fallback for old 2-elem data)
-  const southPts = sorted.map(p => [p[0], p[1]])
-  const northPts = sorted.map(p => {
-    const latNorth = (isFinite(p[4]) ? p[4] : p[0] + 4)
-    return [latNorth, p[1]]
-  })
+    const southPts = sorted.map(p => [p[0], p[1]])
+    const northPts = sorted.map(p => {
+      const latNorth = (isFinite(p[4]) ? p[4] : p[0] + 4)
+      return [latNorth, p[1]]
+    })
 
-  // Smooth both lines
-  const smoothSouth = smoothLine(southPts, 12)
-  const smoothNorth = smoothLine(northPts, 12)
+    const smoothSouth = smoothLine(southPts, 12)
+    const smoothNorth = smoothLine(northPts, 12)
+    const southSegs = splitAtGaps(smoothSouth)
+    const northSegs = splitAtGaps(smoothNorth)
 
-  // Split into antimeridian-safe segments
-  const southSegs = splitAtGaps(smoothSouth)
-  const northSegs = splitAtGaps(smoothNorth)
+    const fillPolygons = southSegs.map((sSeg, i) => {
+      const nSeg = northSegs[i]
+      if (!nSeg || nSeg.length < 2) return null
+      const ring = [...sSeg, ...[...nSeg].reverse()]
+      if (ring.some(p => !isFinite(p[0]) || !isFinite(p[1]))) return null
+      return ring
+    }).filter(Boolean)
 
-  // Build fill polygons — pair each south segment with corresponding north segment
-  // Use simple index-matched approach: split both at same longitude gaps
-  const fillPolygons = southSegs.map((sSeg, i) => {
-    const nSeg = northSegs[i]
-    if (!nSeg || nSeg.length < 2) return null
-    // Ring: south edge forward + north edge reversed = closed polygon
-    const ring = [...sSeg, ...[...nSeg].reverse()]
-    // Verify all coords are finite
-    if (ring.some(p => !isFinite(p[0]) || !isFinite(p[1]))) return null
-    return ring
-  }).filter(Boolean)
+    const avgProb = sorted.length
+      ? sorted.reduce((s, p) => s + (isFinite(p[2]) ? p[2] : 30), 0) / sorted.length
+      : 30
+    const fillColor = toRgba(probToColor(avgProb), 0.30)
+    const lineColor = toRgba({ r: 68, g: 221, b: 170 }, 0.9)
 
-  // Average intensity across oval for color
-  const avgProb = sorted.length
-    ? sorted.reduce((s, p) => s + (isFinite(p[2]) ? p[2] : 30), 0) / sorted.length
-    : 30
-  const fillColorObj = probToColor(avgProb)
-  const fillColor = toRgba(fillColorObj, 0.30)
-  const lineColor = toRgba({ r: 68, g: 221, b: 170 }, 0.9)
+    const sortedView = viewLine
+      .filter(p => Array.isArray(p) && isFinite(p[0]) && isFinite(p[1]))
+      .sort((a, b) => a[1] - b[1])
+    const viewSegs = splitAtGaps(smoothLine(sortedView, 12))
 
-  // View line
-  const sortedView = viewLine
-    .filter(p => Array.isArray(p) && isFinite(p[0]) && isFinite(p[1]))
-    .sort((a, b) => a[1] - b[1])
-  const viewSegs = splitAtGaps(smoothLine(sortedView, 12))
+    return { southSegs, fillPolygons, fillColor, lineColor, viewSegs }
+  }, [spaceWeather])
+
+  if (!derived) return null
+  const { southSegs, fillPolygons, fillColor, lineColor, viewSegs } = derived
 
   return (
     <>
