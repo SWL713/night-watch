@@ -333,6 +333,44 @@ function App() {
 
         </MapContainer>
 
+        {/* Sky brightness bortle key — outside MapContainer so it's not clipped */}
+        {layers.bortle && (
+          <div style={{
+            position: 'absolute',
+            bottom: 30, left: '50%',
+            transform: 'translateX(-50%)',
+            zIndex: 1050,
+            background: 'rgba(6,8,15,0.85)',
+            border: '1px solid #1a2a3a',
+            borderRadius: 4,
+            padding: '4px 8px',
+            display: 'flex', alignItems: 'center', gap: 5,
+            pointerEvents: 'none',
+            whiteSpace: 'nowrap',
+          }}>
+            <span style={{ color: '#6688aa', fontSize: 7, fontFamily: FONT, letterSpacing: 0.8, marginRight: 2 }}>BORTLE EQUIV.</span>
+            {[
+              { color: 'rgba(255,235,0,0.15)', label: '1-2' },
+              { color: 'rgba(255,225,0,0.28)', label: '3' },
+              { color: 'rgba(255,215,0,0.42)', label: '4' },
+              { color: 'rgba(255,200,0,0.55)', label: '5' },
+              { color: 'rgba(255,160,0,0.68)', label: '6' },
+              { color: 'rgba(255,70,0,0.80)',  label: '7' },
+              { color: 'rgba(255,10,0,0.88)',  label: '8' },
+              { color: 'rgba(255,0,40,0.95)',  label: '9' },
+            ].map(({ color, label }) => (
+              <div key={label} style={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+                <div style={{
+                  width: 13, height: 13, borderRadius: 2,
+                  background: color,
+                  border: '1px solid rgba(255,255,255,0.12)',
+                }} />
+                <span style={{ color: '#aabbcc', fontSize: 7, fontFamily: FONT }}>{label}</span>
+              </div>
+            ))}
+          </div>
+        )}
+
         {clearSkyMode && (
           <div style={{
             position: 'absolute', top: 28, left: '50%', transform: 'translateX(-50%)',
@@ -468,43 +506,7 @@ function App() {
             style={{ color: 'rgba(40,80,120,0.55)', textDecoration: 'none' }}>© David Lorenz</a>
         </div>
 
-        {/* Sky brightness bortle key — overlaid on map above attribution */}
-        {layers.bortle && (
-          <div style={{
-            position: 'absolute',
-            bottom: 28, left: '50%',
-            transform: 'translateX(-50%)',
-            zIndex: 800,
-            background: 'rgba(6,8,15,0.82)',
-            border: '1px solid #0d1525',
-            borderRadius: 4,
-            padding: '4px 8px',
-            display: 'flex', alignItems: 'center', gap: 5,
-            pointerEvents: 'none',
-            whiteSpace: 'nowrap',
-          }}>
-            <span style={{ color: '#6688aa', fontSize: 7, fontFamily: FONT, letterSpacing: 0.8, marginRight: 2 }}>BORTLE EQUIVALENT</span>
-            {[
-              { color: 'rgba(255,235,0,0.15)', label: '1-2' },
-              { color: 'rgba(255,225,0,0.28)', label: '3' },
-              { color: 'rgba(255,215,0,0.42)', label: '4' },
-              { color: 'rgba(255,200,0,0.55)', label: '5' },
-              { color: 'rgba(255,160,0,0.68)', label: '6' },
-              { color: 'rgba(255,70,0,0.80)',  label: '7' },
-              { color: 'rgba(255,10,0,0.88)',  label: '8' },
-              { color: 'rgba(255,0,40,0.95)',  label: '9' },
-            ].map(({ color, label }) => (
-              <div key={label} style={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-                <div style={{
-                  width: 13, height: 13, borderRadius: 2,
-                  background: color,
-                  border: '1px solid rgba(255,255,255,0.12)',
-                }} />
-                <span style={{ color: '#aabbcc', fontSize: 7, fontFamily: FONT }}>{label}</span>
-              </div>
-            ))}
-          </div>
-        )}
+
 
         {/* Layer controls bottom-left */}
         <LayerControls
