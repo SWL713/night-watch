@@ -337,9 +337,9 @@ function App() {
         {layers.bortle && (
           <div style={{
             position: 'absolute',
-            bottom: 30, left: '50%',
+            bottom: 6, left: '50%',
             transform: 'translateX(-50%)',
-            zIndex: 1050,
+            zIndex: 2100,
             background: 'rgba(6,8,15,0.85)',
             border: '1px solid #1a2a3a',
             borderRadius: 4,
