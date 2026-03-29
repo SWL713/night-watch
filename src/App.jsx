@@ -163,6 +163,7 @@ function App() {
           zoomDelta={0.25}
           wheelPxPerZoomLevel={120}
           zoomControl={false}
+          worldCopyJump={true}
           style={{ height: '100%', width: '100%', background: '#06080f', cursor: 'inherit' }}
         >
           {/* Dark base tile layer */}
