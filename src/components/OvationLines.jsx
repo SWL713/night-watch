@@ -73,8 +73,8 @@ export default function OvationLines({ spaceWeather }) {
   })
 
   // Smooth both lines
-  const smoothSouth = smoothLine(southPts)
-  const smoothNorth = smoothLine(northPts)
+  const smoothSouth = smoothLine(southPts, 6)
+  const smoothNorth = smoothLine(northPts, 6)
 
   // Split into antimeridian-safe segments
   const southSegs = splitAtGaps(smoothSouth)
@@ -104,7 +104,7 @@ export default function OvationLines({ spaceWeather }) {
   const sortedView = viewLine
     .filter(p => Array.isArray(p) && isFinite(p[0]) && isFinite(p[1]))
     .sort((a, b) => a[1] - b[1])
-  const viewSegs = splitAtGaps(smoothLine(sortedView))
+  const viewSegs = splitAtGaps(smoothLine(sortedView, 6))
 
   return (
     <>
@@ -119,7 +119,7 @@ export default function OvationLines({ spaceWeather }) {
             fillColor: fillColor,
             fillOpacity: 1,
             stroke: false,
-            smoothFactor: 3,
+            smoothFactor: 8,
           }}
         />
       ))}
@@ -129,7 +129,7 @@ export default function OvationLines({ spaceWeather }) {
         <Polyline
           key={`oval-${i}`}
           positions={seg}
-          pathOptions={{ color: '#44ddaa', weight: 2, opacity: 0.9, smoothFactor: 3 }}
+          pathOptions={{ color: '#44ddaa', weight: 2, opacity: 0.9, smoothFactor: 8 }}
         />
       ))}
 
@@ -138,7 +138,7 @@ export default function OvationLines({ spaceWeather }) {
         <Polyline
           key={`view-${i}`}
           positions={seg}
-          pathOptions={{ color: '#44ddaa', weight: 1.5, opacity: 0.4, dashArray: '6 4', smoothFactor: 3 }}
+          pathOptions={{ color: '#44ddaa', weight: 1.5, opacity: 0.4, dashArray: '6 4', smoothFactor: 8 }}
         />
       ))}
     </>
