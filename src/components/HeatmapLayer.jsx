@@ -74,9 +74,28 @@ const LorenzWarmLayer = L.GridLayer.extend({
         intensity[px] = lorenzToIntensity(d[i], d[i+1], d[i+2])
       }
 
-      // No blur — source tile boundaries are cleaner without averaging
-      // The Lorenz palette transition pixels create false halos when blurred
-      const blurred = intensity
+      // Edge-safe blur — only blends pixels with other non-zero neighbors
+      // and never raises a pixel above its own value, preventing halos
+      const blurred = new Float32Array(w * h)
+      for (let y = 0; y < h; y++) {
+        for (let x = 0; x < w; x++) {
+          const center = intensity[y*w+x]
+          if (center === 0) { blurred[y*w+x] = 0; continue }
+          let sum = center * 2, n = 2  // weight center double
+          for (let dy = -1; dy <= 1; dy++) {
+            for (let dx = -1; dx <= 1; dx++) {
+              if (dx === 0 && dy === 0) continue
+              const nx = x+dx, ny = y+dy
+              if (nx < 0 || nx >= w || ny < 0 || ny >= h) continue
+              const nb = intensity[ny*w+nx]
+              if (nb === 0) continue  // never blend across zero boundary
+              sum += nb; n++
+            }
+          }
+          // Never raise above center value — only smooth downward at edges
+          blurred[y*w+x] = Math.min(center, sum / n)
+        }
+      }
 
       // Remap: yellow → amber → orange → red → pink/red
       // Fully transparent below threshold, opacity scales up with intensity
@@ -94,35 +113,35 @@ const LorenzWarmLayer = L.GridLayer.extend({
           // Faint yellow — bortle 2, barely visible
           const t = (v - 0.04) / 0.18
           nr = 255; ng = Math.round(220 - 10*t); nb = 0
-          alpha = Math.round(t * 30)  // 0-30, very faint
+          alpha = Math.round(t * 25)          // 0-25
         } else if (v < 0.42) {
           // Yellow — bortle 3
           const t = (v - 0.22) / 0.20
           nr = 255; ng = Math.round(210 - 30*t); nb = 0
-          alpha = Math.round(30 + t * 35)  // 30-65
+          alpha = Math.round(25 + t * 30)     // 25-55
         } else if (v < 0.58) {
           // Amber — bortle 4-5
           const t = (v - 0.42) / 0.16
           nr = 255; ng = Math.round(180 - 80*t); nb = 0
-          alpha = Math.round(65 + t * 45)  // 65-110
+          alpha = Math.round(55 + t * 35)     // 55-90
         } else if (v < 0.72) {
           // Orange — bortle 5-6
           const t = (v - 0.58) / 0.14
           nr = 255; ng = Math.round(100 - 70*t); nb = 0
-          alpha = Math.round(110 + t * 40)  // 110-150
+          alpha = Math.round(90 + t * 30)     // 90-120
         } else if (v < 0.86) {
           // Red — bortle 6-7
           const t = (v - 0.72) / 0.14
           nr = 255; ng = Math.round(30 - 20*t); nb = 0
-          alpha = Math.round(150 + t * 40)  // 150-190
+          alpha = Math.round(120 + t * 30)    // 120-150
         } else {
           // Pink/red — bortle 8-9 / city core
           const t = Math.min(1, (v - 0.86) / 0.14)
-          nr = 255; ng = 10; nb = Math.round(t * 60)  // hint of pink
-          alpha = Math.round(190 + t * 40)  // 190-230
+          nr = 255; ng = 10; nb = Math.round(t * 50)
+          alpha = Math.round(150 + t * 25)    // 150-175 — noticeably lower than before
         }
 
-        d[i]=nr; d[i+1]=ng; d[i+2]=nb; d[i+3]=Math.round(alpha * 0.85)
+        d[i]=nr; d[i+1]=ng; d[i+2]=nb; d[i+3]=alpha
       }
 
       ctx.putImageData(imageData, 0, 0)
