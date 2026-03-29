@@ -56,7 +56,7 @@ export default function CameraPopup({ camera, onClose }) {
         }}>✕</button>
       </div>
 
-      {/* Image */}
+      {/* Image or no-preview placeholder */}
       {imgSrc && !imgError ? (
         <div style={{ position: 'relative', background: '#000' }}>
           <img
@@ -74,12 +74,24 @@ export default function CameraPopup({ camera, onClose }) {
         </div>
       ) : (
         <div style={{
-          width: '100%', height: 180,
+          width: '100%', height: 120,
           background: '#060810',
-          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          display: 'flex', flexDirection: 'column',
+          alignItems: 'center', justifyContent: 'center', gap: 6,
           color: '#334455', fontSize: 9, fontFamily: FONT,
         }}>
-          {imgError ? 'Image unavailable' : 'Loading...'}
+          {imgError ? (
+            <span>Image unavailable</span>
+          ) : !camera.image_url ? (
+            <>
+              <span style={{ fontSize: 22 }}>
+                {camera.camera_type === 'airport' ? '✈️' : camera.camera_type === 'allsky' ? '🔭' : '📹'}
+              </span>
+              <span>No snapshot available — click Watch Live</span>
+            </>
+          ) : (
+            <span>Loading...</span>
+          )}
         </div>
       )}
 
