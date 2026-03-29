@@ -11,7 +11,7 @@ export function useSpots() {
   useEffect(() => {
     async function load() {
       if (!supabaseReady) {
-        setSpots(spotsData.filter(s => s.approved))
+        setSpots(spotsData)
         setLoading(false)
         return
       }
@@ -19,7 +19,6 @@ export function useSpots() {
         const { data: supabaseSpots, error: err } = await supabase
           .from('spots')
           .select('*')
-          .eq('approved', true)
           .eq('rejected', false)
           .order('name')
         if (err) throw err
@@ -44,7 +43,7 @@ export function useSpots() {
         setSpots(cleaned)
       } catch (e) {
         console.warn('Supabase failed, using local data:', e)
-        setSpots(spotsData.filter(s => s.approved))
+        setSpots(spotsData)
         setError(e.message)
       } finally {
         setLoading(false)
