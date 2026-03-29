@@ -6,27 +6,98 @@ import { GRID_BOUNDS } from '../config.js'
 import { loadBortleGrid, getBortle } from '../utils/bortleGrid.js'
 
 // ── Lorenz Light Pollution Atlas tile layer ────────────────────────────────────
-// Self-hosted tiles cut from David Lorenz's World Atlas of Artificial Night Sky
-// Brightness (2024). Pre-processed to transparent PNG with native color palette:
-//   black / transparent = pristine dark sky
-//   dark blue = rural dark (good for aurora)
-//   green/yellow = suburban transition
-//   orange/red = significant light pollution
-//   white = city core
-// No canvas recolor needed — served as standard TileLayer with opacity.
-// z2-7 global, z8 US+Canada only (land tiles only, ~83MB).
+// Self-hosted tiles cut from David Lorenz's World Atlas 2024.
+// Remapped to warm transparent→yellow→red color scheme:
+//   truly dark pixels → fully transparent
+//   low pollution     → faint warm yellow
+//   high pollution    → deep red
+// Uses canvas recolor on Lorenz's clean, artifact-free data.
 
 const LP_ATTRIB = 'Sky brightness: <a href="https://djlorenz.github.io/astronomy/lp" target="_blank" rel="noopener">© David Lorenz</a>'
 const LP_BASE   = import.meta.env.BASE_URL + 'lp_tiles'
 
+const LorenzWarmLayer = L.GridLayer.extend({
+  createTile(coords, done) {
+    const tile = document.createElement('canvas')
+    tile.width  = 256
+    tile.height = 256
+
+    const url = `${LP_BASE}/${coords.z}/${coords.x}/${coords.y}.png`
+    const img = new Image()
+    img.onload = () => {
+      const ctx = tile.getContext('2d')
+      ctx.drawImage(img, 0, 0, 256, 256)
+      const imageData = ctx.getImageData(0, 0, 256, 256)
+      const d = imageData.data
+
+      for (let i = 0; i < d.length; i += 4) {
+        const r = d[i], g = d[i+1], b = d[i+2], a = d[i+3]
+
+        // Skip already-transparent pixels (ocean/land mask from tile cutter)
+        if (a === 0) continue
+
+        // Convert Lorenz color to luminance (brightness proxy)
+        // Lorenz palette: dark blue=low → green → yellow → red/white=high
+        // Use perceived luminance to get a 0-1 intensity scale
+        const lum = (r * 0.299 + g * 0.587 + b * 0.114) / 255
+
+        // Truly dark pixels → transparent (no light pollution)
+        // Threshold at 0.04 — catches near-black dark blue zones
+        if (lum < 0.04) {
+          d[i+3] = 0
+          continue
+        }
+
+        // Map luminance to 0-1 intensity with power curve
+        // Low values fade fast (rural dark barely visible)
+        // High values (cities) stay bright
+        const intensity = Math.pow(Math.min(1, lum / 0.85), 1.4)
+
+        // Warm color ramp: faint yellow → amber → orange → deep red
+        let nr, ng, nb
+        if (intensity < 0.35) {
+          // transparent yellow — very faint
+          const t = intensity / 0.35
+          nr = Math.round(220 + (255 - 220) * t)
+          ng = Math.round(160 + (180 - 160) * t)
+          nb = 0
+        } else if (intensity < 0.65) {
+          // amber → orange
+          const t = (intensity - 0.35) / 0.30
+          nr = 255
+          ng = Math.round(180 - 100 * t)
+          nb = 0
+        } else {
+          // orange → deep red
+          const t = (intensity - 0.65) / 0.35
+          nr = 255
+          ng = Math.round(80 - 80 * t)
+          nb = 0
+        }
+
+        d[i]   = nr
+        d[i+1] = ng
+        d[i+2] = nb
+        // Alpha: dark zones very faint, cities opaque
+        // Use sqrt so mid-range stays visible but dark zones fade fast
+        d[i+3] = Math.round(Math.sqrt(intensity) * 160)
+      }
+
+      ctx.putImageData(imageData, 0, 0)
+      done(null, tile)
+    }
+    img.onerror = () => done(null, tile)
+    img.src = url
+    return tile
+  }
+})
+
 function createLorenzLayer() {
-  return L.tileLayer(`${LP_BASE}/{z}/{x}/{y}.png`, {
+  return new LorenzWarmLayer({
     attribution:   LP_ATTRIB,
-    opacity:       0.6,
     zIndex:        190,
     maxNativeZoom: 8,
     maxZoom:       22,
-    errorTileUrl:  'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=',
   })
 }
 
