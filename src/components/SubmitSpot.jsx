@@ -176,9 +176,9 @@ export default function SubmitSpot({ onClose, initialCoords }) {
   if (step === 'done') return (
     <div style={{ background: '#070b16', border: '1px solid #1a2a3a', borderRadius: 4,
       padding: 24, fontFamily: FONT, color: '#ccd', width: 300, textAlign: 'center' }}>
-      <div style={{ color: '#44ddaa', fontSize: 14, marginBottom: 8 }}>✓ All Submitted</div>
+      <div style={{ color: '#44ddaa', fontSize: 14, marginBottom: 8 }}>✓ Thank You!</div>
       <div style={{ color: '#445566', fontSize: 11, marginBottom: 16 }}>
-        Your spot and photo are pending review and will appear on the map once approved.
+        Your contribution is now live on the map. Thanks for helping the community find great spots.
       </div>
       <button onClick={onClose} style={{ ...inputStyle, cursor: 'pointer', color: '#44ddaa',
         border: '1px solid #44ddaa44', width: 'auto', padding: '6px 20px' }}>CLOSE</button>
@@ -190,7 +190,7 @@ export default function SubmitSpot({ onClose, initialCoords }) {
     <div style={{ background: '#070b16', border: '1px solid #1a2a3a', borderRadius: 4,
       padding: 16, width: 300, fontFamily: FONT, color: '#ccd', fontSize: 12 }}>
       <div style={{ color: '#44ddaa', fontSize: 11, letterSpacing: 1, marginBottom: 4 }}>
-        ✓ Spot submitted for review
+        ✓ Location added — thank you!
       </div>
       <div style={{ color: '#445566', fontSize: 10, marginBottom: 14 }}>
         Want to add a photo of {submittedSpotName}? (optional)
