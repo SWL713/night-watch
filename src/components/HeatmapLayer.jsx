@@ -93,7 +93,8 @@ const LorenzWarmLayer = L.GridLayer.extend({
             }
           }
           // Never raise above center value — only smooth downward at edges
-          blurred[y*w+x] = Math.min(center, sum / n)
+          // But clamp minimum to half the center value so edge pixels never blur to zero
+          blurred[y*w+x] = Math.max(center * 0.5, Math.min(center, sum / n))
         }
       }
 
