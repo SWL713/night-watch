@@ -580,7 +580,7 @@ def fetch_ovation():
             lon_groups[key] = []
         lon_groups[key].append({'lat': lat, 'prob': prob})
 
-    oval_boundary = []
+    oval_boundary = []  # [lat_south, lon, max_prob, lat_peak, lat_north]
     view_line = []
 
     for lon_key in sorted(lon_groups.keys()):
@@ -590,7 +590,17 @@ def fetch_ovation():
         # Southernmost lat with prob >= 10% = oval boundary
         oval_pt = next((p for p in sorted_pts if p['prob'] >= 10), None)
         if oval_pt:
-            oval_boundary.append([oval_pt['lat'], lon_key])
+            # Find max probability and its latitude in this column
+            active = [p for p in sorted_pts if p['prob'] >= 10]
+            max_prob_pt = max(active, key=lambda p: p['prob'])
+            lat_north = active[-1]['lat']  # northernmost edge of aurora band
+            oval_boundary.append([
+                oval_pt['lat'],     # lat_south (boundary)
+                lon_key,            # lon
+                round(max_prob_pt['prob'], 1),  # max probability (intensity)
+                max_prob_pt['lat'], # lat of peak intensity
+                lat_north,          # lat_north (poleward edge)
+            ])
 
         # Southernmost lat with prob >= 2% = viewline
         view_pt = next((p for p in sorted_pts if p['prob'] >= 2), None)
