@@ -16,26 +16,39 @@ import { loadBortleGrid, getBortle } from '../utils/bortleGrid.js'
 const LP_ATTRIB = 'Sky brightness: <a href="https://djlorenz.github.io/astronomy/lp" target="_blank" rel="noopener">© David Lorenz</a>'
 const LP_BASE   = import.meta.env.BASE_URL + 'lp_tiles'
 
-// Map Lorenz's specific color palette to a pollution intensity 0-1 value.
-// Uses hue detection to correctly map dark blues (low pollution) near zero.
+// Exact RGB lookup against the 18 posterized zone colors.
+// Tiles were pre-posterized so only these exact colors appear — no fuzzy matching needed.
+// Intensity 0 = pristine dark sky (transparent), 1.0 = city core (opaque red/pink)
+const LORENZ_ZONES = [
+  [[0,   0,   0],   0.00],  // black — pristine
+  [[0,   0,  80],   0.06],  // very dark navy
+  [[0,   0, 140],   0.11],  // dark navy
+  [[0,  20, 180],   0.16],  // navy blue
+  [[0,  50, 200],   0.21],  // blue
+  [[0,  90, 180],   0.26],  // blue-teal
+  [[0, 130, 160],   0.31],  // teal
+  [[0, 160, 100],   0.37],  // teal-green
+  [[0, 180,  60],   0.42],  // green
+  [[60, 180,  0],   0.48],  // yellow-green
+  [[120, 180,  0],  0.53],  // lime
+  [[180, 180,  0],  0.58],  // yellow
+  [[220, 160,  0],  0.64],  // amber
+  [[240, 100,  0],  0.70],  // orange
+  [[240,  40,  0],  0.76],  // red-orange
+  [[220,   0,  0],  0.82],  // red
+  [[255,   0,  0],  0.88],  // bright red
+  [[255,  80, 80],  0.95],  // pink-red / city core
+]
+
 function lorenzToIntensity(r, g, b) {
-  const total = r + g + b
-  if (total < 20) return 0
-
-  const maxC = Math.max(r, g, b)
-  const bFrac = b / (total + 1)
-  const gFrac = g / (total + 1)
-  const rFrac = r / (total + 1)
-
-  if (b === maxC && bFrac > 0.40 && total < 300) return Math.min(0.18, (total / 300) * 0.18)
-  if (g > r && b > r && bFrac > 0.25 && gFrac > 0.30) return 0.18 + (total / 600) * 0.12
-  if (g === maxC && gFrac > 0.40 && r < g * 0.75) return 0.30 + (total / 700) * 0.12
-  if (g >= r && gFrac > 0.35 && rFrac > 0.25) return 0.42 + ((r / (g + 1)) * 0.10)
-  if (r > 150 && g > 150 && Math.abs(r - g) < 60 && bFrac < 0.15) return 0.52 + ((r / 255) * 0.12)
-  if (r === maxC && rFrac > 0.45 && gFrac > 0.15 && gFrac < 0.40) return 0.64 + ((1 - gFrac * 2) * 0.15)
-  if (r === maxC && rFrac > 0.50 && gFrac < 0.20) return 0.79 + (rFrac - 0.50) * 0.42
-  if (total > 600) return 1.0
-  return Math.min(1, (r * 0.299 + g * 0.587 + b * 0.114) / 255)
+  // Find nearest zone by squared RGB distance
+  let best = 0, bestDist = Infinity
+  for (let i = 0; i < LORENZ_ZONES.length; i++) {
+    const [zc] = LORENZ_ZONES[i]
+    const d = (r-zc[0])**2 + (g-zc[1])**2 + (b-zc[2])**2
+    if (d < bestDist) { bestDist = d; best = i }
+  }
+  return LORENZ_ZONES[best][1]
 }
 
 const LorenzWarmLayer = L.GridLayer.extend({
