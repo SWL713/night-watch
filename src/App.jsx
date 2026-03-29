@@ -87,7 +87,8 @@ function App() {
   const { getCloudAt, loading: cloudLoading, progress, coverage, total, phase, cloudData } = useCloudCover()
 
   // useMemo so expensive astronomy math only recalculates every 5 minutes, not every render
-  const moonData = useMemo(() => getMoonData(), [Math.floor(Date.now() / 300000)])
+  const moonTick = Math.floor(Date.now() / 300000)
+  const moonData = useMemo(() => getMoonData(), [moonTick])
   const [bortleGrid, setBortleGrid] = useState(null)
   useEffect(() => { loadBortleGrid().then(g => { if (g) setBortleGrid(g) }) }, [])
 
