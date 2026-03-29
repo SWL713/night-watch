@@ -93,8 +93,7 @@ export default function SubmitSpot({ onClose, initialCoords }) {
   const [bortleGrid, setBortleGrid] = useState(null)
   useEffect(() => { loadBortleGrid().then(g => { if (g) setBortleGrid(g) }) }, [])
 
-  // Auto-lookup Bortle: debounced 800ms so we don't fire on every keystroke
-  // LPM point API first (matches visual map), grid as fallback
+  // Auto-lookup Bortle: grid gives instant result, LPM API silently refines it
   useEffect(() => {
     const lat = parseFloat(form.lat)
     const lon = parseFloat(form.lon)
@@ -103,29 +102,27 @@ export default function SubmitSpot({ onClose, initialCoords }) {
       setBortleOverride(false)
       return
     }
-    setBortleLookup('loading')
 
+    // Step 1: instant grid result — no waiting
+    const raw = bortleGrid ? getBortle(bortleGrid, lat, lon) : null
+    let instant
+    if (!raw || (raw === 5 && lat > 52)) {
+      instant = lat > 65 ? 1 : lat > 58 ? 2 : lat > 52 ? 2 : 5
+    } else {
+      instant = Math.round(raw)
+    }
+    setBortleLookup(instant)
+    setBortleOverride(false)
+    set('bortle', String(instant))
+
+    // Step 2: silently refine with LPM API after 1s delay — only updates if better
     const timer = setTimeout(async () => {
-      // Primary: lightpollutionmap.info point query — matches Lorenz visual layer
-      let b = await fetchBortleAt(lat, lon)
-
-      // Fallback: bortle grid if API failed or returned generic 5
-      if (!b || b === 5) {
-        const raw = bortleGrid ? getBortle(bortleGrid, lat, lon) : null
-        if (raw && raw !== 5) {
-          b = Math.round(raw)
-        } else {
-          if (lat > 65) b = 1
-          else if (lat > 58) b = 2
-          else if (lat > 52) b = 2
-          else b = b || 5
-        }
+      const b = await fetchBortleAt(lat, lon)
+      if (b && b !== 5) {
+        setBortleLookup(b)
+        set('bortle', String(b))
       }
-
-      setBortleLookup(b)
-      setBortleOverride(false)
-      set('bortle', String(b))
-    }, 800)
+    }, 1000)
 
     return () => clearTimeout(timer)
   }, [form.lat, form.lon, bortleGrid])
