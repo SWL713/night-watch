@@ -1,3 +1,4 @@
+import { useMemo } from 'react'
 import { Polyline, Polygon } from 'react-leaflet'
 
 // Color scale: teal (low) → yellow → red (high intensity)
