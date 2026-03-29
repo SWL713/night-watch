@@ -16,35 +16,29 @@ import { loadBortleGrid, getBortle } from '../utils/bortleGrid.js'
 const LP_ATTRIB = 'Sky brightness: <a href="https://djlorenz.github.io/astronomy/lp" target="_blank" rel="noopener">© David Lorenz</a>'
 const LP_BASE   = import.meta.env.BASE_URL + 'lp_tiles'
 
-// Exact RGB lookup against the 18 posterized zone colors.
-// Tiles were pre-posterized so only these exact colors appear — no fuzzy matching needed.
-// Intensity 0 = pristine dark sky (transparent), 1.0 = city core (opaque red/pink)
+// Exact RGB lookup against actual Lorenz atlas colors sampled from world2024.png
+// Intensity 0 = transparent (pristine/dark), 1.0 = opaque (city core)
 const LORENZ_ZONES = [
-  [[0,   0,   0],   0.00],  // black — pristine
-  [[0,   0,  80],   0.06],  // very dark navy
-  [[0,   0, 140],   0.11],  // dark navy
-  [[0,  20, 180],   0.16],  // navy blue
-  [[0,  50, 200],   0.21],  // blue
-  [[0,  90, 180],   0.26],  // blue-teal
-  [[0, 130, 160],   0.31],  // teal
-  [[0, 160, 100],   0.37],  // teal-green
-  [[0, 180,  60],   0.42],  // green
-  [[60, 180,  0],   0.48],  // yellow-green
-  [[120, 180,  0],  0.53],  // lime
-  [[180, 180,  0],  0.58],  // yellow
-  [[220, 160,  0],  0.64],  // amber
-  [[240, 100,  0],  0.70],  // orange
-  [[240,  40,  0],  0.76],  // red-orange
-  [[220,   0,  0],  0.82],  // red
-  [[255,   0,  0],  0.88],  // bright red
-  [[255,  80, 80],  0.95],  // pink-red / city core
+  [[ 34,  34,  34],  0.00],  // charcoal — pristine → transparent
+  [[ 66,  66,  66],  0.00],  // mid grey — near-pristine → transparent
+  [[ 20,  47, 114],  0.00],  // dark navy — bortle 1-2 → transparent
+  [[ 33,  84, 216],  0.18],  // medium blue — bortle 2-3 → faint yellow
+  [[ 15,  87,  20],  0.34],  // dark green — bortle 3 → visible yellow
+  [[ 31, 161,  42],  0.46],  // bright green — bortle 4 → yellow
+  [[110, 100,  30],  0.58],  // olive brown — bortle 5 → amber
+  [[184, 166,  37],  0.68],  // tan/yellow — bortle 6 → orange
+  [[191, 100,  30],  0.76],  // orange-brown — bortle 7 → red
+  [[253, 150,  80],  0.82],  // orange — bortle 7-8 → deeper red
+  [[251,  90,  73],  0.88],  // red-orange — bortle 8 → red
+  [[251, 153, 138],  0.93],  // pink — bortle 9 → pink-red
+  [[160, 160, 160],  0.96],  // light grey — city bright → pink-red
+  [[242, 242, 242],  1.00],  // near white — city core → pink-red
 ]
 
 function lorenzToIntensity(r, g, b) {
-  // Find nearest zone by squared RGB distance
   let best = 0, bestDist = Infinity
   for (let i = 0; i < LORENZ_ZONES.length; i++) {
-    const [zc] = LORENZ_ZONES[i]
+    const zc = LORENZ_ZONES[i][0]
     const d = (r-zc[0])**2 + (g-zc[1])**2 + (b-zc[2])**2
     if (d < bestDist) { bestDist = d; best = i }
   }
@@ -84,53 +78,67 @@ const LorenzWarmLayer = L.GridLayer.extend({
         const v = blurred[px]
         const i = px * 4
 
-        // Only pure black (pristine sky, intensity exactly 0) is transparent
+        // Transparent zones (charcoal, grey, dark navy) = intensity 0.00
         if (v === 0) {
           d[i]=0; d[i+1]=0; d[i+2]=0; d[i+3]=0
           continue
         }
 
+        // Final warm ramp aligned to exact Lorenz zone intensities.
+        // Philosophy: LP layer owns yellow→orange, clouds own red.
+        // Combined: both layers amplify badness — cloudy+polluted = deep red.
+        // City core capped at 60% opacity (153 alpha).
         let nr, ng, nb, alpha
-        if (v < 0.12) {
-          // Bortle 1-2 — very dark navy/blue, nearly transparent
-          const t = v / 0.12
-          nr = 255; ng = 230; nb = 0
-          alpha = Math.round(t * 15)          // 0-15, barely perceptible
-        } else if (v < 0.26) {
-          // Bortle 2 — faint yellow, light blue zones
-          const t = (v - 0.12) / 0.14
-          nr = 255; ng = Math.round(225 - 10*t); nb = 0
+
+        if (v <= 0.18) {
+          // Medium blue (bortle 2-3) — faintest yellow
+          const t = v / 0.18
+          nr = 255; ng = 235; nb = 0
+          alpha = Math.round(t * 15)          // 0-15
+        } else if (v <= 0.34) {
+          // Dark green (bortle 3) — faint yellow, visible step
+          const t = (v - 0.18) / 0.16
+          nr = 255; ng = Math.round(235 - 15*t); nb = 0
           alpha = Math.round(15 + t * 20)     // 15-35
-        } else if (v < 0.40) {
-          // Bortle 3 — teal/dark green zones — visible yellow step
-          const t = (v - 0.26) / 0.14
-          nr = 255; ng = Math.round(215 - 20*t); nb = 0
-          alpha = Math.round(35 + t * 30)     // 35-65, clearly visible
-        } else if (v < 0.53) {
-          // Bortle 4 — green/yellow-green zones
-          const t = (v - 0.40) / 0.13
-          nr = 255; ng = Math.round(195 - 35*t); nb = 0
-          alpha = Math.round(65 + t * 20)     // 65-85
-        } else if (v < 0.62) {
-          // Bortle 4-5 — amber
-          const t = (v - 0.48) / 0.14
-          nr = 255; ng = Math.round(180 - 80*t); nb = 0
-          alpha = Math.round(65 + t * 30)     // 65-95
-        } else if (v < 0.76) {
-          // Bortle 5-6 — orange
-          const t = (v - 0.62) / 0.14
-          nr = 255; ng = Math.round(100 - 70*t); nb = 0
-          alpha = Math.round(95 + t * 30)     // 95-125
-        } else if (v < 0.88) {
-          // Bortle 7-8 — red
-          const t = (v - 0.76) / 0.12
+        } else if (v <= 0.46) {
+          // Bright green (bortle 4) — light yellow
+          const t = (v - 0.34) / 0.12
+          nr = 255; ng = Math.round(220 - 20*t); nb = 0
+          alpha = Math.round(35 + t * 25)     // 35-60
+        } else if (v <= 0.58) {
+          // Olive brown (bortle 5) — yellow-amber
+          const t = (v - 0.46) / 0.12
+          nr = 255; ng = Math.round(200 - 50*t); nb = 0
+          alpha = Math.round(60 + t * 25)     // 60-85
+        } else if (v <= 0.68) {
+          // Tan/yellow (bortle 6) — amber
+          const t = (v - 0.58) / 0.10
+          nr = 255; ng = Math.round(150 - 60*t); nb = 0
+          alpha = Math.round(85 + t * 20)     // 85-105
+        } else if (v <= 0.76) {
+          // Orange-brown (bortle 7) — orange
+          const t = (v - 0.68) / 0.08
+          nr = 255; ng = Math.round(90 - 60*t); nb = 0
+          alpha = Math.round(105 + t * 20)    // 105-125
+        } else if (v <= 0.82) {
+          // Orange (bortle 7-8) — orange-red
+          const t = (v - 0.76) / 0.06
           nr = 255; ng = Math.round(30 - 20*t); nb = 0
-          alpha = Math.round(125 + t * 25)    // 125-150
+          alpha = Math.round(125 + t * 15)    // 125-140
+        } else if (v <= 0.88) {
+          // Red-orange (bortle 8) — red
+          const t = (v - 0.82) / 0.06
+          nr = 255; ng = Math.round(10 - 10*t); nb = 0
+          alpha = Math.round(140 + t * 10)    // 140-150
+        } else if (v <= 0.93) {
+          // Pink (bortle 9) — deep red
+          const t = (v - 0.88) / 0.05
+          nr = 255; ng = 0; nb = Math.round(t * 30)
+          alpha = Math.round(150 + t * 3)     // 150-153
         } else {
-          // Bortle 8-9 — pink/red city core
-          const t = Math.min(1, (v - 0.88) / 0.12)
-          nr = 255; ng = 10; nb = Math.round(t * 50)
-          alpha = Math.round(150 + t * 25)    // 150-175
+          // Light grey / near white — city core — 60% opacity
+          nr = 255; ng = 0; nb = 40
+          alpha = 153
         }
 
         d[i]=nr; d[i+1]=ng; d[i+2]=nb; d[i+3]=alpha
