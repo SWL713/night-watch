@@ -9,7 +9,14 @@ const CAMERA_BOUNDS = L.latLngBounds(
   [50.5, -66.0],
 )
 
-function makeCameraIcon(isActive) {
+function makeCameraIcon(isActive, cameraType) {
+  const emoji = cameraType === 'airport' ? '✈️'
+              : cameraType === 'allsky'   ? '🔭'
+              : '📹'
+  const borderColor = isActive ? '#44aaff'
+    : cameraType === 'airport' ? '#4a6a8a'
+    : cameraType === 'allsky'  ? '#2a6a4a'
+    : '#1a4a6a'
   return L.divIcon({
     className: '',
     iconSize: [36, 36],
@@ -17,12 +24,12 @@ function makeCameraIcon(isActive) {
     html: `<div style="
       width:36px;height:36px;
       background:${isActive ? '#001a2a' : '#06080f'};
-      border:2px solid ${isActive ? '#44aaff' : '#1a4a6a'};
+      border:2px solid ${borderColor};
       border-radius:4px;
       display:flex;align-items:center;justify-content:center;
       font-size:18px;cursor:pointer;
       box-shadow:0 2px 8px rgba(0,0,0,0.6);
-    ">📹</div>`,
+    ">${emoji}</div>`,
   })
 }
 
@@ -61,7 +68,7 @@ export default function CameraLayer({ onCameraClick, activeId }) {
 
     cameras.forEach(cam => {
       const marker = L.marker([cam.lat, cam.lon], {
-        icon: makeCameraIcon(activeId === cam.id),
+        icon: makeCameraIcon(activeId === cam.id, cam.camera_type),
         zIndexOffset: 500,
       })
       marker.on('click', (e) => {
