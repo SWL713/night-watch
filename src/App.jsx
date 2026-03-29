@@ -155,7 +155,7 @@ function App() {
       />
 
       {/* Map */}
-      <div style={{ flex: 1, position: 'relative' }}>
+      <div id="map-wrapper" style={{ flex: 1, position: 'relative' }}>
         <MapContainer
           center={[MAP_BOUNDS.center[0], MAP_BOUNDS.center[1]]}
           zoom={MAP_BOUNDS.zoom}
@@ -337,7 +337,7 @@ function App() {
         {layers.bortle && (
           <div style={{
             position: 'absolute',
-            bottom: 6, left: '50%',
+            bottom: 58, left: '50%',
             transform: 'translateX(-50%)',
             zIndex: 2100,
             background: 'rgba(6,8,15,0.85)',
