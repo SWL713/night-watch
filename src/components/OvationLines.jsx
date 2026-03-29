@@ -74,6 +74,22 @@ function splitAtGaps(points, threshold = 15) {
     cur.push(points[i])
   }
   if (cur.length > 1) segs.push(cur)
+
+  // If the oval wraps the antimeridian (sorted -180→+180), the first and last
+  // segments are actually connected — merge them to close the loop
+  if (segs.length >= 2) {
+    const first = segs[0]
+    const last  = segs[segs.length - 1]
+    const firstLon = first[0][1]
+    const lastLon  = last[last.length - 1][1]
+    // If first segment starts near -180 and last ends near +180, merge
+    if (firstLon < -150 && lastLon > 150) {
+      const merged = [...last, ...first]
+      segs.splice(0, 1)
+      segs.splice(segs.length - 1, 1, merged)
+    }
+  }
+
   return segs
 }
 
