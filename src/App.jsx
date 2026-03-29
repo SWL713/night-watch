@@ -174,7 +174,13 @@ function App() {
 
           <ZoomControl position="bottomright" />
 
-          <MapSearch onSelectResult={(result, isPeru) => { if (isPeru) setPeruMode(m => !m) }} />
+          <MapSearch
+            onSelectResult={(result, isPeru) => { if (isPeru) setPeruMode(m => !m) }}
+            onAddPin={(lat, lon) => {
+              setPendingPin({ lat, lon })
+              setModal('submitSpot')
+            }}
+          />
           <MapFlyToHandler />
 
           {/* Night mode toggle */}
