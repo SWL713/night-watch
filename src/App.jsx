@@ -469,8 +469,8 @@ function App() {
           color: 'rgba(40,70,100,0.55)', fontSize: 8, letterSpacing: 0.5,
           fontFamily: FONT, zIndex: 900, pointerEvents: 'none',
         }}>
-          light pollution: <a href="https://earthdata.nasa.gov" target="_blank" rel="noopener"
-            style={{ color: 'rgba(40,80,120,0.55)', textDecoration: 'none' }}>NASA GIBS</a>
+          sky brightness: <a href="https://djlorenz.github.io/astronomy/lp" target="_blank" rel="noopener"
+            style={{ color: 'rgba(40,80,120,0.55)', textDecoration: 'none' }}>© David Lorenz</a>
         </div>
 
         {/* Layer controls bottom-left */}

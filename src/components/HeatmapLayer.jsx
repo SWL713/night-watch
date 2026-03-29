@@ -5,92 +5,28 @@ import { bortleScore } from '../utils/scoring.js'
 import { GRID_BOUNDS } from '../config.js'
 import { loadBortleGrid, getBortle } from '../utils/bortleGrid.js'
 
-// ── NASA GIBS VIIRS tile layer — recolored to red/transparent ────────────────
-// Fetches VIIRS night light tiles, renders each to canvas, remaps colors:
-//   black pixels (dark sky)     → fully transparent (base map shows through)
-//   bright pixels (light polln) → red (bad for aurora)
-// This gives us: roads/lakes visible everywhere, light pollution glows red.
+// ── Lorenz Light Pollution Atlas tile layer ────────────────────────────────────
+// Self-hosted tiles cut from David Lorenz's World Atlas of Artificial Night Sky
+// Brightness (2024). Pre-processed to transparent PNG with native color palette:
+//   black / transparent = pristine dark sky
+//   dark blue = rural dark (good for aurora)
+//   green/yellow = suburban transition
+//   orange/red = significant light pollution
+//   white = city core
+// No canvas recolor needed — served as standard TileLayer with opacity.
+// z2-7 global, z8 US+Canada only (land tiles only, ~83MB).
 
-const GIBS_LAYER  = 'VIIRS_SNPP_DayNightBand_ENCC'
-const GIBS_DATE   = '2023-01-01'
-const GIBS_ATTRIB = '© <a href="https://earthdata.nasa.gov" target="_blank" rel="noopener">NASA GIBS</a> VIIRS'
+const LP_ATTRIB = 'Sky brightness: <a href="https://djlorenz.github.io/astronomy/lp" target="_blank" rel="noopener">© David Lorenz</a>'
+const LP_BASE   = import.meta.env.BASE_URL + 'lp_tiles'
 
-const GibsRedLayer = L.GridLayer.extend({
-  createTile(coords, done) {
-    const tile   = document.createElement('canvas')
-    tile.width   = 256
-    tile.height  = 256
-
-    const url = `https://gibs.earthdata.nasa.gov/wmts/epsg3857/best/${GIBS_LAYER}/default/${GIBS_DATE}/GoogleMapsCompatible_Level8/${coords.z}/${coords.y}/${coords.x}.jpg`
-
-    const img = new Image()
-    img.crossOrigin = 'anonymous'
-    img.onload = () => {
-      const ctx = tile.getContext('2d')
-      ctx.drawImage(img, 0, 0, 256, 256)
-
-      const imageData = ctx.getImageData(0, 0, 256, 256)
-      const d = imageData.data
-
-      // Hybrid normalization:
-      //   Floor = per-tile minimum (removes JPEG encoding offset, ~same across tiles)
-      //   Ceiling = fixed global value (keeps all tiles on the same absolute scale)
-      // This fixes mixed VT tiles where one small town was pulling min/max apart,
-      // making dark wilderness look artificially bright relative to pure-city tiles.
-      let minLum = 1
-      for (let i = 0; i < d.length; i += 4) {
-        const lum = (d[i] * 0.299 + d[i+1] * 0.587 + d[i+2] * 0.114) / 255
-        if (lum < minLum) minLum = lum
-      }
-      const GLOBAL_CEIL = 0.75  // cities ~0.8-1.0, this clips nothing meaningful
-      const cutoff = minLum + (GLOBAL_CEIL - minLum) * 0.32
-      const range  = GLOBAL_CEIL - minLum
-
-      for (let i = 0; i < d.length; i += 4) {
-        const lum = (d[i] * 0.299 + d[i+1] * 0.587 + d[i+2] * 0.114) / 255
-
-        if (lum <= cutoff || range < 0.05) {
-          d[i+3] = 0  // transparent
-        } else {
-          const remapped  = Math.min(1, (lum - cutoff) / (GLOBAL_CEIL - cutoff))
-          const intensity = Math.pow(remapped, 1.3)  // steep: cities bright, low bortle fades fast
-
-          let r, g, b
-          if (intensity < 0.5) {
-            const t = intensity / 0.5
-            r = Math.round(200 + (255 - 200) * t)
-            g = Math.round(60  + (130 - 60)  * t)
-            b = 0
-          } else {
-            const t = (intensity - 0.5) / 0.5
-            r = Math.round(255 + (220 - 255) * t)
-            g = Math.round(130 + (0   - 130) * t)
-            b = Math.round(t * 20)
-          }
-
-          d[i]   = r
-          d[i+1] = g
-          d[i+2] = b
-          d[i+3] = Math.round(intensity * 130) // cities bright, low bortle stays faint
-        }
-      }
-
-      ctx.putImageData(imageData, 0, 0)
-      done(null, tile)
-    }
-    img.onerror = () => done(null, tile)  // empty tile on error — graceful
-    img.src = url
-    return tile
-  }
-})
-
-function createGibsLayer() {
-  return new GibsRedLayer({
-    attribution:   GIBS_ATTRIB,
+function createLorenzLayer() {
+  return L.tileLayer(`${LP_BASE}/{z}/{x}/{y}.png`, {
+    attribution:   LP_ATTRIB,
+    opacity:       0.6,
     zIndex:        190,
     maxNativeZoom: 8,
-    maxZoom:       16,
-    crossOrigin:   true,
+    maxZoom:       22,
+    errorTileUrl:  'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=',
   })
 }
 
@@ -267,7 +203,7 @@ export default function HeatmapLayer({ mode, selectedHour, getCloudAt, cloudLoad
 
   useEffect(() => {
     if (showTiles && !tileLayerRef.current) {
-      tileLayerRef.current = createGibsLayer()
+      tileLayerRef.current = createLorenzLayer()
       tileLayerRef.current.addTo(map)
     } else if (!showTiles && tileLayerRef.current) {
       map.removeLayer(tileLayerRef.current)
