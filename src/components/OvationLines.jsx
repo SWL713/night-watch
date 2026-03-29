@@ -19,27 +19,33 @@ function toRgba(c, alpha) {
   return `rgba(${c.r},${c.g},${c.b},${alpha})`
 }
 
-// Smooth latitude values across neighboring longitude bins using a weighted average,
-// then densify with cosine interpolation to remove the staircase effect
+// Multi-pass Gaussian blur + cosine densification for smooth oval
+function blurPass(points, radius) {
+  return points.map((p, i) => {
+    let latSum = 0, wSum = 0
+    for (let k = -radius; k <= radius; k++) {
+      const idx = Math.max(0, Math.min(points.length - 1, i + k))
+      const neighbor = points[idx]
+      if (Math.abs(neighbor[1] - p[1]) > 20) continue
+      const w = Math.exp(-(k * k) / (2 * (radius / 2) * (radius / 2)))
+      latSum += neighbor[0] * w
+      wSum += w
+    }
+    return [wSum > 0 ? latSum / wSum : p[0], p[1]]
+  })
+}
+
 function smoothLine(points, steps = 8) {
   if (points.length < 3) return points
 
-  // Step 1: Gaussian blur latitudes across neighbors (radius 3)
-  const RADIUS = 6
-  const weights = [1, 2, 4, 8, 12, 16, 20, 16, 12, 8, 4, 2, 1]  // wider kernel
-  const wSum = weights.reduce((a, b) => a + b, 0)
-  const blurred = points.map((p, i) => {
-    let latSum = 0
-    for (let k = -RADIUS; k <= RADIUS; k++) {
-      const idx = Math.max(0, Math.min(points.length - 1, i + k))
-      const neighbor = points[idx]
-      if (Math.abs(neighbor[1] - p[1]) > 20) { latSum += p[0] * weights[k + RADIUS]; continue }
-      latSum += neighbor[0] * weights[k + RADIUS]
-    }
-    return [latSum / wSum, p[1]]
-  })
+  // Run 4 passes of Gaussian blur with increasing radius to eliminate all corners
+  let blurred = points
+  blurred = blurPass(blurred, 4)
+  blurred = blurPass(blurred, 6)
+  blurred = blurPass(blurred, 8)
+  blurred = blurPass(blurred, 10)
 
-  // Step 2: Cosine densification between blurred points
+  // Cosine densification between blurred points
   const out = []
   for (let i = 0; i < blurred.length; i++) {
     const a = blurred[i]
