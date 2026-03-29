@@ -17,83 +17,25 @@ const LP_ATTRIB = 'Sky brightness: <a href="https://djlorenz.github.io/astronomy
 const LP_BASE   = import.meta.env.BASE_URL + 'lp_tiles'
 
 // Map Lorenz's specific color palette to a pollution intensity 0-1 value.
-// Lorenz zones go: black(0) → dark navy → dark blue → teal → green →
-//                  yellow-green → yellow → amber → orange → red → white
-// We detect the dominant hue channel to identify where in the scale we are.
+// Uses hue detection to correctly map dark blues (low pollution) near zero.
 function lorenzToIntensity(r, g, b) {
   const total = r + g + b
-  if (total < 20) return 0  // black = pristine, no pollution
-
-  // Hue-based zone detection using channel dominance ratios
-  // Dark navy/blue (zones 1-2): b dominant, low total
-  // Teal (zone 3): g+b dominant
-  // Green (zone 4): g dominant
-  // Yellow-green (zone 4b-5a): g>r, r significant
-  // Yellow (zone 5): r≈g, b low
-  // Amber/orange (zone 6): r>g, g moderate
-  // Red (zone 7): r dominant, g low
-  // White: all channels high
+  if (total < 20) return 0
 
   const maxC = Math.max(r, g, b)
   const bFrac = b / (total + 1)
   const gFrac = g / (total + 1)
   const rFrac = r / (total + 1)
 
-  // Navy/dark blue: b is dominant AND total is low-medium
-  if (b === maxC && bFrac > 0.40 && total < 300) {
-    // Scale from near-zero (very dark navy) up to 0.18 (bright blue)
-    return Math.min(0.18, (total / 300) * 0.18)
-  }
-  // Teal: g and b both high, r low
-  if (g > r && b > r && bFrac > 0.25 && gFrac > 0.30) {
-    return 0.18 + (total / 600) * 0.12  // 0.18-0.30
-  }
-  // Green: g dominant
-  if (g === maxC && gFrac > 0.40 && r < g * 0.75) {
-    return 0.30 + (total / 700) * 0.12  // 0.30-0.42
-  }
-  // Yellow-green: g >= r, both significant
-  if (g >= r && gFrac > 0.35 && rFrac > 0.25) {
-    return 0.42 + ((r / (g + 1)) * 0.10)  // 0.42-0.52
-  }
-  // Yellow: r≈g, b low
-  if (r > 150 && g > 150 && Math.abs(r - g) < 60 && bFrac < 0.15) {
-    return 0.52 + ((r / 255) * 0.12)  // 0.52-0.64
-  }
-  // Amber/orange: r dominant, g moderate
-  if (r === maxC && rFrac > 0.45 && gFrac > 0.15 && gFrac < 0.40) {
-    return 0.64 + ((1 - gFrac * 2) * 0.15)  // 0.64-0.79
-  }
-  // Red: r dominant, g low
-  if (r === maxC && rFrac > 0.50 && gFrac < 0.20) {
-    return 0.79 + (rFrac - 0.50) * 0.42  // 0.79-1.0
-  }
-  // White / very bright: all channels high
+  if (b === maxC && bFrac > 0.40 && total < 300) return Math.min(0.18, (total / 300) * 0.18)
+  if (g > r && b > r && bFrac > 0.25 && gFrac > 0.30) return 0.18 + (total / 600) * 0.12
+  if (g === maxC && gFrac > 0.40 && r < g * 0.75) return 0.30 + (total / 700) * 0.12
+  if (g >= r && gFrac > 0.35 && rFrac > 0.25) return 0.42 + ((r / (g + 1)) * 0.10)
+  if (r > 150 && g > 150 && Math.abs(r - g) < 60 && bFrac < 0.15) return 0.52 + ((r / 255) * 0.12)
+  if (r === maxC && rFrac > 0.45 && gFrac > 0.15 && gFrac < 0.40) return 0.64 + ((1 - gFrac * 2) * 0.15)
+  if (r === maxC && rFrac > 0.50 && gFrac < 0.20) return 0.79 + (rFrac - 0.50) * 0.42
   if (total > 600) return 1.0
-
-  // Fallback: use plain luminance
   return Math.min(1, (r * 0.299 + g * 0.587 + b * 0.114) / 255)
-}
-
-// 3x3 box blur on RGBA imageData — smooths zone boundaries
-function boxBlur(d, w, h) {
-  const out = new Uint8ClampedArray(d.length)
-  for (let y = 0; y < h; y++) {
-    for (let x = 0; x < w; x++) {
-      let r=0,g=0,b=0,a=0,n=0
-      for (let dy = -1; dy <= 1; dy++) {
-        for (let dx = -1; dx <= 1; dx++) {
-          const nx = x+dx, ny = y+dy
-          if (nx<0||nx>=w||ny<0||ny>=h) continue
-          const i = (ny*w+nx)*4
-          r+=d[i]; g+=d[i+1]; b+=d[i+2]; a+=d[i+3]; n++
-        }
-      }
-      const i=(y*w+x)*4
-      out[i]=r/n; out[i+1]=g/n; out[i+2]=b/n; out[i+3]=a/n
-    }
-  }
-  return out
 }
 
 const LorenzWarmLayer = L.GridLayer.extend({
@@ -111,7 +53,7 @@ const LorenzWarmLayer = L.GridLayer.extend({
       const d = imageData.data
       const w = 256, h = 256
 
-      // First pass: convert Lorenz colors to intensity values
+      // Convert Lorenz colors to intensity float map
       const intensity = new Float32Array(w * h)
       for (let i = 0; i < d.length; i += 4) {
         const px = i / 4
@@ -119,67 +61,68 @@ const LorenzWarmLayer = L.GridLayer.extend({
         intensity[px] = lorenzToIntensity(d[i], d[i+1], d[i+2])
       }
 
-      // Blur intensity map to smooth zone boundaries (3 passes)
-      function blurIntensity(src) {
-        const out = new Float32Array(src.length)
-        for (let y = 0; y < h; y++) {
-          for (let x = 0; x < w; x++) {
-            let sum = 0, n = 0
-            for (let dy = -2; dy <= 2; dy++) {
-              for (let dx = -2; dx <= 2; dx++) {
-                const nx = x+dx, ny = y+dy
-                if (nx<0||nx>=w||ny<0||ny>=h) continue
-                sum += src[ny*w+nx]; n++
-              }
+      // Single blur pass (3x3) — smooths without over-blurring
+      // Reduces blocky zone borders while keeping edges readable
+      const blurred = new Float32Array(w * h)
+      for (let y = 0; y < h; y++) {
+        for (let x = 0; x < w; x++) {
+          let sum = 0, n = 0
+          for (let dy = -1; dy <= 1; dy++) {
+            for (let dx = -1; dx <= 1; dx++) {
+              const nx = x+dx, ny = y+dy
+              if (nx < 0 || nx >= w || ny < 0 || ny >= h) continue
+              sum += intensity[ny*w+nx]; n++
             }
-            out[y*w+x] = sum/n
           }
+          blurred[y*w+x] = sum / n
         }
-        return out
       }
-      let blurred = blurIntensity(intensity)
-      blurred = blurIntensity(blurred)
 
-      // Second pass: remap blurred intensity to warm yellow→red
+      // Remap: yellow → amber → orange → red → pink/red
+      // Fully transparent below threshold, opacity scales up with intensity
       for (let px = 0; px < w * h; px++) {
         const v = blurred[px]
         const i = px * 4
 
-        if (v < 0.03) {
-          // Pristine dark — fully transparent
+        if (v < 0.04) {
           d[i]=0; d[i+1]=0; d[i+2]=0; d[i+3]=0
           continue
         }
 
-        let r, g, b, alpha
-        if (v < 0.20) {
-          // Very faint transparent yellow — bortle 2 zone
-          const t = (v - 0.03) / 0.17
-          r = 255; g = Math.round(220 - 20*t); b = Math.round(80 - 80*t)
-          alpha = Math.round(t * 35)  // barely visible
+        let nr, ng, nb, alpha
+        if (v < 0.22) {
+          // Faint yellow — bortle 2, barely visible
+          const t = (v - 0.04) / 0.18
+          nr = 255; ng = Math.round(220 - 10*t); nb = 0
+          alpha = Math.round(t * 30)  // 0-30, very faint
         } else if (v < 0.42) {
-          // Light yellow — bortle 3
-          const t = (v - 0.20) / 0.22
-          r = 255; g = Math.round(200 - 40*t); b = 0
-          alpha = Math.round(35 + t * 45)  // 35-80
-        } else if (v < 0.62) {
+          // Yellow — bortle 3
+          const t = (v - 0.22) / 0.20
+          nr = 255; ng = Math.round(210 - 30*t); nb = 0
+          alpha = Math.round(30 + t * 35)  // 30-65
+        } else if (v < 0.58) {
           // Amber — bortle 4-5
-          const t = (v - 0.42) / 0.20
-          r = 255; g = Math.round(160 - 80*t); b = 0
-          alpha = Math.round(80 + t * 50)  // 80-130
-        } else if (v < 0.80) {
-          // Orange — bortle 6
-          const t = (v - 0.62) / 0.18
-          r = 255; g = Math.round(80 - 60*t); b = 0
-          alpha = Math.round(130 + t * 40)  // 130-170
+          const t = (v - 0.42) / 0.16
+          nr = 255; ng = Math.round(180 - 80*t); nb = 0
+          alpha = Math.round(65 + t * 45)  // 65-110
+        } else if (v < 0.72) {
+          // Orange — bortle 5-6
+          const t = (v - 0.58) / 0.14
+          nr = 255; ng = Math.round(100 - 70*t); nb = 0
+          alpha = Math.round(110 + t * 40)  // 110-150
+        } else if (v < 0.86) {
+          // Red — bortle 6-7
+          const t = (v - 0.72) / 0.14
+          nr = 255; ng = Math.round(30 - 20*t); nb = 0
+          alpha = Math.round(150 + t * 40)  // 150-190
         } else {
-          // Deep red — bortle 7+ / city
-          const t = Math.min(1, (v - 0.80) / 0.20)
-          r = 255; g = Math.round(20 - 20*t); b = 0
-          alpha = Math.round(170 + t * 55)  // 170-225
+          // Pink/red — bortle 8-9 / city core
+          const t = Math.min(1, (v - 0.86) / 0.14)
+          nr = 255; ng = 10; nb = Math.round(t * 60)  // hint of pink
+          alpha = Math.round(190 + t * 40)  // 190-230
         }
 
-        d[i]=r; d[i+1]=g; d[i+2]=b; d[i+3]=alpha
+        d[i]=nr; d[i+1]=ng; d[i+2]=nb; d[i+3]=Math.round(alpha * 0.85)
       }
 
       ctx.putImageData(imageData, 0, 0)
