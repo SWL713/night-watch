@@ -61,31 +61,9 @@ const LorenzWarmLayer = L.GridLayer.extend({
         intensity[px] = lorenzToIntensity(d[i], d[i+1], d[i+2])
       }
 
-      // Blur pass — only averages with neighbors that have similar or higher intensity.
-      // This prevents bright halos forming at zone edges where high-value pixels
-      // bleed into adjacent dark/transparent areas.
-      const blurred = new Float32Array(w * h)
-      for (let y = 0; y < h; y++) {
-        for (let x = 0; x < w; x++) {
-          const center = intensity[y*w+x]
-          // If this pixel is transparent/zero, keep it zero — don't pull in neighbors
-          if (center === 0) { blurred[y*w+x] = 0; continue }
-          let sum = center, n = 1  // always include self
-          for (let dy = -1; dy <= 1; dy++) {
-            for (let dx = -1; dx <= 1; dx++) {
-              if (dx === 0 && dy === 0) continue
-              const nx = x+dx, ny = y+dy
-              if (nx < 0 || nx >= w || ny < 0 || ny >= h) continue
-              const neighbor = intensity[ny*w+nx]
-              // Only blend with neighbors — never let a zero/dark neighbor pull us down
-              // across a real land/ocean boundary, and never let a bright neighbor
-              // inflate a dark pixel beyond its own value
-              if (neighbor > 0) { sum += neighbor; n++ }
-            }
-          }
-          blurred[y*w+x] = sum / n
-        }
-      }
+      // No blur — source tile boundaries are cleaner without averaging
+      // The Lorenz palette transition pixels create false halos when blurred
+      const blurred = intensity
 
       // Remap: yellow → amber → orange → red → pink/red
       // Fully transparent below threshold, opacity scales up with intensity
