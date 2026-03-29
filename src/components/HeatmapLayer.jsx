@@ -98,43 +98,43 @@ const LorenzWarmLayer = L.GridLayer.extend({
         } else if (v <= 0.34) {
           // Dark green (bortle 3) — faint yellow, visible step
           const t = (v - 0.18) / 0.16
-          nr = 255; ng = Math.round(235 - 15*t); nb = 0
+          nr = 255; ng = Math.round(235 - 10*t); nb = 0
           alpha = Math.round(15 + t * 20)     // 15-35
         } else if (v <= 0.46) {
-          // Bright green (bortle 4) — light yellow
+          // Bright green (bortle 4) — soft yellow
           const t = (v - 0.34) / 0.12
-          nr = 255; ng = Math.round(220 - 20*t); nb = 0
-          alpha = Math.round(35 + t * 25)     // 35-60
+          nr = 255; ng = Math.round(225 - 15*t); nb = 0
+          alpha = Math.round(35 + t * 20)     // 35-55
         } else if (v <= 0.58) {
-          // Olive brown (bortle 5) — yellow-amber
+          // Olive brown (bortle 5) — pure mid yellow
           const t = (v - 0.46) / 0.12
-          nr = 255; ng = Math.round(200 - 50*t); nb = 0
-          alpha = Math.round(60 + t * 25)     // 60-85
+          nr = 255; ng = Math.round(210 - 10*t); nb = 0
+          alpha = Math.round(55 + t * 20)     // 55-75
         } else if (v <= 0.68) {
-          // Tan/yellow (bortle 6) — amber
+          // Tan/yellow (bortle 6) — deeper yellow, approaching amber
           const t = (v - 0.58) / 0.10
-          nr = 255; ng = Math.round(150 - 60*t); nb = 0
-          alpha = Math.round(85 + t * 20)     // 85-105
+          nr = 255; ng = Math.round(200 - 50*t); nb = 0
+          alpha = Math.round(75 + t * 20)     // 75-95
         } else if (v <= 0.76) {
-          // Orange-brown (bortle 7) — orange
+          // Orange-brown (bortle 7) — amber
           const t = (v - 0.68) / 0.08
-          nr = 255; ng = Math.round(90 - 60*t); nb = 0
-          alpha = Math.round(105 + t * 20)    // 105-125
+          nr = 255; ng = Math.round(150 - 60*t); nb = 0
+          alpha = Math.round(95 + t * 20)     // 95-115
         } else if (v <= 0.82) {
-          // Orange (bortle 7-8) — orange-red
+          // Orange (bortle 7-8) — orange
           const t = (v - 0.76) / 0.06
-          nr = 255; ng = Math.round(30 - 20*t); nb = 0
-          alpha = Math.round(125 + t * 15)    // 125-140
+          nr = 255; ng = Math.round(90 - 60*t); nb = 0
+          alpha = Math.round(115 + t * 15)    // 115-130
         } else if (v <= 0.88) {
           // Red-orange (bortle 8) — red
           const t = (v - 0.82) / 0.06
-          nr = 255; ng = Math.round(10 - 10*t); nb = 0
-          alpha = Math.round(140 + t * 10)    // 140-150
+          nr = 255; ng = Math.round(30 - 20*t); nb = 0
+          alpha = Math.round(130 + t * 15)    // 130-145
         } else if (v <= 0.93) {
           // Pink (bortle 9) — deep red
           const t = (v - 0.88) / 0.05
-          nr = 255; ng = 0; nb = Math.round(t * 30)
-          alpha = Math.round(150 + t * 3)     // 150-153
+          nr = 255; ng = Math.round(10 - 10*t); nb = Math.round(t * 30)
+          alpha = Math.round(145 + t * 8)     // 145-153
         } else {
           // Light grey / near white — city core — 60% opacity
           nr = 255; ng = 0; nb = 40
