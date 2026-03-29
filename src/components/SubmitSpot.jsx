@@ -93,7 +93,7 @@ export default function SubmitSpot({ onClose, initialCoords }) {
   const [bortleGrid, setBortleGrid] = useState(null)
   useEffect(() => { loadBortleGrid().then(g => { if (g) setBortleGrid(g) }) }, [])
 
-  // Auto-lookup Bortle from grid when lat/lon are valid
+  // Auto-lookup Bortle: LPM point API first (matches visual map), grid as fallback
   useEffect(() => {
     const lat = parseFloat(form.lat)
     const lon = parseFloat(form.lon)
@@ -102,21 +102,31 @@ export default function SubmitSpot({ onClose, initialCoords }) {
       setBortleOverride(false)
       return
     }
-    if (!bortleGrid) return
-    const raw = getBortle(bortleGrid, lat, lon)
-    // Latitude fallback for areas outside grid coverage
-    let b
-    if (!raw || raw === 5 && lat > 52) {
-      if (lat > 65) b = 1
-      else if (lat > 58) b = 2
-      else if (lat > 52) b = 2
-      else b = raw || 5
-    } else {
-      b = Math.round(raw)
+    setBortleLookup('loading')
+
+    async function lookup() {
+      // Primary: lightpollutionmap.info point query — matches Lorenz visual layer
+      let b = await fetchBortleAt(lat, lon)
+
+      // Fallback: bortle grid if API failed or returned generic 5
+      if (!b || b === 5) {
+        const raw = bortleGrid ? getBortle(bortleGrid, lat, lon) : null
+        if (raw && raw !== 5) {
+          b = Math.round(raw)
+        } else {
+          // Arctic latitude fallback
+          if (lat > 65) b = 1
+          else if (lat > 58) b = 2
+          else if (lat > 52) b = 2
+          else b = b || 5
+        }
+      }
+
+      setBortleLookup(b)
+      setBortleOverride(false)
+      set('bortle', String(b))
     }
-    setBortleLookup(b)
-    setBortleOverride(false)
-    set('bortle', String(b))
+    lookup()
   }, [form.lat, form.lon, bortleGrid])
 
   // ── Step 1: Submit spot ───────────────────────────────────────────────────

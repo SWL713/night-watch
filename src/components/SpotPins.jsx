@@ -40,18 +40,21 @@ function addCloudRed(rgb, cloudFraction) {
 }
 
 function SpotPin({ spot, selectedHour, getCloudAt, cloudData, spaceWeather, onSubmitPhoto, mode, bortleGrid, clearSkyMode, adminAuthed, onAdminUpdate, onAdminDeleteSpot, onAdminDeletePhoto }) {
-  // Use stored bortle, or look up from grid, or fetch from API as last resort
+  // Bortle priority: LPM API (matches visual map) → stored value → grid → fallback
   const storedBortle = spot.bortle ?? null
   const gridBortle   = bortleGrid ? getBortle(bortleGrid, spot.lat, spot.lon) : null
   const [apiBortle, setApiBortle] = useState(null)
 
   useEffect(() => {
-    // Only hit API if we have neither stored nor grid value
-    if (storedBortle !== null || gridBortle !== null) return
-    fetchBortleAt(spot.lat, spot.lon).then(b => setApiBortle(b))
+    // Always try LPM API for accurate visual-matched bortle
+    fetchBortleAt(spot.lat, spot.lon).then(b => {
+      if (b && b !== 5) setApiBortle(b)
+    })
   }, [spot.id]) // eslint-disable-line
 
-  const bortle = storedBortle ?? gridBortle ?? apiBortle ?? 5
+  // API result takes priority when available (matches visual map)
+  // Falls back to stored → grid → 5
+  const bortle = apiBortle ?? storedBortle ?? gridBortle ?? 5
 
   // Cloud at this spot
   const cloudPct      = getCloudAt ? (getCloudAt(spot.lat, spot.lon, selectedHour) ?? 0) : 0

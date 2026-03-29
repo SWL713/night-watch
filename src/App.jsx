@@ -30,6 +30,7 @@ import { getMoonData } from './utils/moon.js'
 
 import { MAP_BOUNDS, PASSPHRASE } from './config.js'
 import { loadBortleGrid, getBortle } from './utils/bortleGrid.js'
+import { fetchBortleAt } from './utils/bortleApi.js'
 
 // Fix Leaflet default marker icon path issue with Vite
 import L from 'leaflet'
@@ -104,6 +105,7 @@ function App() {
   const [cameraMode, setCameraMode] = useState(false)
   const [cameraCoords, setCameraCoords] = useState(null)
   const [showCamera, setShowCamera] = useState(false) // picking location for sighting report
+  const [camBortleResolved, setCamBortleResolved] = useState(5)
   const [clearSkyMode, setClearSkyMode] = useState(false)
   const [showClearSkyIntro, setShowClearSkyIntro] = useState(false)
   const [activeCam, setActiveCam] = useState(null)
@@ -257,6 +259,13 @@ function App() {
                 setCameraCoords({ lat, lon })
                 setCameraMode(false)
                 setShowCamera(true)
+                // LPM API first (matches visual map), grid as fallback
+                fetchBortleAt(lat, lon).then(b => {
+                  if (b && b !== 5) { setCamBortleResolved(b); return }
+                  const raw = bortleGrid ? getBortle(bortleGrid, lat, lon) : null
+                  if (raw && raw !== 5) { setCamBortleResolved(Math.round(raw)); return }
+                  setCamBortleResolved(lat > 65 ? 1 : lat > 58 ? 2 : lat > 52 ? 2 : 5)
+                })
               } else if (sightingPinMode) {
                 setSightingPendingCoords({ lat, lon })
                 setSightingPinMode(false)
@@ -395,27 +404,13 @@ function App() {
 
         {/* Camera advisor panel */}
         {showCamera && cameraCoords && (() => {
-          // getBortle returns 5 as default when outside grid coverage
-          // For out-of-grid locations, estimate from latitude — higher lat = darker sky
-          const rawBortle = bortleGrid ? getBortle(bortleGrid, cameraCoords.lat, cameraCoords.lon) : null
-          const isOutsideGrid = !rawBortle || (rawBortle === 5 && cameraCoords.lat > 52)
-          let camBortle
-          if (isOutsideGrid) {
-            const lat = cameraCoords.lat
-            if (lat > 65)      camBortle = 1
-            else if (lat > 58) camBortle = 2
-            else if (lat > 52) camBortle = 2
-            else               camBortle = Math.round(rawBortle) || 5
-          } else {
-            camBortle = Math.round(rawBortle) || 5
-          }
           return (
             <CameraSettings
-              onClose={() => { setShowCamera(false); setCameraCoords(null) }}
+              onClose={() => { setShowCamera(false); setCameraCoords(null); setCamBortleResolved(5) }}
               locationData={{
                 lat: cameraCoords.lat,
                 lon: cameraCoords.lon,
-                bortle: camBortle,
+                bortle: camBortleResolved,
                 moonIllum: Math.round((moonData?.illumination || 0) * 100),
                 moonUp: (moonData?.illumination || 0) > 0,
                 mlat: null,
