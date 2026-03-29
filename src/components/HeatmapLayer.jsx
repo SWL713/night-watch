@@ -93,8 +93,8 @@ const LorenzWarmLayer = L.GridLayer.extend({
             }
           }
           // Never raise above center value — only smooth downward at edges
-          // But clamp minimum to half the center value so edge pixels never blur to zero
-          blurred[y*w+x] = Math.max(center * 0.5, Math.min(center, sum / n))
+          // Clamp to 80% of center so edges fade slightly but never disappear
+          blurred[y*w+x] = Math.max(center * 0.80, Math.min(center, sum / n))
         }
       }
 
@@ -104,42 +104,53 @@ const LorenzWarmLayer = L.GridLayer.extend({
         const v = blurred[px]
         const i = px * 4
 
-        if (v < 0.04) {
+        // Only pure black (pristine sky, intensity exactly 0) is transparent
+        if (v === 0) {
           d[i]=0; d[i+1]=0; d[i+2]=0; d[i+3]=0
           continue
         }
 
         let nr, ng, nb, alpha
-        if (v < 0.22) {
-          // Faint yellow — bortle 2, barely visible
-          const t = (v - 0.04) / 0.18
-          nr = 255; ng = Math.round(220 - 10*t); nb = 0
-          alpha = Math.round(t * 25)          // 0-25
-        } else if (v < 0.42) {
-          // Yellow — bortle 3
-          const t = (v - 0.22) / 0.20
-          nr = 255; ng = Math.round(210 - 30*t); nb = 0
-          alpha = Math.round(25 + t * 30)     // 25-55
-        } else if (v < 0.58) {
-          // Amber — bortle 4-5
-          const t = (v - 0.42) / 0.16
+        if (v < 0.12) {
+          // Bortle 1-2 — very dark navy/blue, nearly transparent
+          const t = v / 0.12
+          nr = 255; ng = 230; nb = 0
+          alpha = Math.round(t * 15)          // 0-15, barely perceptible
+        } else if (v < 0.26) {
+          // Bortle 2 — faint yellow, light blue zones
+          const t = (v - 0.12) / 0.14
+          nr = 255; ng = Math.round(225 - 10*t); nb = 0
+          alpha = Math.round(15 + t * 20)     // 15-35
+        } else if (v < 0.40) {
+          // Bortle 3 — teal/dark green zones — visible yellow step
+          const t = (v - 0.26) / 0.14
+          nr = 255; ng = Math.round(215 - 20*t); nb = 0
+          alpha = Math.round(35 + t * 30)     // 35-65, clearly visible
+        } else if (v < 0.53) {
+          // Bortle 4 — green/yellow-green zones
+          const t = (v - 0.40) / 0.13
+          nr = 255; ng = Math.round(195 - 35*t); nb = 0
+          alpha = Math.round(65 + t * 20)     // 65-85
+        } else if (v < 0.62) {
+          // Bortle 4-5 — amber
+          const t = (v - 0.48) / 0.14
           nr = 255; ng = Math.round(180 - 80*t); nb = 0
-          alpha = Math.round(55 + t * 35)     // 55-90
-        } else if (v < 0.72) {
-          // Orange — bortle 5-6
-          const t = (v - 0.58) / 0.14
+          alpha = Math.round(65 + t * 30)     // 65-95
+        } else if (v < 0.76) {
+          // Bortle 5-6 — orange
+          const t = (v - 0.62) / 0.14
           nr = 255; ng = Math.round(100 - 70*t); nb = 0
-          alpha = Math.round(90 + t * 30)     // 90-120
-        } else if (v < 0.86) {
-          // Red — bortle 6-7
-          const t = (v - 0.72) / 0.14
+          alpha = Math.round(95 + t * 30)     // 95-125
+        } else if (v < 0.88) {
+          // Bortle 7-8 — red
+          const t = (v - 0.76) / 0.12
           nr = 255; ng = Math.round(30 - 20*t); nb = 0
-          alpha = Math.round(120 + t * 30)    // 120-150
+          alpha = Math.round(125 + t * 25)    // 125-150
         } else {
-          // Pink/red — bortle 8-9 / city core
-          const t = Math.min(1, (v - 0.86) / 0.14)
+          // Bortle 8-9 — pink/red city core
+          const t = Math.min(1, (v - 0.88) / 0.12)
           nr = 255; ng = 10; nb = Math.round(t * 50)
-          alpha = Math.round(150 + t * 25)    // 150-175 — noticeably lower than before
+          alpha = Math.round(150 + t * 25)    // 150-175
         }
 
         d[i]=nr; d[i+1]=ng; d[i+2]=nb; d[i+3]=alpha
