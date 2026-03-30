@@ -2,7 +2,7 @@ import { useEffect, useRef, useMemo } from 'react'
 import { useMap } from 'react-leaflet'
 import L from 'leaflet'
 
-export default function ClearSkyLayer({ cloudData, getAvgCloudAt }) {
+export default function ClearSkyLayer({ cloudData, getAvgCloudAt, windowHours = 8 }) {
   const map = useMap()
   const canvasRef = useRef(null)
 
@@ -15,10 +15,18 @@ export default function ClearSkyLayer({ cloudData, getAvgCloudAt }) {
       minLat: Math.min(...lats), maxLat: Math.max(...lats),
       minLon: Math.min(...lons), maxLon: Math.max(...lons),
     }
+    const now = Date.now()
+    const cutoff = now + windowHours * 3600000
     const allAvgs = keys.map(k => {
       const fc = cloudData.points[k]
       if (!fc?.length) return null
-      return fc.reduce((s, p) => s + (p.cloudcover ?? 0), 0) / fc.length
+      // Filter to forward window only
+      const windowed = fc.filter(p => {
+        const t = new Date(p.time).getTime()
+        return t >= now && t <= cutoff
+      })
+      const use = windowed.length > 0 ? windowed : fc
+      return use.reduce((s, p) => s + (p.cloudcover ?? 0), 0) / use.length
     }).filter(v => v !== null).sort((a, b) => a - b)
 
     const p20 = allAvgs[Math.floor(allAvgs.length * 0.20)]
@@ -32,7 +40,7 @@ export default function ClearSkyLayer({ cloudData, getAvgCloudAt }) {
         ? { best: null, good: null, fair: p20, longShot: true }
         : { best: p20, good: p40, fair: Math.min(p60, 50), longShot: false },
     }
-  }, [cloudData])
+  }, [cloudData, windowHours])
 
   useEffect(() => {
     if (!getAvgCloudAt || !regionStats) return
