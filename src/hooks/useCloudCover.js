@@ -111,12 +111,22 @@ export function useCloudCover() {
           })).filter(p => !isNaN(p.time) && p.cloudcover !== null)
         }
 
+        // Derive geographic bounds from actual data points
+        const keys = Object.keys(results)
+        const lats = keys.map(k => parseFloat(k.split(',')[0]))
+        const lons = keys.map(k => parseFloat(k.split(',')[1]))
+        const bounds = {
+          minLat: Math.min(...lats), maxLat: Math.max(...lats),
+          minLon: Math.min(...lons), maxLon: Math.max(...lons),
+        }
+
         const data = {
           points:    results,
           spacing:   json.spacing || GRID_SPACING,
           fetchedAt: Date.now(),
           source:    'pipeline',
           lastUpdated: json.last_updated,
+          bounds,
         }
 
         saveCache(data)
@@ -222,7 +232,8 @@ export function useCloudCover() {
   const coverage = cloudData?.points ? Object.keys(cloudData.points).length : 0
   const total    = cloudData?.points ? Object.keys(cloudData.points).length : 0
 
-  return { cloudData, loading, progress, error, getCloudAt, coverage, total, phase }
+  const cloudBounds = cloudData?.bounds || null
+  return { cloudData, cloudBounds, loading, progress, error, getCloudAt, coverage, total, phase }
 }
 
 export async function fetchSpotForecast(lat, lon) {
