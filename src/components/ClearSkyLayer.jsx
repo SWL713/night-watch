@@ -92,103 +92,90 @@ function buildAvgGrid(cloudData) {
   return { grid, lats, lons }
 }
 
-export default function ClearSkyLayer({ cloudData }) {
+export default function ClearSkyLayer({ cloudData, getAvgCloudAt }) {
   const map = useMap()
   const canvasRef = useRef(null)
-  const gridData = useMemo(() => {
-    const raw = buildAvgGrid(cloudData)
-    if (!raw) return null
-    return upsampleGrid(raw.grid, raw.lats, raw.lons, 5)
+
+  // Derive bounds from cloudData for edge fade
+  const bounds = useMemo(() => {
+    if (!cloudData?.points) return null
+    const keys = Object.keys(cloudData.points)
+    const lats = keys.map(k => parseFloat(k.split(',')[0]))
+    const lons  = keys.map(k => parseFloat(k.split(',')[1]))
+    return {
+      minLat: Math.min(...lats), maxLat: Math.max(...lats),
+      minLon: Math.min(...lons), maxLon: Math.max(...lons),
+    }
   }, [cloudData])
 
   useEffect(() => {
-    if (!gridData) return
+    if (!getAvgCloudAt || !bounds) return
 
-    // Create canvas in overlay pane — same as HeatmapLayer
     const canvas = document.createElement('canvas')
     canvas.style.cssText = 'position:absolute;pointer-events:none;z-index:201;'
     map.getPanes().overlayPane.appendChild(canvas)
     canvasRef.current = canvas
 
+    // Bin thresholds — clearness = 1 - cloudFraction
+    const BINS = [
+      { minClear: 0.30, maxClear: 0.54, alpha: 45  },  // fair
+      { minClear: 0.55, maxClear: 0.79, alpha: 95  },  // good
+      { minClear: 0.80, maxClear: 1.00, alpha: 153 },  // best
+    ]
+    const AA = 0.08  // anti-alias band width
+
     function redraw() {
       if (!canvasRef.current) return
       const size = map.getSize()
-      const dpr = Math.min(window.devicePixelRatio || 1, 3)
+      const dpr  = Math.min(window.devicePixelRatio || 1, 3)
       const W = Math.round(size.x * dpr), H = Math.round(size.y * dpr)
       canvas.width = W; canvas.height = H
-      canvas.style.width = size.x + 'px'; canvas.style.height = size.y + 'px'
+      canvas.style.width  = size.x + 'px'
+      canvas.style.height = size.y + 'px'
       L.DomUtil.setPosition(canvas, map.containerPointToLayerPoint([0, 0]))
 
       const ctx = canvas.getContext('2d')
       ctx.clearRect(0, 0, W, H)
-
-      const { grid, lats, lons } = gridData
-      const rows = lats.length, cols = lons.length
-      if (rows < 2 || cols < 2) return
-
-      const latMax  = lats[0], lonMin = lons[0]
-      const spacing = Math.abs(lats[0] - lats[1])
-      const FADE    = spacing * 8
       const imageData = ctx.createImageData(W, H)
       const d = imageData.data
+
+      const FADE = 0.8  // degrees of fade at boundary
 
       for (let py = 0; py < H; py++) {
         for (let px = 0; px < W; px++) {
           const ll = map.containerPointToLatLng([px / dpr, py / dpr])
-          const ci = (latMax - ll.lat) / spacing
-          const cj = (ll.lng - lonMin) / spacing
-          const r0 = Math.floor(ci), r1 = r0 + 1
-          const c0 = Math.floor(cj), c1 = c0 + 1
-          if (r0 < 0 || r1 >= rows || c0 < 0 || c1 >= cols) continue
+          const { lat, lng: lon } = ll
 
-          const s00 = grid[r0][c0], s10 = grid[r0][c1]
-          const s01 = grid[r1][c0], s11 = grid[r1][c1]
-          const vals = [s00,s10,s01,s11].filter(v => v != null)
-          if (!vals.length) continue
+          // Skip outside data bounds
+          if (lat < bounds.minLat || lat > bounds.maxLat ||
+              lon < bounds.minLon || lon > bounds.maxLon) continue
 
-          const tx = cj - c0, ty = ci - r0
-          let cf = vals.length === 4
-            ? s00 + (s10-s00)*tx + (s01-s00)*ty + (s00-s10-s01+s11)*tx*ty
-            : vals.reduce((a,b) => a+b, 0) / vals.length
-          cf = Math.max(0, Math.min(1, cf))  // 0=clear, 1=cloudy
+          // Per-pixel smooth interpolation on 8h average data
+          const cf = getAvgCloudAt(lat, lon)
+          if (cf === null) continue
 
-          // Edge fade
-          const rawFade = Math.max(0, Math.min(1,
-            Math.min(ll.lat - lats[rows-1], latMax - ll.lat,
-                     ll.lng - lonMin, lons[cols-1] - ll.lng) / FADE))
-          const edgeFade = Math.pow(rawFade, 0.4)
+          const clearness = 1 - (cf / 100)
 
-          const idx = (py * W + px) * 4
+          // Edge fade near data boundary
+          const edgeDist = Math.min(
+            lat - bounds.minLat, bounds.maxLat - lat,
+            lon - bounds.minLon, bounds.maxLon - lon
+          )
+          const edgeFade = Math.pow(Math.max(0, Math.min(1, edgeDist / FADE)), 0.4)
 
-          // cf is a smoothly interpolated value between bin levels
-          // We anti-alias bin boundaries by blending adjacent bin alphas
-          // proportionally when cf falls near a threshold — eliminates 90° corners
-          if (cf <= 0.02) continue  // cloudy — transparent
-
-          // Bin thresholds and their alpha values
-          // Each threshold has a soft band of ±0.06 for anti-aliasing
-          const BINS = [
-            { lo: 0.02, hi: 0.28, alpha: 45  },   // fair
-            { lo: 0.28, hi: 0.58, alpha: 95  },   // good
-            { lo: 0.58, hi: 1.00, alpha: 153 },   // best
-          ]
-          const AA = 0.06  // anti-alias band width
-
+          // Find which bin and anti-alias at boundaries
           let alpha = 0
           for (let b = 0; b < BINS.length; b++) {
             const bin = BINS[b]
-            if (cf < bin.lo) break
-            if (cf >= bin.hi) {
-              alpha = bin.alpha
-              continue
-            }
-            // Within this bin
+            if (clearness < bin.minClear - AA) continue
+            if (clearness > bin.maxClear) { alpha = bin.alpha; continue }
+
             const prev = b > 0 ? BINS[b-1].alpha : 0
-            // Anti-alias at lower edge
-            if (cf < bin.lo + AA) {
-              const t = (cf - bin.lo) / AA
-              // Smooth step for clean anti-aliased edge
-              const s = t * t * (3 - 2 * t)
+
+            if (clearness < bin.minClear + AA) {
+              // Anti-alias at lower bin edge
+              const t = (clearness - (bin.minClear - AA)) / (2 * AA)
+              const s = t * t * (3 - 2 * t)  // smooth step
               alpha = Math.round(prev + (bin.alpha - prev) * s)
             } else {
               alpha = bin.alpha
@@ -197,6 +184,7 @@ export default function ClearSkyLayer({ cloudData }) {
 
           if (alpha === 0) continue
 
+          const idx = (py * W + px) * 4
           d[idx]   = 0
           d[idx+1] = 210
           d[idx+2] = 160
@@ -214,7 +202,7 @@ export default function ClearSkyLayer({ cloudData }) {
       canvas.remove()
       canvasRef.current = null
     }
-  }, [map, gridData])
+  }, [map, getAvgCloudAt, bounds])
 
   return null
 }
