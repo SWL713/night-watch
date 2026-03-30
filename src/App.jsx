@@ -397,7 +397,8 @@ function App() {
               <span style={{ color: '#6688aa', fontSize: 6, fontFamily: FONT, letterSpacing: 0.5, lineHeight: 1.2 }}>EQUIV.</span>
             </div>
             {[
-              { color: 'rgba(255,235,0,0.15)', label: '1-2' },
+              { color: 'rgba(0,0,0,0)',          label: '1'   },
+              { color: 'rgba(255,235,0,0.04)', label: '2'   },
               { color: 'rgba(255,225,0,0.28)', label: '3' },
               { color: 'rgba(255,215,0,0.42)', label: '4' },
               { color: 'rgba(255,200,0,0.55)', label: '5' },

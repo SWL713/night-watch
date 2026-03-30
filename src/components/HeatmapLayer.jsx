@@ -21,7 +21,7 @@ const LP_BASE   = import.meta.env.BASE_URL + 'lp_tiles'
 const LORENZ_ZONES = [
   [[ 34,  34,  34],  0.00],  // charcoal — pristine → transparent
   [[ 66,  66,  66],  0.00],  // mid grey — near-pristine → transparent
-  [[ 20,  47, 114],  0.00],  // dark navy — bortle 1-2 → transparent
+  [[ 20,  47, 114],  0.06],  // dark navy — bortle 2 → super faint yellow
   [[ 33,  84, 216],  0.18],  // medium blue — bortle 2-3 → faint yellow
   [[ 15,  87,  20],  0.34],  // dark green — bortle 3 → visible yellow
   [[ 31, 161,  42],  0.46],  // bright green — bortle 4 → yellow
