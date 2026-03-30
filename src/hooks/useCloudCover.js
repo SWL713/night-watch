@@ -187,6 +187,53 @@ export function useCloudCover() {
   // Uses bilinear interpolation across the 4 surrounding cloud grid points
   // so cloud values transition smoothly across cell boundaries instead of
   // stepping — which caused the "bead" artifact in combined mode.
+  // Per-pixel bilinear interpolation on 8-hour average data
+  // Same smooth interpolation as getCloudAt but uses average across all hours
+  const getAvgCloudAt = useCallback((lat, lon) => {
+    const data = cloudDataRef.current
+    if (!data?.points) return null
+    const spacing = data.spacing || GRID_SPACING
+
+    const lat0 = parseFloat((Math.floor(lat / spacing) * spacing).toFixed(2))
+    const lon0 = parseFloat((Math.floor(lon / spacing) * spacing).toFixed(2))
+    const lat1 = parseFloat((lat0 + spacing).toFixed(2))
+    const lon1 = parseFloat((lon0 + spacing).toFixed(2))
+    const tx   = (lon - lon0) / spacing
+    const ty   = (lat - lat0) / spacing
+
+    const k = (la, lo) => `${pyFmt(la)},${pyFmt(lo)}`
+
+    // Average all forecast hours for each corner
+    function avgAt(key) {
+      const fc = data.points[key]
+      if (!fc?.length) return null
+      const sum = fc.reduce((s, p) => s + (p.cloudcover ?? 0), 0)
+      return sum / fc.length
+    }
+
+    const v00 = avgAt(k(lat0, lon0))
+    const v10 = avgAt(k(lat1, lon0))
+    const v01 = avgAt(k(lat0, lon1))
+    const v11 = avgAt(k(lat1, lon1))
+
+    const valid = [v00, v10, v01, v11].filter(v => v !== null)
+    if (valid.length === 0) return null
+    if (valid.length < 2)   return valid[0]
+
+    const corners = [
+      [v00, (1 - tx) * (1 - ty)],
+      [v01, tx       * (1 - ty)],
+      [v10, (1 - tx) * ty      ],
+      [v11, tx       * ty      ],
+    ]
+    let sum = 0, wt = 0
+    for (const [v, w] of corners) {
+      if (v === null) continue
+      sum += v * w; wt += w
+    }
+    return wt > 0 ? sum / wt : null  // return float not rounded
+  }, [])
+
   const getCloudAt = useCallback((lat, lon, hourOffset = 0) => {
     const data = cloudDataRef.current
     if (!data?.points) return null
@@ -233,7 +280,7 @@ export function useCloudCover() {
   const total    = cloudData?.points ? Object.keys(cloudData.points).length : 0
 
   const cloudBounds = cloudData?.bounds || null
-  return { cloudData, cloudBounds, loading, progress, error, getCloudAt, coverage, total, phase }
+  return { cloudData, cloudBounds, loading, progress, error, getCloudAt, getAvgCloudAt, coverage, total, phase }
 }
 
 export async function fetchSpotForecast(lat, lon) {
