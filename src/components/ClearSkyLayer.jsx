@@ -2,7 +2,25 @@ import { useEffect, useRef, useMemo } from 'react'
 import { useMap } from 'react-leaflet'
 import L from 'leaflet'
 
-// Average cloud cover across all forecast hours for every grid point
+// Bin thresholds for discrete clear sky zones (cloud fraction 0-1)
+// Clearness = 1 - cloudFraction
+// Bin values are discrete steps — bilinear interpolation between them
+// produces smooth organic edges while zone interiors stay flat
+const CLEAR_BINS = [
+  { maxCloud: 0.20, value: 1.00 },  // excellent: 0-20% cloud
+  { maxCloud: 0.45, value: 0.60 },  // good:      21-45% cloud
+  { maxCloud: 0.70, value: 0.30 },  // fair:      46-70% cloud
+  { maxCloud: 1.00, value: 0.00 },  // cloudy:    71-100% — transparent
+]
+
+function snapToBin(cloudFraction) {
+  for (const bin of CLEAR_BINS) {
+    if (cloudFraction <= bin.maxCloud) return bin.value
+  }
+  return 0
+}
+
+// Average cloud cover across all forecast hours, then snap each point to a bin
 function buildAvgGrid(cloudData) {
   if (!cloudData?.points) return null
   const pts = cloudData.points
@@ -30,7 +48,8 @@ function buildAvgGrid(cloudData) {
     const ci = lonIdx[lo.toFixed(1)]
     if (ri === undefined || ci === undefined || !forecasts?.length) continue
     const avg = forecasts.reduce((s, p) => s + (p.cloudcover ?? 0), 0) / forecasts.length
-    grid[ri][ci] = avg / 100  // 0–1 cloud fraction
+    // Snap to bin value — discrete steps create hard zone edges
+    grid[ri][ci] = snapToBin(avg / 100)
   }
 
   return { grid, lats, lons }
@@ -99,23 +118,27 @@ export default function ClearSkyLayer({ cloudData }) {
           const edgeFade = Math.pow(rawFade, 0.4)
 
           const idx = (py * W + px) * 4
-          const clearFrac = 1 - cf  // 1=totally clear, 0=totally cloudy
 
-          // Moderate penalty: power 1.4 — 70% clear → 61% intensity, 90% → 87%
-          const intensity = Math.pow(clearFrac, 1.4)
+          // cf is now a bin value: 1.0=excellent, 0.6=good, 0.3=fair, 0=cloudy
+          // Bilinear interpolation between bin values gives smooth organic edges
+          // while zone interiors stay flat at their bin value
+          if (cf <= 0) continue  // cloudy — transparent
 
-          // Ramp starts at 25% clear, full strength by 45%
-          const ramp = clearFrac < 0.25 ? 0
-                     : clearFrac < 0.45 ? (clearFrac - 0.25) / 0.20
-                     : 1.0
+          // Map bin values to teal alpha levels
+          // 1.00 = 153 (60% — matches sky brightness max)
+          // 0.60 = 95
+          // 0.30 = 45
+          const alpha = cf >= 0.95 ? 153
+                      : cf >= 0.55 ? 95
+                      : cf >= 0.25 ? 45
+                      : 0
 
-          if (ramp === 0) continue
+          if (alpha === 0) continue
 
-          // Teal color: R=20, G=200, B=175
-          d[idx]   = 20
-          d[idx+1] = 200
-          d[idx+2] = 175
-          d[idx+3] = Math.round(intensity * 0.70 * edgeFade * ramp * 255)
+          d[idx]   = 0
+          d[idx+1] = 210
+          d[idx+2] = 160
+          d[idx+3] = Math.round(alpha * edgeFade)
         }
       }
       ctx.putImageData(imageData, 0, 0)
