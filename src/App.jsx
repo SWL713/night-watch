@@ -85,7 +85,7 @@ function App() {
   const queueCount = (pendingSpots?.length || 0) + (pendingPhotos?.length || 0) + (flaggedPhotos?.length || 0) + pendingRemovals.length
   const [selectedSighting, setSelectedSighting] = useState(null)
   const [sightingScreen, setSightingScreen] = useState(null)
-  const { getCloudAt, loading: cloudLoading, progress, coverage, total, phase, cloudData, cloudBounds } = useCloudCover()
+  const { getCloudAt, getAvgCloudAt, loading: cloudLoading, progress, coverage, total, phase, cloudData, cloudBounds } = useCloudCover()
 
   const moonData = getMoonData()
   const [bortleGrid, setBortleGrid] = useState(null)
@@ -314,7 +314,7 @@ function App() {
           )}
 
           {clearSkyMode && cloudData && (
-            <ClearSkyLayer cloudData={cloudData} />
+            <ClearSkyLayer cloudData={cloudData} getAvgCloudAt={getAvgCloudAt} />
           )}
 
           {/* Camera markers */}
