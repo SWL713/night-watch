@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect } from 'react'
+import { useState, useCallback, useEffect, useMemo } from 'react'
 import { MapContainer, TileLayer, ZoomControl, useMapEvents, useMap, Rectangle, Tooltip } from 'react-leaflet'
 import 'leaflet/dist/leaflet.css'
 
@@ -15,7 +15,7 @@ import MapSearch from './components/MapSearch.jsx'
 import SightingLayer from './components/SightingLayer.jsx'
 import SightingForm from './components/SightingForm.jsx'
 import CameraLayer from './components/CameraLayer.jsx'
-import ClearSkyLayer, { useClearSkyStats } from './components/ClearSkyLayer.jsx'
+import ClearSkyLayer from './components/ClearSkyLayer.jsx'
 import CameraPopup from './components/CameraPopup.jsx'
 import CameraSettings from './components/CameraSettings.jsx'
 import SightingPopup from './components/SightingPopup.jsx'
@@ -86,7 +86,18 @@ function App() {
   const [selectedSighting, setSelectedSighting] = useState(null)
   const [sightingScreen, setSightingScreen] = useState(null)
   const { getCloudAt, getAvgCloudAt, loading: cloudLoading, progress, coverage, total, phase, cloudData, cloudBounds } = useCloudCover()
-  const { longShot } = useClearSkyStats(cloudData)
+  // Derive long shot status inline from cloudData
+  const longShot = useMemo(() => {
+    if (!cloudData?.points) return false
+    const keys = Object.keys(cloudData.points)
+    const avgs = keys.map(k => {
+      const fc = cloudData.points[k]
+      if (!fc?.length) return null
+      return fc.reduce((s, p) => s + (p.cloudcover ?? 0), 0) / fc.length
+    }).filter(v => v !== null).sort((a, b) => a - b)
+    const p20 = avgs[Math.floor(avgs.length * 0.20)]
+    return p20 > 50
+  }, [cloudData])
 
   const moonData = getMoonData()
   const [bortleGrid, setBortleGrid] = useState(null)
