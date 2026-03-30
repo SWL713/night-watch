@@ -383,10 +383,7 @@ function App() {
         {layers.bortle && (
           <div style={{
             position: 'absolute',
-            top: 150, right: 12,
-            zIndex: 1000,
-            background: 'rgba(6,8,15,0.85)',
-            border: '1px solid #1a2a3a',
+            top: 135, right: 12,
             borderRadius: 4,
             padding: '6px 6px',
             display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 3,
@@ -419,7 +416,7 @@ function App() {
         {clearSkyMode && (
           <div style={{
             position: 'absolute',
-            top: 150, right: layers.bortle ? 50 : 12,
+            top: 135, right: layers.bortle ? 50 : 12,
             zIndex: 1000,
             background: 'rgba(6,8,15,0.85)',
             border: `1px solid ${longShot ? '#ff8c00' : '#1a2a3a'}`,
