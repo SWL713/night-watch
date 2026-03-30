@@ -86,36 +86,43 @@ export default function ClearSkyLayer({ cloudData, getAvgCloudAt }) {
           const edgeFade = Math.pow(Math.max(0, Math.min(1, edgeDist / FADE)), 0.4)
           const idx = (py * W + px) * 4
 
-          if (longShot) {
-            if (cf > thresholds.fair) continue
-            const clearness = 1 - cf / 100
-            const floorClear = 1 - thresholds.fair / 100
-            const t = Math.max(0, Math.min(1, (clearness - floorClear + AA) / (2 * AA)))
-            const s = t * t * (3 - 2 * t)
-            const alpha = Math.round(45 * s * edgeFade)
-            if (alpha === 0) continue
-            d[idx]=150; d[idx+1]=210; d[idx+2]=120; d[idx+3]=alpha
-            if (lsPixels) lsPixels[py * W + px] = 1
-          } else {
-            if (cf > 50) continue
-            const BINS = [
-              { maxCloud: thresholds.fair, alpha: 45  },
-              { maxCloud: thresholds.good, alpha: 95  },
-              { maxCloud: thresholds.best, alpha: 153 },
-            ]
-            let alpha = 0
+          // Always try normal bins first — they render on top regardless of Long Shot mode
+          const BINS = [
+            { maxCloud: longShot ? thresholds.fair * 0.6 : thresholds.fair, alpha: 45  },
+            { maxCloud: longShot ? thresholds.fair * 0.4 : thresholds.good, alpha: 95  },
+            { maxCloud: longShot ? thresholds.fair * 0.2 : thresholds.best, alpha: 153 },
+          ]
+          // In normal mode use absolute 50% floor; in long shot use relative bins only
+          const floor = longShot ? thresholds.fair : 50
+          let normalAlpha = 0
+          if (cf <= floor) {
             for (const bin of BINS) {
               const loEdge = bin.maxCloud - AA * 100
               const hiEdge = bin.maxCloud + AA * 100
               if (cf > hiEdge) continue
-              if (cf <= loEdge) { alpha = bin.alpha; break }
+              if (cf <= loEdge) { normalAlpha = bin.alpha; break }
               const t = (hiEdge - cf) / (2 * AA * 100)
               const s = t * t * (3 - 2 * t)
-              alpha = Math.round(alpha + (bin.alpha - alpha) * s)
+              normalAlpha = Math.round(normalAlpha + (bin.alpha - normalAlpha) * s)
               break
             }
+          }
+
+          if (normalAlpha > 0) {
+            // Normal teal zone — always renders on top
+            d[idx]=0; d[idx+1]=210; d[idx+2]=160; d[idx+3]=Math.round(normalAlpha * edgeFade)
+          } else if (longShot && cf <= thresholds.fair) {
+            // Long Shot zone — only where no normal zone exists
+            const clearness = 1 - cf / 100
+            const floorClear = 1 - thresholds.fair / 100
+            const t = Math.max(0, Math.min(1, (clearness - floorClear + AA) / (2 * AA)))
+            const s = t * t * (3 - 2 * t)
+            const alpha = Math.round(40 * s * edgeFade)
             if (alpha === 0) continue
-            d[idx]=0; d[idx+1]=210; d[idx+2]=160; d[idx+3]=Math.round(alpha * edgeFade)
+            d[idx]=150; d[idx+1]=210; d[idx+2]=120; d[idx+3]=alpha
+            if (lsPixels) lsPixels[py * W + px] = 1
+          } else {
+            continue
           }
         }
       }
