@@ -35,7 +35,9 @@ export default function ClearSkyLayer({ cloudData, getAvgCloudAt, windowHours = 
       const med = vals.length % 2 ? vals[mid] : (vals[mid - 1] + vals[mid]) / 2
       // Count of hours below 40% — how many usable hours do you get
       const count = use.filter(p => (p.cloudcover ?? 100) < 40).length
-      pointStats[k] = { med, count }
+      // Windowed avg for per-pixel rendering — matches the threshold data
+      const avg = use.reduce((s, p) => s + (p.cloudcover ?? 0), 0) / use.length
+      pointStats[k] = { med, count, avg }
     }
 
     // Long Shot trigger: fewer than 5% of points have median ≤ 45
@@ -72,13 +74,21 @@ export default function ClearSkyLayer({ cloudData, getAvgCloudAt, windowHours = 
       }
     }).filter(v => v != null)
 
-    return { bounds, thresholds: { longShot, anchorThresholds } }
+    return { bounds, pointStats, thresholds: { longShot, anchorThresholds } }
   }, [cloudData, windowHours])
 
   useEffect(() => {
     if (!getAvgCloudAt || !regionStats) return
-    const { bounds, thresholds } = regionStats
-    const { longShot } = thresholds
+    const { bounds, thresholds, pointStats } = regionStats
+    const { longShot, anchorThresholds } = thresholds
+    const spacing = cloudData?.spacing || 0.1
+
+    // Fast windowed avg lookup — snaps lat/lon to nearest grid point
+    function getWindowedAvg(lat, lon) {
+      const la0 = parseFloat((Math.round(lat / spacing) * spacing).toFixed(1))
+      const lo0 = parseFloat((Math.round(lon / spacing) * spacing).toFixed(1))
+      return pointStats[`${la0.toFixed(1)},${lo0.toFixed(1)}`]?.avg ?? null
+    }
 
     const canvas = document.createElement('canvas')
     canvas.style.cssText = 'position:absolute;pointer-events:none;z-index:201;'
@@ -111,7 +121,8 @@ export default function ClearSkyLayer({ cloudData, getAvgCloudAt, windowHours = 
           if (lat < bounds.minLat || lat > bounds.maxLat ||
               lon < bounds.minLon || lon > bounds.maxLon) continue
 
-          const cf = getAvgCloudAt(lat, lon)
+          // Use windowed avg matching threshold data (fixes 4H vs 8H mismatch)
+          const cf = getWindowedAvg(lat, lon) ?? getAvgCloudAt(lat, lon)
           if (cf === null) continue
 
           const edgeDist = Math.min(
@@ -121,51 +132,60 @@ export default function ClearSkyLayer({ cloudData, getAvgCloudAt, windowHours = 
           const edgeFade = Math.pow(Math.max(0, Math.min(1, edgeDist / FADE)), 0.4)
           const idx = (py * W + px) * 4
 
-          if (longShot) {
-            // Long Shot: find this pixel's best anchor p05 threshold
+          const R = 150 / 69
+          const BLEND = 30 / 69  // 30-mile soft blend zone at anchor edges
+
+          // Normal mode scoring — always evaluated first, always wins
+          // Distance-weighted blend across overlapping anchors — no hard circle edges
+          let totalWeight = 0, weightedAlpha = 0
+          for (const a of anchorThresholds) {
+            const dist = Math.sqrt((lat-a.lat)**2 + ((lon-a.lon)*Math.cos(a.lat*Math.PI/180))**2)
+            if (dist > R) continue
+            if (cf > a.p60) continue
+            // Weight: full weight inside (R-BLEND), tapers to 0 at R
+            const weight = dist < R - BLEND ? 1 : Math.max(0, (R - dist) / BLEND)
+            if (weight <= 0) continue
+            const cfBINS = [
+              { maxCf: a.p20, alpha: 153 },
+              { maxCf: a.p40, alpha: 95  },
+              { maxCf: a.p60, alpha: 45  },
+            ]
+            let aAlpha = 0
+            for (const bin of cfBINS) {
+              const lo = bin.maxCf - AA*100
+              const hi = bin.maxCf + AA*100
+              if (cf > hi) continue
+              if (cf <= lo) { aAlpha = bin.alpha; break }
+              const t = (hi - cf) / (2*AA*100)
+              const s = t * t * (3 - 2*t)
+              aAlpha = Math.round(aAlpha + (bin.alpha - aAlpha) * s)
+              break
+            }
+            weightedAlpha += aAlpha * weight
+            totalWeight += weight
+          }
+
+          if (totalWeight > 0 && weightedAlpha / totalWeight > 2) {
+            // Normal zone found — always render, never suppressed by Long Shot
+            const alpha = Math.round((weightedAlpha / totalWeight) * edgeFade)
+            d[idx]=0; d[idx+1]=210; d[idx+2]=160; d[idx+3]=alpha
+          } else if (longShot) {
+            // Long Shot: only renders where no normal zone exists
             let lsThreshold = null
-            for (const a of thresholds.anchorThresholds) {
+            for (const a of anchorThresholds) {
               const dist = Math.sqrt((lat-a.lat)**2 + ((lon-a.lon)*Math.cos(a.lat*Math.PI/180))**2)
-              if (dist <= 150/69 && (lsThreshold === null || a.p05 < lsThreshold))
+              if (dist <= R && (lsThreshold === null || a.p05 < lsThreshold))
                 lsThreshold = a.p05
             }
             if (lsThreshold === null || cf > lsThreshold + AA*100) continue
             const t = Math.max(0, Math.min(1, (lsThreshold + AA*100 - cf) / (2*AA*100)))
-            const s = t * t * (3 - 2 * t)
+            const s = t * t * (3 - 2*t)
             const alpha = Math.round(40 * s * edgeFade)
             if (alpha === 0) continue
             d[idx]=150; d[idx+1]=210; d[idx+2]=120; d[idx+3]=alpha
             if (lsPixels) lsPixels[py * W + px] = 1
           } else {
-            // Normal mode: per-anchor relative percentile scoring
-            // Each pixel scores against the distribution of its own 150mi region
-            let bestAlpha = 0
-            for (const a of thresholds.anchorThresholds) {
-              const dist = Math.sqrt((lat-a.lat)**2 + ((lon-a.lon)*Math.cos(a.lat*Math.PI/180))**2)
-              if (dist > 150/69) continue
-              if (cf > a.p60) continue
-              const cfBINS = [
-                { maxCf: a.p20, alpha: 153 },
-                { maxCf: a.p40, alpha: 95  },
-                { maxCf: a.p60, alpha: 45  },
-              ]
-              for (const bin of cfBINS) {
-                const lo = bin.maxCf - AA*100
-                const hi = bin.maxCf + AA*100
-                if (cf > hi) continue
-                let a2
-                if (cf <= lo) { a2 = bin.alpha }
-                else {
-                  const t = (hi - cf) / (2*AA*100)
-                  const s = t * t * (3 - 2*t)
-                  a2 = Math.round(bestAlpha + (bin.alpha - bestAlpha) * s)
-                }
-                if (a2 > bestAlpha) bestAlpha = a2
-                break
-              }
-            }
-            if (bestAlpha === 0) continue
-            d[idx]=0; d[idx+1]=210; d[idx+2]=160; d[idx+3]=Math.round(bestAlpha * edgeFade)
+            continue
           }
         }
       }
