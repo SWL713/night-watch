@@ -160,19 +160,40 @@ export default function ClearSkyLayer({ cloudData }) {
 
           const idx = (py * W + px) * 4
 
-          // cf is now a bin value: 1.0=excellent, 0.6=good, 0.3=fair, 0=cloudy
-          // Bilinear interpolation between bin values gives smooth organic edges
-          // while zone interiors stay flat at their bin value
-          if (cf <= 0) continue  // cloudy — transparent
+          // cf is a smoothly interpolated value between bin levels
+          // We anti-alias bin boundaries by blending adjacent bin alphas
+          // proportionally when cf falls near a threshold — eliminates 90° corners
+          if (cf <= 0.02) continue  // cloudy — transparent
 
-          // Map bin values to teal alpha levels
-          // 1.00 = 153 (60% — matches sky brightness max)
-          // 0.60 = 95
-          // 0.30 = 45
-          const alpha = cf >= 0.95 ? 153
-                      : cf >= 0.55 ? 95
-                      : cf >= 0.25 ? 45
-                      : 0
+          // Bin thresholds and their alpha values
+          // Each threshold has a soft band of ±0.06 for anti-aliasing
+          const BINS = [
+            { lo: 0.02, hi: 0.28, alpha: 45  },   // fair
+            { lo: 0.28, hi: 0.58, alpha: 95  },   // good
+            { lo: 0.58, hi: 1.00, alpha: 153 },   // best
+          ]
+          const AA = 0.06  // anti-alias band width
+
+          let alpha = 0
+          for (let b = 0; b < BINS.length; b++) {
+            const bin = BINS[b]
+            if (cf < bin.lo) break
+            if (cf >= bin.hi) {
+              alpha = bin.alpha
+              continue
+            }
+            // Within this bin
+            const prev = b > 0 ? BINS[b-1].alpha : 0
+            // Anti-alias at lower edge
+            if (cf < bin.lo + AA) {
+              const t = (cf - bin.lo) / AA
+              // Smooth step for clean anti-aliased edge
+              const s = t * t * (3 - 2 * t)
+              alpha = Math.round(prev + (bin.alpha - prev) * s)
+            } else {
+              alpha = bin.alpha
+            }
+          }
 
           if (alpha === 0) continue
 
