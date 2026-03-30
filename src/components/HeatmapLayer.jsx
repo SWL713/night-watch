@@ -387,7 +387,7 @@ export default function HeatmapLayer({ mode, selectedHour, getCloudAt, cloudLoad
       canvasRef.current = null
     }
     // When cloudLoading, leave any existing canvas in place (don't clear it)
-  }, [showCanvas, mode, selectedHour, getCloudAt, cloudLoading, cloudData, bortleGrid, map])
+  }, [showCanvas, mode, selectedHour, getCloudAt, cloudLoading, cloudData, map])
 
   useEffect(() => () => {
     if (tileLayerRef.current) { map.removeLayer(tileLayerRef.current); tileLayerRef.current = null }
