@@ -446,8 +446,8 @@ function App() {
                 <div style={{ width: 22, height: 1, background: 'rgba(255,140,0,0.3)', margin: '1px 0' }} />
                 <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 1 }}>
                   <div style={{ width: 22, height: 16, borderRadius: 2, background: 'rgba(150,210,120,0.18)', border: '1.5px dashed rgba(255,140,0,0.85)' }} />
-                  <span style={{ color: '#ff8c00', fontSize: 6, fontFamily: FONT }}>LONG</span>
-                  <span style={{ color: '#ff8c00', fontSize: 6, fontFamily: FONT }}>SHOT</span>
+                  <span style={{ color: 'rgb(150,210,120)', fontSize: 6, fontFamily: FONT }}>LONG</span>
+                  <span style={{ color: 'rgb(150,210,120)', fontSize: 6, fontFamily: FONT }}>SHOT</span>
                 </div>
               </>
             )}
