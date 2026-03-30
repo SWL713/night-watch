@@ -356,6 +356,7 @@ export default function HeatmapLayer({ mode, selectedHour, getCloudAt, cloudLoad
   const map          = useMap()
   const tileLayerRef = useRef(null)
   const canvasRef    = useRef(null)
+  const gridCacheRef = useRef({ key: null, data: null })  // memoize expensive grid build
   const [bortleGrid, setBortleGrid] = useState(null)
 
   useEffect(() => { loadBortleGrid().then(g => { if (g) setBortleGrid(g) }) }, [])
@@ -381,7 +382,12 @@ export default function HeatmapLayer({ mode, selectedHour, getCloudAt, cloudLoad
         canvasRef.current.addTo(map)
       }
       const canvasMode = (mode === 'clearsky' || mode === 'clearsky_bortle') ? 'clearsky' : mode
-      canvasRef.current.update(buildCloudGrid(getCloudAt, selectedHour), canvasMode)
+      // Cache grid by selectedHour — only rebuild when hour or data changes, not on map move
+      const cacheKey = `${selectedHour}-${cloudData?.fetchedAt ?? 0}`
+      if (gridCacheRef.current.key !== cacheKey) {
+        gridCacheRef.current = { key: cacheKey, data: buildCloudGrid(getCloudAt, selectedHour) }
+      }
+      canvasRef.current.update(gridCacheRef.current.data, canvasMode)
 
     } else if (!showCanvas && canvasRef.current) {
       map.removeLayer(canvasRef.current)

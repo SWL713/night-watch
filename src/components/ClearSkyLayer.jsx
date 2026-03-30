@@ -2,7 +2,7 @@ import { useEffect, useRef, useMemo } from 'react'
 import { useMap } from 'react-leaflet'
 import L from 'leaflet'
 
-export default function ClearSkyLayer({ cloudData, getAvgCloudAt, windowHours = 8 }) {
+export default function ClearSkyLayer({ cloudData, getAvgCloudAt, windowHours = 8, onLongShot }) {
   const map = useMap()
   const canvasRef = useRef(null)
 
@@ -33,6 +33,7 @@ export default function ClearSkyLayer({ cloudData, getAvgCloudAt, windowHours = 
     const p40 = allAvgs[Math.floor(allAvgs.length * 0.40)]
     const p60 = allAvgs[Math.floor(allAvgs.length * 0.60)]
     const longShot = p20 > 50
+    onLongShot?.(longShot)
 
     return {
       bounds,
