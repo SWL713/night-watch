@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect, useMemo } from 'react'
+import { useState, useCallback, useEffect, useMemo, useRef } from 'react'
 import { MapContainer, TileLayer, ZoomControl, useMapEvents, useMap, Rectangle, Tooltip } from 'react-leaflet'
 import 'leaflet/dist/leaflet.css'
 
@@ -16,6 +16,7 @@ import SightingLayer from './components/SightingLayer.jsx'
 import SightingForm from './components/SightingForm.jsx'
 import CameraLayer from './components/CameraLayer.jsx'
 import ClearSkyLayer from './components/ClearSkyLayer.jsx'
+import LocalReachLayer from './components/LocalReachLayer.jsx'
 import CameraPopup from './components/CameraPopup.jsx'
 import CameraSettings from './components/CameraSettings.jsx'
 import SightingPopup from './components/SightingPopup.jsx'
@@ -86,6 +87,9 @@ function App() {
   const [selectedSighting, setSelectedSighting] = useState(null)
   const [sightingScreen, setSightingScreen] = useState(null)
   const { getCloudAt, getAvgCloudAt, loading: cloudLoading, progress, coverage, total, phase, cloudData, cloudBounds } = useCloudCover()
+  const [viewportTealPct, setViewportTealPct] = useState(100)
+  const mapRef = useRef(null)
+
   // Derive long shot status inline from cloudData
   const longShot = useMemo(() => {
     if (!cloudData?.points) return false
@@ -114,6 +118,13 @@ function App() {
   const [showCamera, setShowCamera] = useState(false) // picking location for sighting report
   const [camBortleResolved, setCamBortleResolved] = useState(5)
   const [clearSkyMode, setClearSkyMode] = useState(false)
+  const [localReach, setLocalReach] = useState(false)           // Local Reach active
+  const [localReachBounds, setLocalReachBounds] = useState(null) // frozen viewport bounds
+  const [localReachMoved, setLocalReachMoved] = useState(false)  // user panned away
+  const [showLocalReachIntro, setShowLocalReachIntro] = useState(false)
+  const [localReachSeen, setLocalReachSeen] = useState(
+    () => !!sessionStorage.getItem('nw_localreach_seen')
+  )
   // HeatmapLayer handles bortle tiles + cloud canvas only
   // ClearSkyLayer handles clear sky rendering independently
   const heatmapMode = layers.clouds && layers.bortle ? 'combined'
@@ -181,6 +192,7 @@ function App() {
           zoomControl={false}
           worldCopyJump={true}
           style={{ height: '100%', width: '100%', background: '#06080f', cursor: 'inherit' }}
+          ref={mapRef}
         >
           {/* Dark base tile layer */}
           <TileLayer
@@ -190,6 +202,61 @@ function App() {
           />
 
           {!layers.bortle && <ZoomControl position="bottomright" />}
+
+          {/* Local Reach button — left of zoom controls, only in clear sky mode */}
+          {clearSkyMode && (
+            <div style={{
+              position: 'absolute', bottom: 36, right: 54,
+              zIndex: 1000,
+            }}>
+              <button
+                disabled={!localReach && viewportTealPct >= 10}
+                onClick={() => {
+                  if (!localReach) {
+                    // Activating — freeze current viewport bounds
+                    const b = mapRef.current?.getBounds()
+                    if (b) setLocalReachBounds({
+                      minLat: b.getSouth(), maxLat: b.getNorth(),
+                      minLon: b.getWest(),  maxLon: b.getEast(),
+                    })
+                    setLocalReachMoved(false)
+                    if (!localReachSeen) {
+                      setShowLocalReachIntro(true)
+                      sessionStorage.setItem('nw_localreach_seen', '1')
+                      setLocalReachSeen(true)
+                    }
+                  } else {
+                    setLocalReachBounds(null)
+                    setLocalReachMoved(false)
+                  }
+                  setLocalReach(r => !r)
+                }}
+                style={{
+                  width: 30, height: 30,
+                  background: localReach
+                    ? 'rgba(255,140,0,0.9)'
+                    : viewportTealPct < 10
+                      ? 'rgba(20,30,45,0.92)'
+                      : 'rgba(15,20,30,0.5)',
+                  border: localReach
+                    ? '1.5px solid rgba(255,140,0,1)'
+                    : viewportTealPct < 10
+                      ? '1.5px solid rgba(255,140,0,0.6)'
+                      : '1.5px solid rgba(40,60,80,0.4)',
+                  borderRadius: 4,
+                  color: localReach
+                    ? '#000'
+                    : viewportTealPct < 10
+                      ? 'rgba(255,140,0,0.9)'
+                      : 'rgba(40,60,80,0.4)',
+                  fontSize: 18, fontWeight: 'bold',
+                  cursor: viewportTealPct < 10 || localReach ? 'pointer' : 'default',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  fontFamily: FONT,
+                }}
+              >!</button>
+            </div>
+          )}
 
           <MapSearch
             onSelectResult={(result, isPeru) => { if (isPeru) setPeruMode(m => !m) }}
@@ -328,6 +395,26 @@ function App() {
           {clearSkyMode && cloudData && (
             <ClearSkyLayer cloudData={cloudData} getAvgCloudAt={getAvgCloudAt} />
           )}
+          {clearSkyMode && localReach && cloudData && localReachBounds && (
+            <LocalReachLayer
+              cloudData={cloudData}
+              getAvgCloudAt={getAvgCloudAt}
+              frozenBounds={localReachBounds}
+              onTealPct={pct => {
+                setViewportTealPct(pct)
+                // If user panned to better skies while local reach active, mark as moved
+                if (localReach && localReachBounds) setLocalReachMoved(true)
+              }}
+            />
+          )}
+          {clearSkyMode && !localReach && cloudData && (
+            <LocalReachLayer
+              cloudData={cloudData}
+              getAvgCloudAt={getAvgCloudAt}
+              frozenBounds={null}
+              onTealPct={pct => setViewportTealPct(pct)}
+            />
+          )}
 
           {/* Camera markers */}
           {layers.cameras && (
@@ -455,6 +542,12 @@ function App() {
                     <span style={{ color: '#aabbcc', fontSize: 6, fontFamily: FONT }}>{label}</span>
                   </div>
                 ))}
+                {localReach && (
+                  <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 1, marginTop: 2 }}>
+                    <div style={{ width: 22, height: 16, borderRadius: 2, background: 'rgba(150,210,120,0.18)', border: '1.5px dashed rgba(255,140,0,0.85)' }} />
+                    <span style={{ color: 'rgba(255,140,0,0.9)', fontSize: 6, fontFamily: FONT }}>REACH</span>
+                  </div>
+                )}
               </>
             )}
           </div>
@@ -479,6 +572,25 @@ function App() {
               marginTop: 3,
             }}>
               TEAL = BEST OPTIONS · 8-HOUR AVERAGE
+          {localReach && localReachMoved && (
+            <div
+              onClick={() => {
+                const b = mapRef.current?.getBounds()
+                if (b) {
+                  setLocalReachBounds({
+                    minLat: b.getSouth(), maxLat: b.getNorth(),
+                    minLon: b.getWest(),  maxLon: b.getEast(),
+                  })
+                  setLocalReachMoved(false)
+                }
+              }}
+              style={{
+                color: 'rgba(255,140,0,0.9)', fontSize: 8, fontFamily: FONT,
+                letterSpacing: 0.8, marginTop: 2, cursor: 'pointer',
+                textDecoration: 'underline',
+              }}
+            >⟳ RECALCULATE FOR CURRENT AREA</div>
+          )}
           {longShot && (
             <div style={{ color: '#ff8c00', fontSize: 8, fontFamily: FONT, letterSpacing: 1, marginTop: 2 }}>
               ⚠️ LONG SHOT · HEAVILY CLOUDED REGION
@@ -765,6 +877,43 @@ function App() {
       }}>
         Developed by Scott W. LeFevre — 2026
       </div>
+
+      {/* Local Reach intro popup — shown once per session */}
+      {showLocalReachIntro && (
+        <div style={{
+          position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.75)',
+          zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center',
+          padding: '0 24px',
+        }}>
+          <div style={{
+            background: '#080d18', border: '1.5px solid rgba(255,140,0,0.7)',
+            borderRadius: 8, padding: '20px 18px', maxWidth: 320,
+            fontFamily: FONT,
+          }}>
+            <div style={{ color: 'rgba(255,140,0,0.95)', fontSize: 13, fontWeight: 'bold', letterSpacing: 1, marginBottom: 10 }}>
+              ⚠️ LOCAL REACH
+            </div>
+            <div style={{ color: '#8899aa', fontSize: 10, lineHeight: 1.6, letterSpacing: 0.5 }}>
+              LOCAL REACH pushes the boundaries of Clear Sky Finder when 8-hour models show no reasonable options in your area.
+            </div>
+            <div style={{ color: '#8899aa', fontSize: 10, lineHeight: 1.6, letterSpacing: 0.5, marginTop: 8 }}>
+              Zones shown are the least cloudy spots available in your current view — not clear sky. Use them as a starting point, not a guarantee.
+            </div>
+            <div style={{ color: '#556677', fontSize: 10, lineHeight: 1.6, letterSpacing: 0.5, marginTop: 8 }}>
+              If you pan to better skies the button will grey out automatically.
+            </div>
+            <button
+              onClick={() => setShowLocalReachIntro(false)}
+              style={{
+                marginTop: 16, width: '100%', padding: '8px',
+                background: 'rgba(255,140,0,0.15)', border: '1px solid rgba(255,140,0,0.5)',
+                borderRadius: 4, color: 'rgba(255,140,0,0.9)', fontSize: 11,
+                fontFamily: FONT, letterSpacing: 1, cursor: 'pointer',
+              }}
+            >OK</button>
+          </div>
+        </div>
+      )}
 
       {/* Time slider */}
       <TimeSlider value={selectedHour} onChange={setSelectedHour} />
