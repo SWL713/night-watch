@@ -505,6 +505,7 @@ function App() {
           {/* Bortle key — slots into Badges flex column, same gap as G→HSS */}
           {layers.bortle && (
             <div style={{
+              alignSelf: 'flex-end',
               background: 'rgba(6,8,15,0.85)', border: '1px solid #1a2a3a',
               borderRadius: 4, padding: '4px 2px',
               display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2,
@@ -535,6 +536,7 @@ function App() {
           {/* Clear sky key — slots into Badges flex column below bortle key (or HSS if bortle off) */}
           {clearSkyMode && (
             <div style={{
+              alignSelf: 'flex-end',
               background: 'rgba(6,8,15,0.85)', border: `1px solid ${longShot ? '#ff8c00' : '#1a2a3a'}`,
               borderRadius: 4, padding: '4px 2px',
               display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2,
