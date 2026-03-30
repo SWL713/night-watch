@@ -424,7 +424,7 @@ function App() {
           </div>
         )}
 
-        {/* Clear sky key — shows when clear sky active, shifts left of bortle key if both on */}
+        {/* Clear sky key — always shows BEST/GOOD/FAIR, adds LONG SHOT below when active */}
         {clearSkyMode && (
           <div style={{
             position: 'absolute',
@@ -438,28 +438,27 @@ function App() {
             pointerEvents: 'none',
           }}>
             <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', marginBottom: 2 }}>
-              <span style={{ color: longShot ? '#ff8c00' : '#44ddaa', fontSize: 6, fontFamily: FONT, letterSpacing: 0.5, lineHeight: 1.2 }}>{longShot ? '⚠️' : 'CLEAR'}</span>
-              <span style={{ color: longShot ? '#ff8c00' : '#44ddaa', fontSize: 6, fontFamily: FONT, letterSpacing: 0.5, lineHeight: 1.2 }}>{longShot ? 'LONG' : 'SKY'}</span>
-              {longShot && <span style={{ color: '#ff8c00', fontSize: 6, fontFamily: FONT, letterSpacing: 0.5, lineHeight: 1.2 }}>SHOT</span>}
+              <span style={{ color: '#44ddaa', fontSize: 6, fontFamily: FONT, letterSpacing: 0.5, lineHeight: 1.2 }}>CLEAR</span>
+              <span style={{ color: '#44ddaa', fontSize: 6, fontFamily: FONT, letterSpacing: 0.5, lineHeight: 1.2 }}>SKY</span>
             </div>
-            {longShot ? (
-              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 1 }}>
-                <div style={{ width: 22, height: 16, borderRadius: 2, background: 'rgba(150,210,120,0.18)', border: '1.5px dashed rgba(255,140,0,0.85)' }} />
-                <span style={{ color: '#ff8c00', fontSize: 6, fontFamily: FONT }}>BEST</span>
+            {[
+              { alpha: 0.60, label: 'BEST' },
+              { alpha: 0.37, label: 'GOOD' },
+              { alpha: 0.18, label: 'FAIR' },
+            ].map(({ alpha, label }) => (
+              <div key={label} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 1 }}>
+                <div style={{ width: 22, height: 16, borderRadius: 2, background: `rgba(0,210,160,${alpha})`, border: '1px solid rgba(255,255,255,0.12)' }} />
+                <span style={{ color: '#aabbcc', fontSize: 6, fontFamily: FONT }}>{label}</span>
               </div>
-            ) : (
+            ))}
+            {longShot && (
               <>
-                {[
-                  { alpha: 0.60, label: 'BEST' },
-                  { alpha: 0.37, label: 'GOOD' },
-                  { alpha: 0.18, label: 'FAIR' },
-                ].map(({ alpha, label }) => (
-                  <div key={label} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 1 }}>
-                    <div style={{ width: 22, height: 16, borderRadius: 2, background: `rgba(0,210,160,${alpha})`, border: '1px solid rgba(255,255,255,0.12)' }} />
-                    <span style={{ color: '#aabbcc', fontSize: 6, fontFamily: FONT }}>{label}</span>
-                  </div>
-                ))}
-
+                <div style={{ width: 22, height: 1, background: 'rgba(255,140,0,0.3)', margin: '1px 0' }} />
+                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 1 }}>
+                  <div style={{ width: 22, height: 16, borderRadius: 2, background: 'rgba(150,210,120,0.18)', border: '1.5px dashed rgba(255,140,0,0.85)' }} />
+                  <span style={{ color: '#ff8c00', fontSize: 6, fontFamily: FONT }}>LONG</span>
+                  <span style={{ color: '#ff8c00', fontSize: 6, fontFamily: FONT }}>SHOT</span>
+                </div>
               </>
             )}
           </div>
