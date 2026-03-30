@@ -318,18 +318,30 @@ const CloudCanvas = L.Layer.extend({
 
         const idx = (py * W + px) * 4
 
-        // Raised floor to 25% — thin cirrus and model noise below this is
-        // invisible to aurora chasers so don't show it as red.
-        // Full opacity ramp completes at 55% — genuinely cloudy areas show clearly.
-        if (cf < 0.25) continue
-        const cloudFade = cf < 0.55 ? (cf - 0.25) / 0.30 : 1.0
+        if (mode === 'clearsky') {
+          // Clear sky finder: binned teal — invert cloud fraction to clearness
+          // clearness = 1 - cf (0=totally cloudy, 1=perfectly clear)
+          const clearness = 1 - cf
 
-        if (mode === 'clouds') {
-          // Standalone: transparent=clear → red=cloudy
-          data[idx] = 180; data[idx+1] = 0; data[idx+2] = 10
-          data[idx+3] = Math.round(cf * 0.55 * edgeFade * cloudFade * 255)
+          // Snap to 3 discrete bins + transparent for cloudy
+          // Bin edges chosen so each level is visually meaningful
+          let alpha
+          if (clearness >= 0.80) {
+            alpha = 153  // bin 1: excellent (0-20% cloud) — max teal
+          } else if (clearness >= 0.55) {
+            alpha = 95   // bin 2: good (21-45% cloud) — mid teal
+          } else if (clearness >= 0.30) {
+            alpha = 45   // bin 3: marginal (46-70% cloud) — faint teal
+          } else {
+            continue     // bin 4: cloudy (71-100%) — transparent, don't paint
+          }
+
+          data[idx] = 0; data[idx+1] = 210; data[idx+2] = 160
+          data[idx+3] = Math.round(alpha * edgeFade)
         } else {
-          // Combined: transparent=clear → red=cloudy, over VIIRS tiles
+          // Cloud cover mode: continuous red wash — cloudy=red, clear=transparent
+          if (cf < 0.25) continue
+          const cloudFade = cf < 0.55 ? (cf - 0.25) / 0.30 : 1.0
           data[idx] = 180; data[idx+1] = 0; data[idx+2] = 10
           data[idx+3] = Math.round(cf * 0.55 * edgeFade * cloudFade * 255)
         }
@@ -348,8 +360,8 @@ export default function HeatmapLayer({ mode, selectedHour, getCloudAt, cloudLoad
 
   useEffect(() => { loadBortleGrid().then(g => { if (g) setBortleGrid(g) }) }, [])
 
-  const showTiles  = mode === 'bortle' || mode === 'combined'
-  const showCanvas = mode === 'clouds' || mode === 'combined'
+  const showTiles  = mode === 'bortle' || mode === 'combined' || mode === 'clearsky_bortle'
+  const showCanvas = mode === 'clouds' || mode === 'combined' || mode === 'clearsky' || mode === 'clearsky_bortle'
 
   useEffect(() => {
     if (showTiles && !tileLayerRef.current) {
@@ -367,7 +379,8 @@ export default function HeatmapLayer({ mode, selectedHour, getCloudAt, cloudLoad
         canvasRef.current = new CloudCanvas({})
         canvasRef.current.addTo(map)
       }
-      canvasRef.current.update(buildCloudGrid(getCloudAt, selectedHour), mode)
+      const canvasMode = (mode === 'clearsky' || mode === 'clearsky_bortle') ? 'clearsky' : mode
+      canvasRef.current.update(buildCloudGrid(getCloudAt, selectedHour), canvasMode)
     } else if (!showCanvas && canvasRef.current) {
       map.removeLayer(canvasRef.current)
       canvasRef.current = null
