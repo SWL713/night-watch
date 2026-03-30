@@ -87,11 +87,33 @@ export default function ClearSkyLayer({ cloudData, getAvgCloudAt, windowHours = 
     const { longShot, anchorThresholds } = thresholds
     const spacing = cloudData?.spacing || 0.1
 
-    // Fast windowed avg lookup — snaps lat/lon to nearest grid point
+    // Bilinear interpolation on windowed avg — smooth like getAvgCloudAt
+    // but uses the same windowed data as the thresholds (fixes 4H mismatch)
     function getWindowedAvg(lat, lon) {
-      const la0 = parseFloat((Math.round(lat / spacing) * spacing).toFixed(1))
-      const lo0 = parseFloat((Math.round(lon / spacing) * spacing).toFixed(1))
-      return pointStats[`${la0.toFixed(1)},${lo0.toFixed(1)}`]?.avg ?? null
+      const lat0 = parseFloat((Math.floor(lat / spacing) * spacing).toFixed(2))
+      const lon0 = parseFloat((Math.floor(lon / spacing) * spacing).toFixed(2))
+      const lat1 = parseFloat((lat0 + spacing).toFixed(2))
+      const lon1 = parseFloat((lon0 + spacing).toFixed(2))
+      const tx = (lon - lon0) / spacing
+      const ty = (lat - lat0) / spacing
+      const fmt = v => parseFloat(v.toFixed(1)).toFixed(1)
+      const v00 = pointStats[`${fmt(lat0)},${fmt(lon0)}`]?.avg ?? null
+      const v10 = pointStats[`${fmt(lat1)},${fmt(lon0)}`]?.avg ?? null
+      const v01 = pointStats[`${fmt(lat0)},${fmt(lon1)}`]?.avg ?? null
+      const v11 = pointStats[`${fmt(lat1)},${fmt(lon1)}`]?.avg ?? null
+      const valid = [v00, v10, v01, v11].filter(v => v !== null)
+      if (!valid.length) return null
+      if (valid.length < 2) return valid[0]
+      const corners = [
+        [v00, (1-tx)*(1-ty)], [v01, tx*(1-ty)],
+        [v10, (1-tx)*ty],     [v11, tx*ty],
+      ]
+      let sum = 0, wt = 0
+      for (const [v, w] of corners) {
+        if (v === null) continue
+        sum += v * w; wt += w
+      }
+      return wt > 0 ? sum / wt : null
     }
 
     const canvas = document.createElement('canvas')
