@@ -361,7 +361,8 @@ export default function HeatmapLayer({ mode, selectedHour, getCloudAt, cloudLoad
   useEffect(() => { loadBortleGrid().then(g => { if (g) setBortleGrid(g) }) }, [])
 
   const showTiles  = mode === 'bortle' || mode === 'combined' || mode === 'clearsky_bortle'
-  const showCanvas = mode === 'clouds' || mode === 'combined' || mode === 'clearsky' || mode === 'clearsky_bortle'
+  // clearsky rendering is handled by ClearSkyLayer — never render it here
+  const showCanvas = mode === 'clouds' || mode === 'combined'
 
   useEffect(() => {
     if (showTiles && !tileLayerRef.current) {
