@@ -457,7 +457,7 @@ function App() {
         {clearSkyMode && (
           <div style={{
             position: 'absolute', top: 28, left: '50%', transform: 'translateX(-50%)',
-            zIndex: 1100, pointerEvents: 'none', textAlign: 'center',
+            zIndex: 1100, textAlign: 'center',
             fontFamily: FONT, whiteSpace: 'nowrap',
           }}>
             <div style={{
@@ -465,11 +465,12 @@ function App() {
               borderRadius: 3, padding: '4px 14px',
               color: '#44ddaa', fontSize: 10, letterSpacing: 1.5,
               boxShadow: '0 2px 12px rgba(0,0,0,0.7)',
+              pointerEvents: 'none',
             }}>
               CLEAR SKY FINDER MODE
             </div>
             <div style={{
-              display: 'flex', alignItems: 'center', gap: 4,
+              display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 4,
               marginTop: 3,
             }}>
               {[4, 8].map(h => (
@@ -487,15 +488,15 @@ function App() {
                   }}
                 >{h}H</button>
               ))}
-              <span style={{ color: '#2a4455', fontSize: 7, fontFamily: FONT, letterSpacing: 0.5 }}>
+              <span style={{ color: '#2a4455', fontSize: 7, fontFamily: FONT, letterSpacing: 0.5, pointerEvents: 'none' }}>
                 FORWARD WINDOW
               </span>
             </div>
-          {longShot && (
-            <div style={{ color: '#ff8c00', fontSize: 8, fontFamily: FONT, letterSpacing: 1, marginTop: 2 }}>
-              ⚠️ LONG SHOT · HEAVILY CLOUDED REGION
-            </div>
-          )}
+            {longShot && (
+              <div style={{ color: '#ff8c00', fontSize: 8, fontFamily: FONT, letterSpacing: 1, marginTop: 2, pointerEvents: 'none' }}>
+                ⚠️ LONG SHOT · HEAVILY CLOUDED REGION
+              </div>
+            )}
           </div>
         )}
 
