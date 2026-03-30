@@ -238,10 +238,11 @@ export function useCloudCover() {
     const data = cloudDataRef.current
     if (!data?.points) return null
     const spacing = data.spacing || GRID_SPACING
-    // Use fetchedAt as base so hour offsets are relative to when data was fetched
-    // Using Date.now() causes all hours to return the same value once data is stale
-    const base = data.fetchedAt || Date.now()
-    const target = base + hourOffset * 3600000
+    // Use first forecast timestamp as base so hour 0 = first forecast, hour 1 = second, etc.
+    // This ensures slider hours always map into the actual forecast window
+    const points0 = Object.values(data.points)[0]
+    const firstTime = points0?.length ? new Date(points0[0].time).getTime() : Date.now()
+    const target = firstTime + hourOffset * 3600000
 
     // Floor to find lower-left corner of the surrounding cell
     const lat0 = parseFloat((Math.floor(lat / spacing) * spacing).toFixed(2))
