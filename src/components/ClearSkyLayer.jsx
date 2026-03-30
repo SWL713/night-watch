@@ -116,13 +116,14 @@ export default function ClearSkyLayer({ cloudData, getAvgCloudAt }) {
     map.getPanes().overlayPane.appendChild(canvas)
     canvasRef.current = canvas
 
-    // Bin thresholds — clearness = 1 - cloudFraction
+    // Bin thresholds — clearness = 1 - (cf/100), so cf=20% → clearness=0.80
+    // Tighter thresholds: only genuinely clear sky gets teal
     const BINS = [
-      { minClear: 0.30, maxClear: 0.54, alpha: 45  },  // fair
-      { minClear: 0.55, maxClear: 0.79, alpha: 95  },  // good
-      { minClear: 0.80, maxClear: 1.00, alpha: 153 },  // best
+      { minClear: 0.55, maxClear: 0.69, alpha: 45  },  // fair:  31-45% cloud avg
+      { minClear: 0.70, maxClear: 0.84, alpha: 95  },  // good:  16-30% cloud avg
+      { minClear: 0.85, maxClear: 1.00, alpha: 153 },  // best:  0-15% cloud avg
     ]
-    const AA = 0.08  // anti-alias band width
+    const AA = 0.06  // anti-alias band width
 
     function redraw() {
       if (!canvasRef.current) return
