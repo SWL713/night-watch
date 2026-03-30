@@ -115,6 +115,7 @@ function App() {
   const [showCamera, setShowCamera] = useState(false) // picking location for sighting report
   const [camBortleResolved, setCamBortleResolved] = useState(5)
   const [clearSkyMode, setClearSkyMode] = useState(false)
+  const [clearSkyWindow, setClearSkyWindow] = useState(8)
   // HeatmapLayer handles bortle tiles + cloud canvas only
   // ClearSkyLayer handles clear sky rendering independently
   const heatmapMode = layers.clouds && layers.bortle ? 'combined'
@@ -329,7 +330,7 @@ function App() {
           )}
 
           {clearSkyMode && cloudData && (
-            <ClearSkyLayer cloudData={cloudData} getAvgCloudAt={getAvgCloudAt} />
+            <ClearSkyLayer cloudData={cloudData} getAvgCloudAt={getAvgCloudAt} windowHours={clearSkyWindow} />
           )}
 
           {/* Camera markers */}
@@ -479,10 +480,27 @@ function App() {
               CLEAR SKY FINDER MODE
             </div>
             <div style={{
-              color: '#2a6655', fontSize: 8, letterSpacing: 0.8,
+              display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 4,
               marginTop: 3,
             }}>
-              TEAL = BEST OPTIONS · 8-HOUR AVERAGE
+              {[4, 8].map(h => (
+                <button
+                  key={h}
+                  onClick={() => setClearSkyWindow(h)}
+                  style={{
+                    padding: '2px 8px',
+                    background: clearSkyWindow === h ? 'rgba(68,221,170,0.2)' : 'transparent',
+                    border: `1px solid ${clearSkyWindow === h ? '#44ddaa' : 'rgba(68,221,170,0.3)'}`,
+                    borderRadius: 3,
+                    color: clearSkyWindow === h ? '#44ddaa' : 'rgba(68,221,170,0.4)',
+                    fontSize: 8, fontFamily: FONT, letterSpacing: 1,
+                    cursor: 'pointer',
+                  }}
+                >{h}H</button>
+              ))}
+              <span style={{ color: '#2a4455', fontSize: 7, fontFamily: FONT, letterSpacing: 0.5 }}>
+                FORWARD WINDOW
+              </span>
             </div>
             {longShot && (
               <div style={{ color: '#ff8c00', fontSize: 8, fontFamily: FONT, letterSpacing: 1, marginTop: 2 }}>
