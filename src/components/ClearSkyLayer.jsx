@@ -15,8 +15,8 @@ import { useEffect, useRef, useMemo } from 'react'
 import { useMap } from 'react-leaflet'
 import L from 'leaflet'
 
-const CANVAS_W = 600
-const CANVAS_H = 400
+const CANVAS_W = 900
+const CANVAS_H = 600
 
 const ANCHORS = [
   { lat: 42.9, lon: -78.9 },  // Buffalo
@@ -178,9 +178,9 @@ export default function ClearSkyLayer({ cloudData, getAvgCloudAt, windowHours = 
           const weight = dist < ANCHOR_R - BLEND ? 1 : Math.max(0, (ANCHOR_R - dist) / BLEND)
           if (weight <= 0) continue
           const cfBINS = [
-            { maxCf: a.p20, alpha: 153 },
-            { maxCf: a.p40, alpha: 95  },
-            { maxCf: a.p60, alpha: 45  },
+            { maxCf: a.p20, alpha: 153, nextAlpha: 95 },
+            { maxCf: a.p40, alpha: 95,  nextAlpha: 45 },
+            { maxCf: a.p60, alpha: 45,  nextAlpha: 0  },
           ]
           let aAlpha = 0
           for (const bin of cfBINS) {
@@ -188,9 +188,11 @@ export default function ClearSkyLayer({ cloudData, getAvgCloudAt, windowHours = 
             const hi = bin.maxCf + AA * 100
             if (cf > hi) continue
             if (cf <= lo) { aAlpha = bin.alpha; break }
+            // Interpolate between this zone's alpha and the NEXT zone's alpha
+            // (was: interpolate from bin.alpha to 0, causing a dark dip at every boundary)
             const t = (hi - cf) / (2 * AA * 100)
             const s = t * t * (3 - 2 * t)
-            aAlpha = Math.round(aAlpha + (bin.alpha - aAlpha) * s)
+            aAlpha = Math.round(bin.nextAlpha + (bin.alpha - bin.nextAlpha) * s)
             break
           }
           weightedAlpha += aAlpha * weight
