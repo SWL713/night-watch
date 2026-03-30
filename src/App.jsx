@@ -92,11 +92,6 @@ function App() {
   useEffect(() => { loadBortleGrid().then(g => { if (g) setBortleGrid(g) }) }, [])
 
   // Determine active heatmap mode from layer toggles
-  // Derive heatmap render mode from independent cloud and bortle toggles
-  const heatmapMode = layers.clouds && layers.bortle ? 'combined'
-                    : layers.clouds ? 'clouds'
-                    : layers.bortle ? 'bortle'
-                    : null
   const [pendingPin, setPendingPin] = useState(null)
   const [pinMode, setPinMode] = useState(false) // true = user clicked "place pin" button
   const [sightingPinMode, setSightingPinMode] = useState(false)
@@ -107,6 +102,13 @@ function App() {
   const [showCamera, setShowCamera] = useState(false) // picking location for sighting report
   const [camBortleResolved, setCamBortleResolved] = useState(5)
   const [clearSkyMode, setClearSkyMode] = useState(false)
+  // Derive heatmap render mode — clearsky overrides cloud when active
+  const heatmapMode = clearSkyMode && layers.bortle ? 'clearsky_bortle'
+                    : clearSkyMode ? 'clearsky'
+                    : layers.clouds && layers.bortle ? 'combined'
+                    : layers.clouds ? 'clouds'
+                    : layers.bortle ? 'bortle'
+                    : null
   const [showClearSkyIntro, setShowClearSkyIntro] = useState(false)
   const [activeCam, setActiveCam] = useState(null)
   const [sightingPendingCoords, setSightingPendingCoords] = useState(null)
@@ -371,8 +373,8 @@ function App() {
 
         </MapContainer>
 
-        {/* Sky brightness bortle key — vertical, right side below HSS badge */}
-        {layers.bortle && (
+        {/* Right-side map key — clear sky overrides bortle when active */}
+        {(clearSkyMode || layers.bortle) && (
           <div style={{
             position: 'absolute',
             top: 150, right: 12,
@@ -387,29 +389,54 @@ function App() {
             gap: 3,
             pointerEvents: 'none',
           }}>
-            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', marginBottom: 2 }}>
-              <span style={{ color: '#6688aa', fontSize: 6, fontFamily: FONT, letterSpacing: 0.5, lineHeight: 1.2 }}>BORTLE</span>
-              <span style={{ color: '#6688aa', fontSize: 6, fontFamily: FONT, letterSpacing: 0.5, lineHeight: 1.2 }}>EQUIV.</span>
-            </div>
-            {[
-              { color: 'rgba(255,235,0,0.15)', label: '1-2' },
-              { color: 'rgba(255,225,0,0.28)', label: '3' },
-              { color: 'rgba(255,215,0,0.42)', label: '4' },
-              { color: 'rgba(255,200,0,0.55)', label: '5' },
-              { color: 'rgba(255,160,0,0.68)', label: '6' },
-              { color: 'rgba(255,70,0,0.80)',  label: '7' },
-              { color: 'rgba(255,10,0,0.88)',  label: '8' },
-              { color: 'rgba(255,0,40,0.95)',  label: '9' },
-            ].map(({ color, label }) => (
-              <div key={label} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 1 }}>
-                <div style={{
-                  width: 22, height: 16, borderRadius: 2,
-                  background: color,
-                  border: '1px solid rgba(255,255,255,0.12)',
-                }} />
-                <span style={{ color: '#aabbcc', fontSize: 6, fontFamily: FONT }}>{label}</span>
-              </div>
-            ))}
+            {clearSkyMode ? (
+              <>
+                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', marginBottom: 2 }}>
+                  <span style={{ color: '#44ddaa', fontSize: 6, fontFamily: FONT, letterSpacing: 0.5, lineHeight: 1.2 }}>CLEAR</span>
+                  <span style={{ color: '#44ddaa', fontSize: 6, fontFamily: FONT, letterSpacing: 0.5, lineHeight: 1.2 }}>SKY</span>
+                </div>
+                {[
+                  { alpha: 0.60, label: 'BEST' },
+                  { alpha: 0.37, label: 'GOOD' },
+                  { alpha: 0.18, label: 'FAIR' },
+                ].map(({ alpha, label }) => (
+                  <div key={label} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 1 }}>
+                    <div style={{
+                      width: 22, height: 16, borderRadius: 2,
+                      background: `rgba(0,210,160,${alpha})`,
+                      border: '1px solid rgba(255,255,255,0.12)',
+                    }} />
+                    <span style={{ color: '#aabbcc', fontSize: 6, fontFamily: FONT }}>{label}</span>
+                  </div>
+                ))}
+              </>
+            ) : (
+              <>
+                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', marginBottom: 2 }}>
+                  <span style={{ color: '#6688aa', fontSize: 6, fontFamily: FONT, letterSpacing: 0.5, lineHeight: 1.2 }}>BORTLE</span>
+                  <span style={{ color: '#6688aa', fontSize: 6, fontFamily: FONT, letterSpacing: 0.5, lineHeight: 1.2 }}>EQUIV.</span>
+                </div>
+                {[
+                  { color: 'rgba(255,235,0,0.15)', label: '1-2' },
+                  { color: 'rgba(255,225,0,0.28)', label: '3' },
+                  { color: 'rgba(255,215,0,0.42)', label: '4' },
+                  { color: 'rgba(255,200,0,0.55)', label: '5' },
+                  { color: 'rgba(255,160,0,0.68)', label: '6' },
+                  { color: 'rgba(255,70,0,0.80)',  label: '7' },
+                  { color: 'rgba(255,10,0,0.88)',  label: '8' },
+                  { color: 'rgba(255,0,40,0.95)',  label: '9' },
+                ].map(({ color, label }) => (
+                  <div key={label} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 1 }}>
+                    <div style={{
+                      width: 22, height: 16, borderRadius: 2,
+                      background: color,
+                      border: '1px solid rgba(255,255,255,0.12)',
+                    }} />
+                    <span style={{ color: '#aabbcc', fontSize: 6, fontFamily: FONT }}>{label}</span>
+                  </div>
+                ))}
+              </>
+            )}
           </div>
         )}
 
