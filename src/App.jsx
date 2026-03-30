@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect, useMemo } from 'react'
+import { useState, useCallback, useEffect } from 'react'
 import { MapContainer, TileLayer, ZoomControl, useMapEvents, useMap, Rectangle, Tooltip } from 'react-leaflet'
 import 'leaflet/dist/leaflet.css'
 
@@ -88,17 +88,7 @@ function App() {
   const { getCloudAt, getAvgCloudAt, loading: cloudLoading, progress, coverage, total, phase, cloudData, cloudBounds } = useCloudCover()
 
 
-  const longShot = useMemo(() => {
-    if (!cloudData?.points) return false
-    const keys = Object.keys(cloudData.points)
-    const avgs = keys.map(k => {
-      const fc = cloudData.points[k]
-      if (!fc?.length) return null
-      return fc.reduce((s, p) => s + (p.cloudcover ?? 0), 0) / fc.length
-    }).filter(v => v !== null).sort((a, b) => a - b)
-    const p20 = avgs[Math.floor(avgs.length * 0.20)]
-    return p20 > 50
-  }, [cloudData])
+  const [longShot, setLongShot] = useState(false)
 
   const moonData = getMoonData()
   const [bortleGrid, setBortleGrid] = useState(null)
@@ -330,7 +320,7 @@ function App() {
           )}
 
           {clearSkyMode && cloudData && (
-            <ClearSkyLayer cloudData={cloudData} getAvgCloudAt={getAvgCloudAt} windowHours={clearSkyWindow} />
+            <ClearSkyLayer cloudData={cloudData} getAvgCloudAt={getAvgCloudAt} windowHours={clearSkyWindow} onLongShot={setLongShot} />
           )}
 
           {/* Camera markers */}
