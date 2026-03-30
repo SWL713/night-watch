@@ -505,9 +505,8 @@ function App() {
             display: 'flex', alignItems: 'center', justifyContent: 'center',
             zIndex: 9999,
           }}
-            onClick={() => { setShowClearSkyIntro(false); sessionStorage.setItem('nw_clearsky_seen', '1') }}
           >
-            <div onClick={e => e.stopPropagation()} style={{
+            <div style={{
               background: '#07090f', border: '1px solid #44ddaa',
               borderRadius: 6, padding: '20px 22px', maxWidth: 340,
               fontFamily: FONT, boxShadow: '0 8px 32px rgba(0,0,0,0.8)',
@@ -782,7 +781,7 @@ function App() {
       {/* Modals */}
       {modal && (
         <div
-          onClick={e => { if (e.target === e.currentTarget) setModal(null) }}
+          onClick={e => e.stopPropagation()}
           style={{
             position: 'fixed', inset: 0, background: '#00000088',
             display: 'flex', alignItems: 'center', justifyContent: 'center',
