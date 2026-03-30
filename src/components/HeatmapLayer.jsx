@@ -382,9 +382,7 @@ export default function HeatmapLayer({ mode, selectedHour, getCloudAt, cloudLoad
       }
       const canvasMode = (mode === 'clearsky' || mode === 'clearsky_bortle') ? 'clearsky' : mode
       canvasRef.current.update(buildCloudGrid(getCloudAt, selectedHour), canvasMode)
-      // debug: write to DOM element if present
-      const el = document.getElementById('_dbg')
-      if (el) el.textContent = `clouds updated: h=${selectedHour} mode=${canvasMode} ${new Date().toISOString().slice(11,19)}`
+
     } else if (!showCanvas && canvasRef.current) {
       map.removeLayer(canvasRef.current)
       canvasRef.current = null
