@@ -85,8 +85,8 @@ function buildAvgGrid(cloudData) {
     const ci = lonIdx[lo.toFixed(1)]
     if (ri === undefined || ci === undefined || !forecasts?.length) continue
     const avg = forecasts.reduce((s, p) => s + (p.cloudcover ?? 0), 0) / forecasts.length
-    // Snap to bin value — discrete steps create hard zone edges
-    grid[ri][ci] = snapToBin(avg / 100)
+    // Store raw average (0-1) — binning happens at render time after upsampling
+    grid[ri][ci] = avg / 100
   }
 
   return { grid, lats, lons }
