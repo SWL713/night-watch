@@ -506,14 +506,11 @@ function App() {
           {layers.bortle && (
             <div style={{
               background: 'rgba(6,8,15,0.85)', border: '1px solid #1a2a3a',
-              borderRadius: 4, padding: '6px 6px',
-              display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 3,
+              borderRadius: 4, padding: '4px 3px',
+              display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2,
               pointerEvents: 'none',
             }}>
-              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', marginBottom: 2 }}>
-                <span style={{ color: '#6688aa', fontSize: 6, fontFamily: FONT, letterSpacing: 0.5, lineHeight: 1.2 }}>BORTLE</span>
-                <span style={{ color: '#6688aa', fontSize: 6, fontFamily: FONT, letterSpacing: 0.5, lineHeight: 1.2 }}>EQUIV.</span>
-              </div>
+              <span style={{ color: '#6688aa', fontSize: 6, fontFamily: FONT, letterSpacing: 0, lineHeight: 1.2, marginBottom: 1 }}>BRT</span>
               {[
                 { color: 'rgba(0,0,0,0)',        label: '1' },
                 { color: 'rgba(255,235,0,0.04)', label: '2' },
@@ -526,7 +523,7 @@ function App() {
                 { color: 'rgba(255,0,40,0.95)',  label: '9' },
               ].map(({ color, label }) => (
                 <div key={label} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 1 }}>
-                  <div style={{ width: 22, height: 16, borderRadius: 2, background: color, border: '1px solid rgba(255,255,255,0.12)' }} />
+                  <div style={{ width: 14, height: 10, borderRadius: 1, background: color, border: '1px solid rgba(255,255,255,0.12)' }} />
                   <span style={{ color: '#aabbcc', fontSize: 6, fontFamily: FONT }}>{label}</span>
                 </div>
               ))}
@@ -536,13 +533,13 @@ function App() {
           {clearSkyMode && (
             <div style={{
               background: 'rgba(6,8,15,0.85)', border: `1px solid ${longShot ? '#ff8c00' : '#1a2a3a'}`,
-              borderRadius: 4, padding: '6px 6px',
-              display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 3,
+              borderRadius: 4, padding: '4px 3px',
+              display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2,
               pointerEvents: 'none',
             }}>
-              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', marginBottom: 2 }}>
-                <span style={{ color: '#44ddaa', fontSize: 6, fontFamily: FONT, letterSpacing: 0.5, lineHeight: 1.2 }}>CLEAR</span>
-                <span style={{ color: '#44ddaa', fontSize: 6, fontFamily: FONT, letterSpacing: 0.5, lineHeight: 1.2 }}>SKY</span>
+              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', marginBottom: 1 }}>
+                <span style={{ color: '#44ddaa', fontSize: 6, fontFamily: FONT, letterSpacing: 0, lineHeight: 1.2 }}>CLR</span>
+                <span style={{ color: '#44ddaa', fontSize: 6, fontFamily: FONT, letterSpacing: 0, lineHeight: 1.2 }}>SKY</span>
               </div>
               {[
                 { alpha: 0.60, label: 'BEST' },
@@ -550,15 +547,15 @@ function App() {
                 { alpha: 0.18, label: 'FAIR' },
               ].map(({ alpha, label }) => (
                 <div key={label} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 1 }}>
-                  <div style={{ width: 22, height: 16, borderRadius: 2, background: `rgba(0,210,160,${alpha})`, border: '1px solid rgba(255,255,255,0.12)' }} />
+                  <div style={{ width: 14, height: 10, borderRadius: 1, background: `rgba(0,210,160,${alpha})`, border: '1px solid rgba(255,255,255,0.12)' }} />
                   <span style={{ color: '#aabbcc', fontSize: 6, fontFamily: FONT }}>{label}</span>
                 </div>
               ))}
               {longShot && (
                 <>
-                  <div style={{ width: 22, height: 1, background: 'rgba(255,140,0,0.3)', margin: '1px 0' }} />
+                  <div style={{ width: 14, height: 1, background: 'rgba(255,140,0,0.3)', margin: '1px 0' }} />
                   <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 1 }}>
-                    <div style={{ width: 22, height: 16, borderRadius: 2, background: 'rgba(150,210,120,0.18)', border: '1.5px dashed rgba(255,140,0,0.85)' }} />
+                    <div style={{ width: 14, height: 10, borderRadius: 1, background: 'rgba(150,210,120,0.18)', border: '1.5px dashed rgba(255,140,0,0.85)' }} />
                     <span style={{ color: 'rgb(150,210,120)', fontSize: 6, fontFamily: FONT }}>LONG</span>
                     <span style={{ color: 'rgb(150,210,120)', fontSize: 6, fontFamily: FONT }}>SHOT</span>
                   </div>
