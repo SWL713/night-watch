@@ -14,20 +14,21 @@ function kpToG(kp) {
 
 function gAtHour(selectedHour, kpNow, kpForecast) {
   if (selectedHour === 0) return kpToG(kpNow)
-  // Find the forecast block covering the selected time
   const target = Date.now() + selectedHour * 3600000
   if (!kpForecast?.length) return ''
-  // Find the block whose time is <= target and closest
   let best = null
   for (const pt of kpForecast) {
     const t = new Date(pt.time).getTime()
     if (t <= target) best = pt
   }
-  // Also check the next block (3-hour blocks: target may be inside a block that starts before)
   return best ? kpToG(best.kp) : ''
 }
 
-export default function Badges({ spaceWeather, selectedHour }) {
+const FONT = 'DejaVu Sans Mono, Consolas, monospace'
+
+// Accepts optional children rendered below HSS badge in the same flex column,
+// so bortle key and clear sky key share identical gap spacing automatically.
+export default function Badges({ spaceWeather, selectedHour, children }) {
   const { hss_active, hss_watch, kp_now, kp_forecast } = spaceWeather
 
   const gLabel = gAtHour(selectedHour ?? 0, kp_now, kp_forecast)
@@ -65,6 +66,9 @@ export default function Badges({ spaceWeather, selectedHour }) {
         <div style={{ color: hssColor, fontSize: 11, fontWeight: 'bold', letterSpacing: 1 }}>HSS</div>
         <div style={{ color: hssColor + 'cc', fontSize: 9, letterSpacing: 1 }}>{hssSub}</div>
       </div>
+
+      {/* Bortle key and/or Clear Sky key — passed as children from App.jsx */}
+      {children}
     </div>
   )
 }
