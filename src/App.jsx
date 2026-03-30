@@ -15,7 +15,7 @@ import MapSearch from './components/MapSearch.jsx'
 import SightingLayer from './components/SightingLayer.jsx'
 import SightingForm from './components/SightingForm.jsx'
 import CameraLayer from './components/CameraLayer.jsx'
-import ClearSkyLayer from './components/ClearSkyLayer.jsx'
+import ClearSkyLayer, { useClearSkyStats } from './components/ClearSkyLayer.jsx'
 import CameraPopup from './components/CameraPopup.jsx'
 import CameraSettings from './components/CameraSettings.jsx'
 import SightingPopup from './components/SightingPopup.jsx'
@@ -86,6 +86,7 @@ function App() {
   const [selectedSighting, setSelectedSighting] = useState(null)
   const [sightingScreen, setSightingScreen] = useState(null)
   const { getCloudAt, getAvgCloudAt, loading: cloudLoading, progress, coverage, total, phase, cloudData, cloudBounds } = useCloudCover()
+  const { longShot } = useClearSkyStats(cloudData)
 
   const moonData = getMoonData()
   const [bortleGrid, setBortleGrid] = useState(null)
@@ -415,26 +416,36 @@ function App() {
             top: 150, right: layers.bortle ? 50 : 12,
             zIndex: 1000,
             background: 'rgba(6,8,15,0.85)',
-            border: '1px solid #1a2a3a',
+            border: `1px solid ${longShot ? '#ff8c00' : '#1a2a3a'}`,
             borderRadius: 4,
             padding: '6px 6px',
             display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 3,
             pointerEvents: 'none',
           }}>
             <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', marginBottom: 2 }}>
-              <span style={{ color: '#44ddaa', fontSize: 6, fontFamily: FONT, letterSpacing: 0.5, lineHeight: 1.2 }}>CLEAR</span>
-              <span style={{ color: '#44ddaa', fontSize: 6, fontFamily: FONT, letterSpacing: 0.5, lineHeight: 1.2 }}>SKY</span>
+              <span style={{ color: longShot ? '#ff8c00' : '#44ddaa', fontSize: 6, fontFamily: FONT, letterSpacing: 0.5, lineHeight: 1.2 }}>{longShot ? '⚠️' : 'CLEAR'}</span>
+              <span style={{ color: longShot ? '#ff8c00' : '#44ddaa', fontSize: 6, fontFamily: FONT, letterSpacing: 0.5, lineHeight: 1.2 }}>{longShot ? 'LONG' : 'SKY'}</span>
+              {longShot && <span style={{ color: '#ff8c00', fontSize: 6, fontFamily: FONT, letterSpacing: 0.5, lineHeight: 1.2 }}>SHOT</span>}
             </div>
-            {[
-              { alpha: 0.60, label: 'BEST' },
-              { alpha: 0.37, label: 'GOOD' },
-              { alpha: 0.18, label: 'FAIR' },
-            ].map(({ alpha, label }) => (
-              <div key={label} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 1 }}>
-                <div style={{ width: 22, height: 16, borderRadius: 2, background: `rgba(0,210,160,${alpha})`, border: '1px solid rgba(255,255,255,0.12)' }} />
-                <span style={{ color: '#aabbcc', fontSize: 6, fontFamily: FONT }}>{label}</span>
+            {longShot ? (
+              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 1 }}>
+                <div style={{ width: 22, height: 16, borderRadius: 2, background: 'rgba(150,210,120,0.18)', border: '1.5px dashed rgba(255,140,0,0.85)' }} />
+                <span style={{ color: '#ff8c00', fontSize: 6, fontFamily: FONT }}>BEST</span>
               </div>
-            ))}
+            ) : (
+              <>
+                {[
+                  { alpha: 0.60, label: 'BEST' },
+                  { alpha: 0.37, label: 'GOOD' },
+                  { alpha: 0.18, label: 'FAIR' },
+                ].map(({ alpha, label }) => (
+                  <div key={label} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 1 }}>
+                    <div style={{ width: 22, height: 16, borderRadius: 2, background: `rgba(0,210,160,${alpha})`, border: '1px solid rgba(255,255,255,0.12)' }} />
+                    <span style={{ color: '#aabbcc', fontSize: 6, fontFamily: FONT }}>{label}</span>
+                  </div>
+                ))}
+              </>
+            )}
           </div>
         )}
 
@@ -457,6 +468,11 @@ function App() {
               marginTop: 3,
             }}>
               TEAL = BEST OPTIONS · 8-HOUR AVERAGE
+          {longShot && (
+            <div style={{ color: '#ff8c00', fontSize: 8, fontFamily: FONT, letterSpacing: 1, marginTop: 2 }}>
+              ⚠️ LONG SHOT · HEAVILY CLOUDED REGION
+            </div>
+          )}
             </div>
           </div>
         )}
