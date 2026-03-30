@@ -1,5 +1,5 @@
 import { useState, useCallback, useEffect } from 'react'
-import { MapContainer, TileLayer, ZoomControl, useMapEvents, useMap } from 'react-leaflet'
+import { MapContainer, TileLayer, ZoomControl, useMapEvents, useMap, Rectangle, Tooltip } from 'react-leaflet'
 import 'leaflet/dist/leaflet.css'
 
 import Auth from './components/Auth.jsx'
@@ -85,7 +85,7 @@ function App() {
   const queueCount = (pendingSpots?.length || 0) + (pendingPhotos?.length || 0) + (flaggedPhotos?.length || 0) + pendingRemovals.length
   const [selectedSighting, setSelectedSighting] = useState(null)
   const [sightingScreen, setSightingScreen] = useState(null)
-  const { getCloudAt, loading: cloudLoading, progress, coverage, total, phase, cloudData } = useCloudCover()
+  const { getCloudAt, loading: cloudLoading, progress, coverage, total, phase, cloudData, cloudBounds } = useCloudCover()
 
   const moonData = getMoonData()
   const [bortleGrid, setBortleGrid] = useState(null)
@@ -330,6 +330,44 @@ function App() {
               onSightingClick={(s, screenPt) => { setSelectedSighting(s); setSightingScreen(screenPt) }}
             />
           )}
+
+          {/* Cloud model boundary box */}
+          {cloudBounds && (layers.clouds || clearSkyMode) && (() => {
+            const { minLat, maxLat, minLon, maxLon } = cloudBounds
+            const color = clearSkyMode ? '#44ddaa' : '#cc2244'
+            const label = clearSkyMode ? 'CLEAR SKY MODEL BOUNDARY' : 'CURRENT CLOUD MODEL BOUNDARY'
+            return (
+              <Rectangle
+                bounds={[[minLat, minLon], [maxLat, maxLon]]}
+                pathOptions={{
+                  color,
+                  weight: 1.5,
+                  opacity: 0.6,
+                  fill: false,
+                  dashArray: '6 5',
+                }}
+              >
+                <Tooltip
+                  permanent
+                  direction="top"
+                  position={[(maxLat), (minLon + maxLon) / 2]}
+                  offset={[0, -4]}
+                  className="cloud-boundary-label"
+                >
+                  <span style={{
+                    color,
+                    fontSize: 7,
+                    fontFamily: 'DejaVu Sans Mono, Consolas, monospace',
+                    letterSpacing: 1,
+                    background: 'rgba(6,8,15,0.75)',
+                    padding: '1px 4px',
+                    borderRadius: 2,
+                    whiteSpace: 'nowrap',
+                  }}>{label}</span>
+                </Tooltip>
+              </Rectangle>
+            )
+          })()}
 
         </MapContainer>
 

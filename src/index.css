@@ -87,3 +87,14 @@ button:focus-visible { outline: none; }
 *:focus {
   outline: none !important;
 }
+
+/* Cloud boundary label — strip Leaflet tooltip default styles */
+.cloud-boundary-label {
+  background: transparent !important;
+  border: none !important;
+  box-shadow: none !important;
+  padding: 0 !important;
+}
+.cloud-boundary-label::before {
+  display: none !important;
+}
