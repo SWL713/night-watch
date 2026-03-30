@@ -123,7 +123,7 @@ export default function ClearSkyLayer({ cloudData, getAvgCloudAt }) {
       { minClear: 0.70, maxClear: 0.84, alpha: 95  },  // good:  16-30% cloud avg
       { minClear: 0.85, maxClear: 1.00, alpha: 153 },  // best:  0-15% cloud avg
     ]
-    const AA = 0.06  // anti-alias band width
+    const AA = 0.02  // tight anti-alias band — just enough to remove pixel jaggies
 
     function redraw() {
       if (!canvasRef.current) return
