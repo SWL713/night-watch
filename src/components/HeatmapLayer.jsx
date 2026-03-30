@@ -270,7 +270,7 @@ const CloudCanvas = L.Layer.extend({
     const map = this._map
     const canvas = this._canvas
     const size = map.getSize()
-    const dpr  = Math.min(window.devicePixelRatio || 1, 3)
+    const dpr  = Math.min(window.devicePixelRatio || 1, 1.5)  // cap: cloud overlay is blurry by nature, 3× DPR buys nothing
     const W = Math.round(size.x * dpr), H = Math.round(size.y * dpr)
     canvas.width = W; canvas.height = H
     canvas.style.width = size.x + 'px'; canvas.style.height = size.y + 'px'
@@ -375,23 +375,25 @@ export default function HeatmapLayer({ mode, selectedHour, getCloudAt, cloudLoad
     }
   }, [showTiles, map])
 
-  // Tier-aware cloud canvas update
   useEffect(() => {
     if (showCanvas && !cloudLoading && getCloudAt) {
       if (!canvasRef.current) {
         canvasRef.current = new CloudCanvas({})
         canvasRef.current.addTo(map)
       }
-      const canvasMode = mode === 'combined' ? 'combined' : 'clouds'
+      const canvasMode = (mode === 'clearsky' || mode === 'clearsky_bortle') ? 'clearsky' : mode
+      // Cache grid by selectedHour — only rebuild when hour or data changes, not on map move
       const cacheKey = `${selectedHour}-${cloudData?.fetchedAt ?? 0}`
       if (gridCacheRef.current.key !== cacheKey) {
         gridCacheRef.current = { key: cacheKey, data: buildCloudGrid(getCloudAt, selectedHour) }
       }
       canvasRef.current.update(gridCacheRef.current.data, canvasMode)
+
     } else if (!showCanvas && canvasRef.current) {
       map.removeLayer(canvasRef.current)
       canvasRef.current = null
     }
+    // When cloudLoading, leave any existing canvas in place (don't clear it)
   }, [showCanvas, mode, selectedHour, getCloudAt, cloudLoading, cloudData, map])
 
   useEffect(() => () => {
