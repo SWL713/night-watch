@@ -175,7 +175,7 @@ function App() {
             opacity={0.8}
           />
 
-          <ZoomControl position="bottomright" />
+          {!layers.bortle && <ZoomControl position="bottomright" />}
 
           <MapSearch
             onSelectResult={(result, isPeru) => { if (isPeru) setPeruMode(m => !m) }}
@@ -333,21 +333,23 @@ function App() {
 
         </MapContainer>
 
-        {/* Sky brightness bortle key — outside MapContainer so it's not clipped */}
+        {/* Sky brightness bortle key — vertical, right side below HSS badge */}
         {layers.bortle && (
           <div style={{
             position: 'absolute',
-            bottom: 62, right: 12,
-            zIndex: 2100,
+            top: 150, right: 12,
+            zIndex: 1000,
             background: 'rgba(6,8,15,0.85)',
             border: '1px solid #1a2a3a',
             borderRadius: 4,
-            padding: '4px 8px',
-            display: 'flex', alignItems: 'center', gap: 5,
+            padding: '6px 6px',
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            gap: 3,
             pointerEvents: 'none',
-            whiteSpace: 'nowrap',
           }}>
-            <span style={{ color: '#6688aa', fontSize: 7, fontFamily: FONT, letterSpacing: 0.8, marginRight: 2 }}>BORTLE EQUIV.</span>
+            <span style={{ color: '#6688aa', fontSize: 6, fontFamily: FONT, letterSpacing: 0.5, marginBottom: 2, writingMode: 'horizontal-tb' }}>BORTLE</span>
             {[
               { color: 'rgba(255,235,0,0.15)', label: '1-2' },
               { color: 'rgba(255,225,0,0.28)', label: '3' },
@@ -358,13 +360,13 @@ function App() {
               { color: 'rgba(255,10,0,0.88)',  label: '8' },
               { color: 'rgba(255,0,40,0.95)',  label: '9' },
             ].map(({ color, label }) => (
-              <div key={label} style={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+              <div key={label} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 1 }}>
                 <div style={{
-                  width: 13, height: 13, borderRadius: 2,
+                  width: 22, height: 16, borderRadius: 2,
                   background: color,
                   border: '1px solid rgba(255,255,255,0.12)',
                 }} />
-                <span style={{ color: '#aabbcc', fontSize: 7, fontFamily: FONT }}>{label}</span>
+                <span style={{ color: '#aabbcc', fontSize: 6, fontFamily: FONT }}>{label}</span>
               </div>
             ))}
           </div>
