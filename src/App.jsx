@@ -515,10 +515,10 @@ function App() {
                 ☁️ CLEAR SKY FINDER
               </div>
               <div style={{ color: '#aabbcc', fontSize: 11, lineHeight: 1.7, marginBottom: 14 }}>
-                Shows the clearest areas averaged across the <span style={{ color: '#44ddaa' }}>next 8 hours</span> — not just right now.
+                Uses custom scoring to rank the clearest locations in your region across the next <span style={{ color: '#44ddaa' }}>4 or 8 hours</span> — showing where your best options are relative to tonight's conditions, not just raw cloud cover.
               </div>
               <div style={{ color: '#778899', fontSize: 10, lineHeight: 1.7, marginBottom: 18 }}>
-                <span style={{ color: '#44ddaa' }}>Green = clearest skies.</span> Fading = partly clear. No green = cloud covered.
+                <span style={{ color: '#44ddaa' }}>Brighter green = better sky.</span> On heavily clouded nights, ⚠️ LONG SHOT highlights the least-bad options available.
               </div>
 
               <button
