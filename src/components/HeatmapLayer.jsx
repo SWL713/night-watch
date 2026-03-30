@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useRef, useState, useCallback } from 'react'
 import { useMap } from 'react-leaflet'
 import L from 'leaflet'
 import { bortleScore } from '../utils/scoring.js'
