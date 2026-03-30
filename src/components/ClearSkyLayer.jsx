@@ -40,11 +40,9 @@ export default function ClearSkyLayer({ cloudData, getAvgCloudAt, windowHours = 
       pointStats[k] = { med, count, avg }
     }
 
-    // Long Shot trigger: fewer than 5% of points have median ≤ 45
-    const allMeds = Object.values(pointStats).map(p => p.med)
-    const qualifying = allMeds.filter(m => m <= 45)
-    const longShot = qualifying.length / allMeds.length < 0.05
-    onLongShot?.(longShot)
+    // Long Shot evaluated per-anchor after anchor thresholds computed
+    // Global longShot = true only if ALL anchors are in Long Shot mode
+    // (used for banner/key display only — rendering is per-anchor)
 
     // Per-anchor thresholds for both normal and Long Shot mode
     const ANCHORS = [
@@ -63,18 +61,24 @@ export default function ClearSkyLayer({ cloudData, getAvgCloudAt, windowHours = 
       })
       const meds = nearby.map(k => pointStats[k]?.med).filter(v => v != null).sort((a, b) => a - b)
       if (!meds.length) return null
+      const qualCount = meds.filter(m => m <= 45).length
+      const anchorLongShot = qualCount / meds.length < 0.05
       return {
         lat: anchor.lat, lon: anchor.lon,
+        longShot: anchorLongShot,
         // Normal mode: relative percentile thresholds within this anchor's region
         p20: meds[Math.floor(meds.length * 0.20)],
         p40: meds[Math.floor(meds.length * 0.40)],
-        p60: Math.min(meds[Math.floor(meds.length * 0.60)], 45),  // hard cap at 45%
+        p60: Math.min(meds[Math.floor(meds.length * 0.60)], 45),
         // Long Shot: top 5th percentile within this anchor's region
         p05: meds[Math.floor(meds.length * 0.05)],
       }
     }).filter(v => v != null)
 
-    return { bounds, pointStats, thresholds: { longShot, anchorThresholds } }
+    // Global longShot = all anchors in Long Shot — drives banner/key display
+    const globalLongShot = anchorThresholds.every(a => a.longShot)
+    onLongShot?.(globalLongShot)
+    return { bounds, pointStats, thresholds: { longShot: globalLongShot, anchorThresholds } }
   }, [cloudData, windowHours])
 
   useEffect(() => {
@@ -169,10 +173,12 @@ export default function ClearSkyLayer({ cloudData, getAvgCloudAt, windowHours = 
             // Normal zone found — always render, never suppressed by Long Shot
             const alpha = Math.round((weightedAlpha / totalWeight) * edgeFade)
             d[idx]=0; d[idx+1]=210; d[idx+2]=160; d[idx+3]=alpha
-          } else if (longShot) {
-            // Long Shot: only renders where no normal zone exists
+          } else {
+            // Long Shot: only for anchors where that anchor is in Long Shot mode
+            // If an anchor has good results, no Long Shot renders within its radius
             let lsThreshold = null
             for (const a of anchorThresholds) {
+              if (!a.longShot) continue  // this anchor has real results — skip Long Shot here
               const dist = Math.sqrt((lat-a.lat)**2 + ((lon-a.lon)*Math.cos(a.lat*Math.PI/180))**2)
               if (dist <= R && (lsThreshold === null || a.p05 < lsThreshold))
                 lsThreshold = a.p05
@@ -184,8 +190,6 @@ export default function ClearSkyLayer({ cloudData, getAvgCloudAt, windowHours = 
             if (alpha === 0) continue
             d[idx]=150; d[idx+1]=210; d[idx+2]=120; d[idx+3]=alpha
             if (lsPixels) lsPixels[py * W + px] = 1
-          } else {
-            continue
           }
         }
       }
