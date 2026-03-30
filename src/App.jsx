@@ -102,12 +102,12 @@ function App() {
   const [showCamera, setShowCamera] = useState(false) // picking location for sighting report
   const [camBortleResolved, setCamBortleResolved] = useState(5)
   const [clearSkyMode, setClearSkyMode] = useState(false)
-  // Derive heatmap render mode — clearsky overrides cloud when active
-  const heatmapMode = clearSkyMode && layers.bortle ? 'clearsky_bortle'
-                    : clearSkyMode ? 'clearsky'
-                    : layers.clouds && layers.bortle ? 'combined'
+  // HeatmapLayer handles bortle tiles + cloud canvas only
+  // ClearSkyLayer handles clear sky rendering independently
+  const heatmapMode = layers.clouds && layers.bortle ? 'combined'
+                    : layers.clouds && clearSkyMode ? 'clouds'
                     : layers.clouds ? 'clouds'
-                    : layers.bortle ? 'bortle'
+                    : layers.bortle || clearSkyMode ? 'bortle'
                     : null
   const [showClearSkyIntro, setShowClearSkyIntro] = useState(false)
   const [activeCam, setActiveCam] = useState(null)
