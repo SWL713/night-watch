@@ -762,7 +762,8 @@ function App() {
       <div style={{
         background: '#06080f', borderTop: '1px solid #0d1525',
         padding: '2px 12px',
-        color: '#1e2e40', fontSize: 8, letterSpacing: 0.5, fontFamily: FONT,
+        color: '#4a6a88', fontSize: 8, letterSpacing: 0.5, fontFamily: FONT,
+        textAlign: 'right',
         flexShrink: 0,
       }}>
         Developed by Scott W. LeFevre — 2026
