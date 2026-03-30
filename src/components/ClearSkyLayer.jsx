@@ -1,7 +1,6 @@
-import { useEffect, useRef, useMemo, useCallback } from 'react'
+import { useEffect, useRef, useMemo } from 'react'
 import { useMap } from 'react-leaflet'
 import L from 'leaflet'
-import { preRenderManager, PRE_RENDER_ZOOM_THRESHOLD, BOUNDS, CLEAR_SKY_PX_PER_CELL, CLEAR_SKY_CANVAS_W, CLEAR_SKY_CANVAS_H } from '../utils/preRenderManager.js'
 
 export default function ClearSkyLayer({ cloudData, getAvgCloudAt, windowHours = 8, onLongShot }) {
   const map = useMap()
@@ -82,44 +81,7 @@ export default function ClearSkyLayer({ cloudData, getAvgCloudAt, windowHours = 
     return { bounds, pointStats, thresholds: { longShot: globalLongShot, anchorThresholds } }
   }, [cloudData, windowHours])
 
-  const drawCanvas = useCallback(() => {
-    if (!getAvgCloudAt || !regionStats) return
-    const zoom = map.getZoom()
-    if (zoom <= PRE_RENDER_ZOOM_THRESHOLD && preRenderManager.isClearSkyReady(windowHours)) {
-      // Tier 1: drawImage from pre-rendered canvas
-      if (!canvasRef.current) {
-        canvasRef.current = document.createElement('canvas')
-        canvasRef.current.style.cssText = 'position:absolute;pointer-events:none;z-index:201;'
-        map.getPanes().overlayPane.appendChild(canvasRef.current)
-      }
-      const canvas = canvasRef.current
-      const size = map.getSize()
-      const dpr = Math.min(window.devicePixelRatio || 1, 3)
-      const W = Math.round(size.x * dpr), H = Math.round(size.y * dpr)
-      canvas.width = W; canvas.height = H
-      canvas.style.width = size.x + 'px'; canvas.style.height = size.y + 'px'
-      L.DomUtil.setPosition(canvas, map.containerPointToLayerPoint([0, 0]))
-      const ctx = canvas.getContext('2d')
-      ctx.clearRect(0, 0, W, H)
-      const { canvas: preCanvas } = preRenderManager.getClearSkyCanvas(windowHours)
-      const tl = map.latLngToContainerPoint([BOUNDS.maxLat, BOUNDS.minLon])
-      const br = map.latLngToContainerPoint([BOUNDS.minLat, BOUNDS.maxLon])
-      const dx = tl.x * dpr, dy = tl.y * dpr
-      const dw = (br.x - tl.x) * dpr, dh = (br.y - tl.y) * dpr
-      if (dw > 0 && dh > 0) ctx.drawImage(preCanvas, 0, 0, preCanvas.width, preCanvas.height, dx, dy, dw, dh)
-      return
-    }
-    // Tier 2: live render — falls through to existing useEffect below
-    liveRender()
-  }, [getAvgCloudAt, regionStats, windowHours, map])
-
   useEffect(() => {
-    drawCanvas()
-    map.on('moveend zoomend resize', drawCanvas)
-    return () => map.off('moveend zoomend resize', drawCanvas)
-  }, [drawCanvas, map])
-
-  function liveRender() {
     if (!getAvgCloudAt || !regionStats) return
     const { bounds, thresholds, pointStats } = regionStats
     const { longShot, anchorThresholds } = thresholds
@@ -158,8 +120,8 @@ export default function ClearSkyLayer({ cloudData, getAvgCloudAt, windowHours = 
     const FADE = 0.5
 
     function redraw() {
+      if (!canvasRef.current) return
       const canvas = canvasRef.current
-      if (!canvas) return
       const size = map.getSize()
       const dpr  = Math.min(window.devicePixelRatio || 1, 3)
       const W = Math.round(size.x * dpr), H = Math.round(size.y * dpr)
@@ -270,17 +232,20 @@ export default function ClearSkyLayer({ cloudData, getAvgCloudAt, windowHours = 
       }
     }
 
-    if (!canvasRef.current) {
-      canvasRef.current = document.createElement('canvas')
-      canvasRef.current.style.cssText = 'position:absolute;pointer-events:none;z-index:201;'
-      map.getPanes().overlayPane.appendChild(canvasRef.current)
-    }
-    redraw()
-  }
+    const canvas = document.createElement('canvas')
+    canvas.style.cssText = 'position:absolute;pointer-events:none;z-index:201;'
+    map.getPanes().overlayPane.appendChild(canvas)
+    canvasRef.current = canvas
 
-  useEffect(() => () => {
-    if (canvasRef.current) { canvasRef.current.remove(); canvasRef.current = null }
-  }, [map])
+    redraw()
+    map.on('moveend zoomend resize', redraw)
+
+    return () => {
+      map.off('moveend zoomend resize', redraw)
+      canvas.remove()
+      canvasRef.current = null
+    }
+  }, [map, getAvgCloudAt, regionStats])
 
   return null
 }
