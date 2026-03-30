@@ -44,45 +44,35 @@ export default function ClearSkyLayer({ cloudData, getAvgCloudAt, windowHours = 
     const longShot = qualifying.length / allMeds.length < 0.05
     onLongShot?.(longShot)
 
-    if (longShot) {
-      // Long Shot: top 5th percentile by median within 150mi anchor zones
-      const ANCHORS = [
-        { lat: 42.9, lon: -78.9 }, { lat: 43.0, lon: -76.1 },
-        { lat: 43.0, lon: -73.8 }, { lat: 44.5, lon: -73.2 },
-        { lat: 42.4, lon: -71.1 }, { lat: 40.7, lon: -74.0 },
-        { lat: 39.9, lon: -75.2 },
-      ]
-      const R = 150 / 69  // ~2.17 degrees
-      const anchorThresholds = ANCHORS.map(anchor => {
-        const nearby = keys
-          .filter(k => {
-            const [la, lo] = k.split(',').map(parseFloat)
-            const d = Math.sqrt((la-anchor.lat)**2 + ((lo-anchor.lon)*Math.cos(anchor.lat*Math.PI/180))**2)
-            return d <= R
-          })
-          .map(k => pointStats[k]?.med)
-          .filter(v => v != null)
-          .sort((a, b) => a - b)
-        if (!nearby.length) return null
-        return nearby[Math.floor(nearby.length * 0.05)]
-      }).filter(v => v != null)
+    // Per-anchor thresholds for both normal and Long Shot mode
+    const ANCHORS = [
+      { lat: 42.9, lon: -78.9 }, { lat: 43.0, lon: -76.1 },
+      { lat: 43.0, lon: -73.8 }, { lat: 44.5, lon: -73.2 },
+      { lat: 42.4, lon: -71.1 }, { lat: 40.7, lon: -74.0 },
+      { lat: 39.9, lon: -75.2 },
+    ]
+    const R = 150 / 69
 
-      return { bounds, pointStats, thresholds: { longShot: true, anchorThresholds } }
-    }
+    const anchorThresholds = ANCHORS.map(anchor => {
+      const nearby = keys.filter(k => {
+        const [la, lo] = k.split(',').map(parseFloat)
+        const d = Math.sqrt((la-anchor.lat)**2 + ((lo-anchor.lon)*Math.cos(anchor.lat*Math.PI/180))**2)
+        return d <= R
+      })
+      const meds = nearby.map(k => pointStats[k]?.med).filter(v => v != null).sort((a, b) => a - b)
+      if (!meds.length) return null
+      return {
+        lat: anchor.lat, lon: anchor.lon,
+        // Normal mode: relative percentile thresholds within this anchor's region
+        p20: meds[Math.floor(meds.length * 0.20)],
+        p40: meds[Math.floor(meds.length * 0.40)],
+        p60: Math.min(meds[Math.floor(meds.length * 0.60)], 45),  // hard cap at 45%
+        // Long Shot: top 5th percentile within this anchor's region
+        p05: meds[Math.floor(meds.length * 0.05)],
+      }
+    }).filter(v => v != null)
 
-    // Normal mode: bin by count of good hours within qualifying points
-    const qualCounts = qualifying.length > 0
-      ? Object.values(pointStats).filter(p => p.med <= 45).map(p => p.count).sort((a, b) => a - b)
-      : []
-
-    const cBest = qualCounts[Math.floor(qualCounts.length * 0.80)] ?? 4
-    const cGood = qualCounts[Math.floor(qualCounts.length * 0.60)] ?? 2
-    const cFair = qualCounts[Math.floor(qualCounts.length * 0.40)] ?? 1
-
-    return {
-      bounds, pointStats,
-      thresholds: { longShot: false, medFloor: 45, cBest, cGood, cFair },
-    }
+    return { bounds, thresholds: { longShot, anchorThresholds } }
   }, [cloudData, windowHours])
 
   useEffect(() => {
@@ -95,8 +85,8 @@ export default function ClearSkyLayer({ cloudData, getAvgCloudAt, windowHours = 
     map.getPanes().overlayPane.appendChild(canvas)
     canvasRef.current = canvas
 
-    const AA = 0.02
-    const FADE = 0.8
+    const AA = 0.015
+    const FADE = 0.5
 
     function redraw() {
       if (!canvasRef.current) return
@@ -132,12 +122,12 @@ export default function ClearSkyLayer({ cloudData, getAvgCloudAt, windowHours = 
           const idx = (py * W + px) * 4
 
           if (longShot) {
-            // Long Shot: show top 5th percentile per anchor zone
-            // Use min threshold across all anchors within 150mi
-            const R = 150 / 69
+            // Long Shot: find this pixel's best anchor p05 threshold
             let lsThreshold = null
-            for (const thresh of thresholds.anchorThresholds) {
-              if (lsThreshold === null || thresh < lsThreshold) lsThreshold = thresh
+            for (const a of thresholds.anchorThresholds) {
+              const dist = Math.sqrt((lat-a.lat)**2 + ((lon-a.lon)*Math.cos(a.lat*Math.PI/180))**2)
+              if (dist <= 150/69 && (lsThreshold === null || a.p05 < lsThreshold))
+                lsThreshold = a.p05
             }
             if (lsThreshold === null || cf > lsThreshold + AA*100) continue
             const t = Math.max(0, Math.min(1, (lsThreshold + AA*100 - cf) / (2*AA*100)))
@@ -147,30 +137,35 @@ export default function ClearSkyLayer({ cloudData, getAvgCloudAt, windowHours = 
             d[idx]=150; d[idx+1]=210; d[idx+2]=120; d[idx+3]=alpha
             if (lsPixels) lsPixels[py * W + px] = 1
           } else {
-            // Normal mode: median gate + count-based color
-            // cf from getAvgCloudAt is average — use as proxy for median gate
-            if (cf > thresholds.medFloor) continue
-            // Map cf to approximate hour count: lower cf = more good hours
-            // Count bins: cBest/cGood/cFair are count thresholds from regionStats
-            // We map cf ranges to count bins for smooth per-pixel rendering
-            const cfBINS = [
-              { maxCf: 15, alpha: 153 },  // BEST: very clear avg → many good hours
-              { maxCf: 30, alpha: 95  },  // GOOD
-              { maxCf: 45, alpha: 45  },  // FAIR
-            ]
-            let alpha = 0
-            for (const bin of cfBINS) {
-              const lo = bin.maxCf - AA * 100
-              const hi = bin.maxCf + AA * 100
-              if (cf > hi) continue
-              if (cf <= lo) { alpha = bin.alpha; break }
-              const t = (hi - cf) / (2 * AA * 100)
-              const s = t * t * (3 - 2 * t)
-              alpha = Math.round(alpha + (bin.alpha - alpha) * s)
-              break
+            // Normal mode: per-anchor relative percentile scoring
+            // Each pixel scores against the distribution of its own 150mi region
+            let bestAlpha = 0
+            for (const a of thresholds.anchorThresholds) {
+              const dist = Math.sqrt((lat-a.lat)**2 + ((lon-a.lon)*Math.cos(a.lat*Math.PI/180))**2)
+              if (dist > 150/69) continue
+              if (cf > a.p60) continue
+              const cfBINS = [
+                { maxCf: a.p20, alpha: 153 },
+                { maxCf: a.p40, alpha: 95  },
+                { maxCf: a.p60, alpha: 45  },
+              ]
+              for (const bin of cfBINS) {
+                const lo = bin.maxCf - AA*100
+                const hi = bin.maxCf + AA*100
+                if (cf > hi) continue
+                let a2
+                if (cf <= lo) { a2 = bin.alpha }
+                else {
+                  const t = (hi - cf) / (2*AA*100)
+                  const s = t * t * (3 - 2*t)
+                  a2 = Math.round(bestAlpha + (bin.alpha - bestAlpha) * s)
+                }
+                if (a2 > bestAlpha) bestAlpha = a2
+                break
+              }
             }
-            if (alpha === 0) continue
-            d[idx]=0; d[idx+1]=210; d[idx+2]=160; d[idx+3]=Math.round(alpha * edgeFade)
+            if (bestAlpha === 0) continue
+            d[idx]=0; d[idx+1]=210; d[idx+2]=160; d[idx+3]=Math.round(bestAlpha * edgeFade)
           }
         }
       }
