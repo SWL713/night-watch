@@ -480,27 +480,25 @@ function App() {
               CLEAR SKY FINDER MODE
             </div>
             <div style={{
-              display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 4,
+              display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
               marginTop: 3,
             }}>
+              <span style={{ color: '#2a6655', fontSize: 9, fontFamily: FONT, letterSpacing: 0.5 }}>NEXT:</span>
               {[4, 8].map(h => (
                 <button
                   key={h}
                   onClick={() => setClearSkyWindow(h)}
                   style={{
-                    padding: '2px 8px',
+                    padding: '3px 12px',
                     background: clearSkyWindow === h ? 'rgba(68,221,170,0.2)' : 'transparent',
                     border: `1px solid ${clearSkyWindow === h ? '#44ddaa' : 'rgba(68,221,170,0.3)'}`,
                     borderRadius: 3,
                     color: clearSkyWindow === h ? '#44ddaa' : 'rgba(68,221,170,0.4)',
-                    fontSize: 8, fontFamily: FONT, letterSpacing: 1,
+                    fontSize: 12, fontFamily: FONT, letterSpacing: 1,
                     cursor: 'pointer',
                   }}
                 >{h}H</button>
               ))}
-              <span style={{ color: '#2a4455', fontSize: 7, fontFamily: FONT, letterSpacing: 0.5 }}>
-                FORWARD WINDOW
-              </span>
             </div>
             {longShot && (
               <div style={{ color: '#ff8c00', fontSize: 8, fontFamily: FONT, letterSpacing: 1, marginTop: 2 }}>
