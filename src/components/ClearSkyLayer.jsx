@@ -18,6 +18,19 @@ const ANCHORS = [
 ]
 const ANCHOR_RADIUS_DEG = 150 / 69  // ~2.17° lat (~150 miles)
 
+// Filter forecasts to only hours within next N hours from now
+function windowForecasts(forecasts, hours) {
+  if (!forecasts?.length) return forecasts
+  const now = Date.now()
+  const cutoff = now + hours * 3600000
+  const future = forecasts.filter(p => {
+    const t = new Date(p.time).getTime()
+    return t >= now && t <= cutoff
+  })
+  // If no future hours found (stale data), fall back to all hours
+  return future.length > 0 ? future : forecasts
+}
+
 // Median cloud cover for a forecast array
 function median(forecasts) {
   if (!forecasts?.length) return null
@@ -41,7 +54,7 @@ function distDeg(lat1, lon1, lat2, lon2) {
 
 // ── Region stats ───────────────────────────────────────────────────────────────
 
-export default function ClearSkyLayer({ cloudData, getAvgCloudAt }) {
+export default function ClearSkyLayer({ cloudData, getAvgCloudAt, windowHours = 8 }) {
   const map = useMap()
   const canvasRef = useRef(null)
 
@@ -57,10 +70,10 @@ export default function ClearSkyLayer({ cloudData, getAvgCloudAt }) {
       minLon: Math.min(...lons), maxLon: Math.max(...lons),
     }
 
-    // Compute median and hourCount per grid point
+    // Compute median and hourCount per grid point — windowed to next N hours
     const pointStats = {}
     for (const k of keys) {
-      const fc = cloudData.points[k]
+      const fc = windowForecasts(cloudData.points[k], windowHours)
       if (!fc?.length) continue
       pointStats[k] = {
         med: median(fc),
@@ -111,7 +124,7 @@ export default function ClearSkyLayer({ cloudData, getAvgCloudAt }) {
     }
 
     return { bounds, pointStats, thresholds }
-  }, [cloudData])
+  }, [cloudData, windowHours])
 
   useEffect(() => {
     if (!getAvgCloudAt || !regionStats) return
@@ -257,12 +270,12 @@ export default function ClearSkyLayer({ cloudData, getAvgCloudAt }) {
 }
 
 // Export long shot status for App.jsx banner
-export function useClearSkyStats(cloudData) {
+export function useClearSkyStats(cloudData, windowHours = 8) {
   return useMemo(() => {
     if (!cloudData?.points) return { longShot: false }
     const keys = Object.keys(cloudData.points)
     const meds = keys.map(k => {
-      const fc = cloudData.points[k]
+      const fc = windowForecasts(cloudData.points[k], windowHours)
       if (!fc?.length) return null
       const vals = fc.map(p => p.cloudcover ?? 0).sort((a, b) => a - b)
       const mid = Math.floor(vals.length / 2)
@@ -270,7 +283,7 @@ export function useClearSkyStats(cloudData) {
     }).filter(v => v !== null)
     const qualifying = meds.filter(m => m <= 45).length
     return { longShot: qualifying / meds.length < 0.05 }
-  }, [cloudData])
+  }, [cloudData, windowHours])
 }
 
 // Exported for SpotPins to get 8h avg cloud at a specific location
