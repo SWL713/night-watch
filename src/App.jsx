@@ -26,6 +26,7 @@ import AdminQueue from './components/AdminQueue.jsx'
 import { useSpaceWeather } from './hooks/useSpaceWeather.js'
 import { useSpots } from './hooks/useSpots.js'
 import { useCloudCover } from './hooks/useCloudCover.js'
+import { preRenderManager } from './utils/preRenderManager.js'
 import { getMoonData } from './utils/moon.js'
 
 import { MAP_BOUNDS, PASSPHRASE } from './config.js'
@@ -86,6 +87,13 @@ function App() {
   const [selectedSighting, setSelectedSighting] = useState(null)
   const [sightingScreen, setSightingScreen] = useState(null)
   const { getCloudAt, getAvgCloudAt, loading: cloudLoading, progress, coverage, total, phase, cloudData, cloudBounds } = useCloudCover()
+
+  // Kick off background pre-render when cloud data loads or refreshes
+  useEffect(() => {
+    if (cloudData?.points) {
+      preRenderManager.update(cloudData)
+    }
+  }, [cloudData])
 
 
   const [longShot, setLongShot] = useState(false)

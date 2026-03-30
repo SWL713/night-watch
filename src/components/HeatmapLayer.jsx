@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { useMap } from 'react-leaflet'
 import L from 'leaflet'
 import { bortleScore } from '../utils/scoring.js'
+import { preRenderManager, PRE_RENDER_ZOOM_THRESHOLD, BOUNDS, CLOUD_PX_PER_CELL, CLOUD_CANVAS_W, CLOUD_CANVAS_H } from '../utils/preRenderManager.js'
 import { GRID_BOUNDS } from '../config.js'
 import { loadBortleGrid, getBortle } from '../utils/bortleGrid.js'
 
@@ -264,7 +265,12 @@ const CloudCanvas = L.Layer.extend({
     this._canvas.remove()
     map.off('moveend zoomend resize', this._redraw, this)
   },
-  update(gridData, mode) { this._gridData = gridData; this._mode = mode; this._redraw() },
+  update(gridData, mode) { this._gridData = gridData; this._mode = mode; this._preRender = null; this._redraw() },
+  updateFromPreRender(preCanvas, bounds, pxPerCell, srcW, srcH, mode) {
+    this._preRender = { preCanvas, bounds, pxPerCell, srcW, srcH }
+    this._mode = mode
+    this._redraw()
+  },
   _redraw() {
     if (!this._map || !this._gridData) return
     const map = this._map
@@ -278,6 +284,19 @@ const CloudCanvas = L.Layer.extend({
 
     const ctx = canvas.getContext('2d')
     ctx.clearRect(0, 0, W, H)
+
+    // Tier 1: drawImage from pre-rendered canvas
+    if (this._preRender) {
+      const { preCanvas, bounds, pxPerCell } = this._preRender
+      // Map bounds corners to screen pixels
+      const topLeft     = map.latLngToContainerPoint([bounds.maxLat, bounds.minLon])
+      const bottomRight = map.latLngToContainerPoint([bounds.minLat, bounds.maxLon])
+      const dx = topLeft.x * dpr, dy = topLeft.y * dpr
+      const dw = (bottomRight.x - topLeft.x) * dpr
+      const dh = (bottomRight.y - topLeft.y) * dpr
+      if (dw > 0 && dh > 0) ctx.drawImage(preCanvas, 0, 0, preCanvas.width, preCanvas.height, dx, dy, dw, dh)
+      return
+    }
 
     const { grid, lats, lons } = this._gridData
     const rows = lats.length, cols = lons.length
@@ -375,26 +394,46 @@ export default function HeatmapLayer({ mode, selectedHour, getCloudAt, cloudLoad
     }
   }, [showTiles, map])
 
-  useEffect(() => {
-    if (showCanvas && !cloudLoading && getCloudAt) {
-      if (!canvasRef.current) {
-        canvasRef.current = new CloudCanvas({})
-        canvasRef.current.addTo(map)
-      }
-      const canvasMode = (mode === 'clearsky' || mode === 'clearsky_bortle') ? 'clearsky' : mode
-      // Cache grid by selectedHour — only rebuild when hour or data changes, not on map move
+  // Tier-aware cloud canvas update
+  const drawCloudCanvas = useCallback(() => {
+    if (!showCanvas || cloudLoading || !getCloudAt) {
+      if (canvasRef.current) { map.removeLayer(canvasRef.current); canvasRef.current = null }
+      return
+    }
+    if (!canvasRef.current) {
+      canvasRef.current = new CloudCanvas({})
+      canvasRef.current.addTo(map)
+    }
+    const zoom = map.getZoom()
+    const canvasMode = mode === 'combined' ? 'combined' : 'clouds'
+    if (zoom <= PRE_RENDER_ZOOM_THRESHOLD && preRenderManager.isReady(selectedHour)) {
+      // Tier 1: drawImage from pre-rendered canvas
+      canvasRef.current.updateFromPreRender(
+        preRenderManager.getCloudCanvas(selectedHour),
+        BOUNDS, CLOUD_PX_PER_CELL, CLOUD_CANVAS_W, CLOUD_CANVAS_H, canvasMode
+      )
+    } else {
+      // Tier 2: live viewport render
       const cacheKey = `${selectedHour}-${cloudData?.fetchedAt ?? 0}`
       if (gridCacheRef.current.key !== cacheKey) {
         gridCacheRef.current = { key: cacheKey, data: buildCloudGrid(getCloudAt, selectedHour) }
       }
       canvasRef.current.update(gridCacheRef.current.data, canvasMode)
+    }
+  }, [showCanvas, cloudLoading, getCloudAt, mode, selectedHour, cloudData, map])
 
-    } else if (!showCanvas && canvasRef.current) {
+  useEffect(() => {
+    drawCloudCanvas()
+    map.on('zoomend', drawCloudCanvas)
+    return () => map.off('zoomend', drawCloudCanvas)
+  }, [drawCloudCanvas, map])
+
+  useEffect(() => {
+    if (!showCanvas && canvasRef.current) {
       map.removeLayer(canvasRef.current)
       canvasRef.current = null
     }
-    // When cloudLoading, leave any existing canvas in place (don't clear it)
-  }, [showCanvas, mode, selectedHour, getCloudAt, cloudLoading, cloudData, map])
+  }, [showCanvas, map])
 
   useEffect(() => () => {
     if (tileLayerRef.current) { map.removeLayer(tileLayerRef.current); tileLayerRef.current = null }
