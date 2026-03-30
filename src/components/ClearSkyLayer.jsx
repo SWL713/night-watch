@@ -26,6 +26,9 @@ const ANCHORS = [
   { lat: 42.4, lon: -71.1 },  // Boston
   { lat: 40.7, lon: -74.0 },  // NYC
   { lat: 39.9, lon: -75.2 },  // Philadelphia
+  { lat: 43.7, lon: -79.4 },  // Toronto
+  { lat: 45.4, lon: -75.7 },  // Ottawa
+  { lat: 45.5, lon: -73.6 },  // Montreal
 ]
 const ANCHOR_R = 150 / 69
 const BLEND    = 30  / 69
