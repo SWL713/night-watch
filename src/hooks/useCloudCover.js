@@ -105,10 +105,10 @@ export function useCloudCover() {
         // Convert pipeline format {t, cc} to {time, cloudcover}
         const results = {}
         for (const [key, forecast] of Object.entries(json.points)) {
-          results[key] = forecast.map(p => ({
-            time:       new Date(p.t || p.time),
-            cloudcover: p.cc ?? p.cloudcover,
-          })).filter(p => !isNaN(p.time) && p.cloudcover !== null)
+          results[key] = forecast.map(p => {
+            const t = new Date(p.t || p.time)
+            return { time: t, timeMs: t.getTime(), cloudcover: p.cc ?? p.cloudcover }
+          }).filter(p => !isNaN(p.timeMs) && p.cloudcover !== null)
         }
 
         // Derive geographic bounds from actual data points
@@ -166,17 +166,17 @@ export function useCloudCover() {
   // Interpolate a forecast series at a target timestamp (ms)
   function interpForecast(fc, target) {
     if (!fc?.length) return null
-    const sorted = [...fc].sort((a, b) => new Date(a.time).getTime() - new Date(b.time).getTime())
+    const sorted = [...fc].sort((a, b) => (a.timeMs ?? 0) - (b.timeMs ?? 0))
     let before = null, after = null
     for (const p of sorted) {
-      const t = new Date(p.time).getTime()
+      const t = p.timeMs ?? new Date(p.time).getTime()
       if (t <= target) before = p
       else if (!after) after = p
     }
-    if (!before) return after  ? (after.cloudcover  ?? after.cc  ?? null) : null
-    if (!after)  return before ? (before.cloudcover ?? before.cc ?? null) : null
-    const t0 = new Date(before.time).getTime()
-    const t1 = new Date(after.time).getTime()
+    if (!before) return after  ? (after.cloudcover ?? null) : null
+    if (!after)  return before ? (before.cloudcover ?? null) : null
+    const t0 = before.timeMs ?? new Date(before.time).getTime()
+    const t1 = after.timeMs  ?? new Date(after.time).getTime()
     const frac = (target - t0) / (t1 - t0)
     const v0 = before.cloudcover ?? before.cc ?? 0
     const v1 = after.cloudcover  ?? after.cc  ?? 0
@@ -208,7 +208,7 @@ export function useCloudCover() {
       const fc = data.points[key]
       if (!fc?.length) return null
       const sum = fc.reduce((s, p) => s + (p.cloudcover ?? 0), 0)
-      return sum / fc.length
+      return sum / fc.length  // simple avg — timeMs already cached on load
     }
 
     const v00 = avgAt(k(lat0, lon0))
