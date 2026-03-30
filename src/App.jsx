@@ -16,7 +16,6 @@ import SightingLayer from './components/SightingLayer.jsx'
 import SightingForm from './components/SightingForm.jsx'
 import CameraLayer from './components/CameraLayer.jsx'
 import ClearSkyLayer from './components/ClearSkyLayer.jsx'
-import { useClearSkyStats, getAvgCloudForSpot } from './utils/clearSkyStats.js'
 import CameraPopup from './components/CameraPopup.jsx'
 import CameraSettings from './components/CameraSettings.jsx'
 import SightingPopup from './components/SightingPopup.jsx'
@@ -89,7 +88,17 @@ function App() {
   const { getCloudAt, getAvgCloudAt, loading: cloudLoading, progress, coverage, total, phase, cloudData, cloudBounds } = useCloudCover()
 
 
-  const { longShot } = useClearSkyStats(cloudData, clearSkyWindow)
+  const longShot = useMemo(() => {
+    if (!cloudData?.points) return false
+    const keys = Object.keys(cloudData.points)
+    const avgs = keys.map(k => {
+      const fc = cloudData.points[k]
+      if (!fc?.length) return null
+      return fc.reduce((s, p) => s + (p.cloudcover ?? 0), 0) / fc.length
+    }).filter(v => v !== null).sort((a, b) => a - b)
+    const p20 = avgs[Math.floor(avgs.length * 0.20)]
+    return p20 > 50
+  }, [cloudData])
 
   const moonData = getMoonData()
   const [bortleGrid, setBortleGrid] = useState(null)
@@ -106,7 +115,6 @@ function App() {
   const [showCamera, setShowCamera] = useState(false) // picking location for sighting report
   const [camBortleResolved, setCamBortleResolved] = useState(5)
   const [clearSkyMode, setClearSkyMode] = useState(false)
-  const [clearSkyWindow, setClearSkyWindow] = useState(8)  // 4 or 8 hours
   // HeatmapLayer handles bortle tiles + cloud canvas only
   // ClearSkyLayer handles clear sky rendering independently
   const heatmapMode = layers.clouds && layers.bortle ? 'combined'
@@ -321,7 +329,7 @@ function App() {
           )}
 
           {clearSkyMode && cloudData && (
-            <ClearSkyLayer cloudData={cloudData} getAvgCloudAt={getAvgCloudAt} windowHours={clearSkyWindow} />
+            <ClearSkyLayer cloudData={cloudData} getAvgCloudAt={getAvgCloudAt} />
           )}
 
           {/* Camera markers */}
@@ -471,30 +479,13 @@ function App() {
               CLEAR SKY FINDER MODE
             </div>
             <div style={{
-              display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 4,
+              color: '#2a6655', fontSize: 8, letterSpacing: 0.8,
               marginTop: 3,
             }}>
-              {[4, 8].map(h => (
-                <button
-                  key={h}
-                  onClick={() => setClearSkyWindow(h)}
-                  style={{
-                    padding: '2px 8px',
-                    background: clearSkyWindow === h ? 'rgba(68,221,170,0.2)' : 'transparent',
-                    border: `1px solid ${clearSkyWindow === h ? '#44ddaa' : 'rgba(68,221,170,0.3)'}`,
-                    borderRadius: 3,
-                    color: clearSkyWindow === h ? '#44ddaa' : 'rgba(68,221,170,0.4)',
-                    fontSize: 8, fontFamily: FONT, letterSpacing: 1,
-                    cursor: 'pointer',
-                  }}
-                >{h}H</button>
-              ))}
-              <span style={{ color: '#2a4455', fontSize: 7, fontFamily: FONT, letterSpacing: 0.5, pointerEvents: 'none' }}>
-                FORWARD WINDOW
-              </span>
+              TEAL = BEST OPTIONS · 8-HOUR AVERAGE
             </div>
             {longShot && (
-              <div style={{ color: '#ff8c00', fontSize: 8, fontFamily: FONT, letterSpacing: 1, marginTop: 2, pointerEvents: 'none' }}>
+              <div style={{ color: '#ff8c00', fontSize: 8, fontFamily: FONT, letterSpacing: 1, marginTop: 2 }}>
                 ⚠️ LONG SHOT · HEAVILY CLOUDED REGION
               </div>
             )}

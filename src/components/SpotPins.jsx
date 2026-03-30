@@ -5,7 +5,7 @@ import { bortleScore, scoreToRGB } from '../utils/scoring.js'
 import { getBortle } from '../utils/bortleGrid.js'
 import { fetchBortleAt } from '../utils/bortleApi.js'
 import SpotCard from './SpotCard.jsx'
-import { getAvgCloudForSpot } from '../utils/clearSkyStats.js'
+import { getAvgCloudForSpot } from './ClearSkyLayer.jsx'
 
 function createPin(r, g, b, size) {
   const color = `rgb(${r},${g},${b})`

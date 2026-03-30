@@ -2,18 +2,7 @@ import { useEffect, useRef, useMemo } from 'react'
 import { useMap } from 'react-leaflet'
 import L from 'leaflet'
 
-function windowForecasts(forecasts, hours) {
-  if (!forecasts?.length) return forecasts
-  const now = Date.now()
-  const cutoff = now + hours * 3600000
-  const future = forecasts.filter(p => {
-    const t = new Date(p.time).getTime()
-    return t >= now && t <= cutoff
-  })
-  return future.length > 0 ? future : forecasts
-}
-
-export default function ClearSkyLayer({ cloudData, getAvgCloudAt, windowHours = 8 }) {
+export default function ClearSkyLayer({ cloudData, getAvgCloudAt }) {
   const map = useMap()
   const canvasRef = useRef(null)
 
@@ -26,9 +15,8 @@ export default function ClearSkyLayer({ cloudData, getAvgCloudAt, windowHours = 
       minLat: Math.min(...lats), maxLat: Math.max(...lats),
       minLon: Math.min(...lons), maxLon: Math.max(...lons),
     }
-
     const allAvgs = keys.map(k => {
-      const fc = windowForecasts(cloudData.points[k], windowHours)
+      const fc = cloudData.points[k]
       if (!fc?.length) return null
       return fc.reduce((s, p) => s + (p.cloudcover ?? 0), 0) / fc.length
     }).filter(v => v !== null).sort((a, b) => a - b)
@@ -44,7 +32,7 @@ export default function ClearSkyLayer({ cloudData, getAvgCloudAt, windowHours = 
         ? { best: null, good: null, fair: p20, longShot: true }
         : { best: p20, good: p40, fair: Math.min(p60, 50), longShot: false },
     }
-  }, [cloudData, windowHours])
+  }, [cloudData])
 
   useEffect(() => {
     if (!getAvgCloudAt || !regionStats) return
@@ -154,4 +142,15 @@ export default function ClearSkyLayer({ cloudData, getAvgCloudAt, windowHours = 
   }, [map, getAvgCloudAt, regionStats])
 
   return null
+}
+
+export function getAvgCloudForSpot(cloudData, lat, lon) {
+  if (!cloudData?.points) return null
+  const spacing = cloudData.spacing || 0.1
+  const la0 = parseFloat((Math.round(lat / spacing) * spacing).toFixed(1))
+  const lo0 = parseFloat((Math.round(lon / spacing) * spacing).toFixed(1))
+  const key = `${la0.toFixed(1)},${lo0.toFixed(1)}`
+  const forecasts = cloudData.points[key]
+  if (!forecasts?.length) return null
+  return forecasts.reduce((s, p) => s + (p.cloudcover ?? 0), 0) / forecasts.length
 }
