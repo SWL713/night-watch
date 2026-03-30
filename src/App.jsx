@@ -349,7 +349,10 @@ function App() {
             gap: 3,
             pointerEvents: 'none',
           }}>
-            <span style={{ color: '#6688aa', fontSize: 6, fontFamily: FONT, letterSpacing: 0.5, marginBottom: 2, writingMode: 'horizontal-tb', textAlign: 'center' }}>BORTLE{' '}EQUIV.</span>
+            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', marginBottom: 2 }}>
+              <span style={{ color: '#6688aa', fontSize: 6, fontFamily: FONT, letterSpacing: 0.5, lineHeight: 1.2 }}>BORTLE</span>
+              <span style={{ color: '#6688aa', fontSize: 6, fontFamily: FONT, letterSpacing: 0.5, lineHeight: 1.2 }}>EQUIV.</span>
+            </div>
             {[
               { color: 'rgba(255,235,0,0.15)', label: '1-2' },
               { color: 'rgba(255,225,0,0.28)', label: '3' },
