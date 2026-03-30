@@ -756,14 +756,6 @@ function App() {
         </div>
       </div>
 
-      {/* Temp debug display */}
-      <div id="_dbg" style={{
-        position: 'fixed', top: 60, left: 0, right: 0,
-        background: 'rgba(0,0,0,0.9)', color: '#44ff44',
-        fontSize: 12, padding: '4px 8px', zIndex: 99999,
-        fontFamily: 'monospace', pointerEvents: 'none',
-      }} />
-
       {/* Developer attribution — between action bar and time slider */}
       <div style={{
         background: '#06080f', borderTop: '1px solid #0d1525',
