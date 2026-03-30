@@ -24,7 +24,6 @@ import SubmitPhoto from './components/SubmitPhoto.jsx'
 import AdminQueue from './components/AdminQueue.jsx'
 
 import { useSpaceWeather } from './hooks/useSpaceWeather.js'
-import { useClearSkyImage } from './hooks/useClearSkyImage.js'
 import { useSpots } from './hooks/useSpots.js'
 import { useCloudCover } from './hooks/useCloudCover.js'
 import { getMoonData } from './utils/moon.js'
@@ -89,12 +88,7 @@ function App() {
   const { getCloudAt, getAvgCloudAt, loading: cloudLoading, progress, coverage, total, phase, cloudData, cloudBounds } = useCloudCover()
 
 
-  // Pre-render the clear sky image in geographic space — fires once per cloud data
-  // update (≈every 30 min) regardless of whether clear sky mode is active, so the
-  // overlay is ready instantly when the user opens it. longShot is derived directly
-  // from the image result rather than bubbling up via an onLongShot callback.
-  const clearSkyImage = useClearSkyImage(cloudData, clearSkyWindow)
-  const longShot = clearSkyImage?.longShot ?? false
+  const [longShot, setLongShot] = useState(false)
 
   const moonData = getMoonData()
   const [bortleGrid, setBortleGrid] = useState(null)
@@ -325,8 +319,8 @@ function App() {
             />
           )}
 
-          {clearSkyMode && (
-            <ClearSkyLayer image={clearSkyImage} />
+          {clearSkyMode && cloudData && (
+            <ClearSkyLayer cloudData={cloudData} getAvgCloudAt={getAvgCloudAt} windowHours={clearSkyWindow} onLongShot={setLongShot} />
           )}
 
           {/* Camera markers */}
