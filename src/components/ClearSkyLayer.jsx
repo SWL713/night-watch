@@ -106,7 +106,7 @@ export default function ClearSkyLayer({ cloudData }) {
 
     // Create canvas in overlay pane — same as HeatmapLayer
     const canvas = document.createElement('canvas')
-    canvas.style.cssText = 'position:absolute;pointer-events:none;z-index:201;'
+    canvas.style.cssText = 'position:absolute;pointer-events:none;z-index:201;filter:blur(4px);'
     map.getPanes().overlayPane.appendChild(canvas)
     canvasRef.current = canvas
 
