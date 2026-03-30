@@ -2,6 +2,43 @@ import { useEffect, useRef, useMemo } from 'react'
 import { useMap } from 'react-leaflet'
 import L from 'leaflet'
 
+// Bicubic-smooth the binned grid before rendering
+// Upsamples to 5x resolution so zone edges have smooth curves
+// without blurring the discrete bin values
+function upsampleGrid(grid, lats, lons, scale = 5) {
+  const rows = lats.length, cols = lons.length
+  const newRows = (rows - 1) * scale + 1
+  const newCols = (cols - 1) * scale + 1
+  const newLats = [], newLons = []
+  const spacing = Math.abs(lats[0] - lats[1])
+  const newSpacing = spacing / scale
+
+  for (let i = 0; i < newRows; i++) newLats.push(lats[0] - i * newSpacing)
+  for (let j = 0; j < newCols; j++) newLons.push(lons[0] + j * newSpacing)
+
+  const newGrid = Array.from({ length: newRows }, () => new Array(newCols).fill(null))
+
+  for (let i = 0; i < newRows; i++) {
+    for (let j = 0; j < newCols; j++) {
+      const ri = i / scale, ci = j / scale
+      const r0 = Math.floor(ri), r1 = Math.min(r0 + 1, rows - 1)
+      const c0 = Math.floor(ci), c1 = Math.min(c0 + 1, cols - 1)
+      const v00 = grid[r0][c0], v10 = grid[r0][c1]
+      const v01 = grid[r1][c0], v11 = grid[r1][c1]
+      if (v00 == null && v01 == null && v10 == null && v11 == null) continue
+      const tx = ri - r0, ty = ci - c0
+      // Smooth step interpolation — creates S-curve transition at bin edges
+      // instead of linear which produces jagged stair steps
+      const sx = tx * tx * (3 - 2 * tx)
+      const sy = ty * ty * (3 - 2 * ty)
+      const a = v00 ?? 0, b = v10 ?? 0, c = v01 ?? 0, d = v11 ?? 0
+      newGrid[i][j] = a + (b - a) * sy + (c - a) * sx + (a - b - c + d) * sx * sy
+    }
+  }
+
+  return { grid: newGrid, lats: newLats, lons: newLons }
+}
+
 // Bin thresholds for discrete clear sky zones (cloud fraction 0-1)
 // Clearness = 1 - cloudFraction
 // Bin values are discrete steps — bilinear interpolation between them
@@ -58,7 +95,11 @@ function buildAvgGrid(cloudData) {
 export default function ClearSkyLayer({ cloudData }) {
   const map = useMap()
   const canvasRef = useRef(null)
-  const gridData = useMemo(() => buildAvgGrid(cloudData), [cloudData])
+  const gridData = useMemo(() => {
+    const raw = buildAvgGrid(cloudData)
+    if (!raw) return null
+    return upsampleGrid(raw.grid, raw.lats, raw.lons, 5)
+  }, [cloudData])
 
   useEffect(() => {
     if (!gridData) return
