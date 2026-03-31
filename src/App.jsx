@@ -611,7 +611,7 @@ function App() {
         {/* ? Help button — bottom right above attribution */}
         <div style={{ position: 'absolute', bottom: 76, right: 10, zIndex: 1000 }}>
           <button
-            onClick={() => helpMode ? showHelp('help_button') : toggleHelp()}
+            onClick={toggleHelp}
             title="Help"
             style={{
               width: 28, height: 28,
