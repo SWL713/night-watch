@@ -98,3 +98,10 @@ button:focus-visible { outline: none; }
 .cloud-boundary-label::before {
   display: none !important;
 }
+
+/* Landscape lock — show rotate prompt on mobile, hide app content */
+@media screen and (orientation: landscape) and (max-height: 500px) {
+  #rotate-overlay {
+    display: flex !important;
+  }
+}

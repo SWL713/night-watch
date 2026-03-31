@@ -22,6 +22,20 @@
   <title>Night Watch</title>
 </head>
 <body>
+  <!-- Landscape rotation overlay — CSS shows this when phone is sideways -->
+  <div id="rotate-overlay" style="
+    display: none;
+    position: fixed; inset: 0; z-index: 99999;
+    background: #06080f;
+    flex-direction: column;
+    align-items: center; justify-content: center; gap: 16px;
+    font-family: 'DejaVu Sans Mono', Consolas, monospace;
+    text-align: center;
+  ">
+    <div style="font-size: 36px;">↩️</div>
+    <div style="color: #44ddaa; font-size: 12px; letter-spacing: 2px;">PLEASE ROTATE</div>
+    <div style="color: #445566; font-size: 10px; letter-spacing: 1px;">Night Watch works best in portrait mode</div>
+  </div>
   <div id="root"></div>
   <script type="module" src="/src/main.jsx"></script>
 </body>
