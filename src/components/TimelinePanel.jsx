@@ -226,16 +226,17 @@ export default function TimelinePanel({ spaceWeather, selectedHour, onHourSelect
           </div>
         </div>
 
-        {/* Stats panel */}
-        <div style={{
-          width:175, flexShrink:0, padding:'5px 10px',
-          borderLeft:'1px solid #1a2035',
-          display:'flex', flexDirection:'column', justifyContent:'center',
-        }}>
-          <div
-            style={{ marginBottom:4, cursor: helpMode ? 'pointer' : 'default' }}
-            onClick={() => helpMode && onHelpTap?.('chase_quality')}
-          >
+        {/* Stats panel — single tappable box on mobile */}
+        <div
+          onClick={() => helpMode && onHelpTap?.('chase_quality')}
+          style={{
+            width:175, flexShrink:0, padding:'5px 10px',
+            borderLeft:'1px solid #1a2035',
+            display:'flex', flexDirection:'column', justifyContent:'center',
+            cursor: helpMode ? 'pointer' : 'default',
+          }}
+        >
+          <div style={{ marginBottom:4 }}>
             <div style={{ color:'#2a3a55', fontSize:7, letterSpacing:1, marginBottom:1 }}>
               CHASE QUALITY{!isNow ? ` · +${selectedHour}h` : ''}
             </div>
@@ -244,15 +245,9 @@ export default function TimelinePanel({ spaceWeather, selectedHour, onHourSelect
             </div>
           </div>
 
-          <div onClick={() => helpMode && onHelpTap?.('intensity')} style={{ cursor: helpMode ? 'pointer' : 'default' }}>
-            <StatRow icon={`${BASE}/icons/fire_icon.png`} label="Intensity" value={intensityAtHour || 'Calm'} color={intensityColor} />
-          </div>
-          <div onClick={() => helpMode && onHelpTap?.('interference')} style={{ cursor: helpMode ? 'pointer' : 'default' }}>
-            <StatRow icon={`${BASE}/icons/moon_icon.png`} label="Interference" value={`${moonIllumAtHour}%`} color={moonIllumAtHour < 25 ? '#44cc88' : moonIllumAtHour < 60 ? '#ffcc44' : '#ff5566'} />
-          </div>
-          <div onClick={() => helpMode && onHelpTap?.('astro_dark')} style={{ cursor: helpMode ? 'pointer' : 'default' }}>
-            <StatRow icon={`${BASE}/icons/sun_icon.png`} label="Astro Dark" value={`${astroDarkAtHour}%`} color={astroDarkAtHour > 75 ? '#44cc88' : astroDarkAtHour > 40 ? '#ffcc44' : '#ff5566'} />
-          </div>
+          <StatRow icon={`${BASE}/icons/fire_icon.png`} label="Intensity" value={intensityAtHour || 'Calm'} color={intensityColor} />
+          <StatRow icon={`${BASE}/icons/moon_icon.png`} label="Interference" value={`${moonIllumAtHour}%`} color={moonIllumAtHour < 25 ? '#44cc88' : moonIllumAtHour < 60 ? '#ffcc44' : '#ff5566'} />
+          <StatRow icon={`${BASE}/icons/sun_icon.png`} label="Astro Dark" value={`${astroDarkAtHour}%`} color={astroDarkAtHour > 75 ? '#44cc88' : astroDarkAtHour > 40 ? '#ffcc44' : '#ff5566'} />
           <div style={{ marginTop:3, color:'#334455', fontSize:8 }}>
             {moonData.phaseLabel} · {moonIllumPct}% illuminated
           </div>

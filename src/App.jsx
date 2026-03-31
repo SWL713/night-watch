@@ -631,13 +631,15 @@ function App() {
         {/* Help mode banner */}
         {helpMode && (
           <div style={{
-            position: 'absolute', bottom: 112, left: '50%', transform: 'translateX(-50%)',
+            position: 'absolute',
+            top: '50%', left: '50%',
+            transform: 'translate(-50%, -50%)',
             zIndex: 1100, whiteSpace: 'nowrap', pointerEvents: 'none',
           }}>
             <div style={{
-              background: 'rgba(7,11,22,0.92)', border: '1px solid #44ddaa',
+              background: 'rgba(7,11,22,0.92)', border: '1px solid #ff8c00',
               borderRadius: 3, padding: '4px 14px',
-              color: '#44ddaa', fontSize: 10, fontFamily: FONT, letterSpacing: 1.5,
+              color: '#ff8c00', fontSize: 10, fontFamily: FONT, letterSpacing: 1.5,
               boxShadow: '0 2px 12px rgba(0,0,0,0.7)',
             }}>
               HELP MODE — TAP ANY ELEMENT
