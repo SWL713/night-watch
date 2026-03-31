@@ -68,7 +68,7 @@ function slope(points, getX, getY) {
 }
 
 // ── Main component ─────────────────────────────────────────────────────────────
-export default function TimelineBar({ spaceWeather, moonData, selectedHour, onHourSelect, bzTrace, plasmaTrace }) {
+export default function TimelineBar({ spaceWeather, moonData, selectedHour, onHourSelect, bzTrace, plasmaTrace, helpMode, onHelpTap }) {
   const canvasRef = useRef(null)
 
   useEffect(() => {
@@ -518,10 +518,12 @@ export default function TimelineBar({ spaceWeather, moonData, selectedHour, onHo
     <div style={{ background: '#04060d' }}>
       <canvas
         ref={canvasRef}
-        onClick={handleClick}
-        style={{ width: '100%', height: 90, display: 'block', cursor: 'pointer' }}
+        onClick={helpMode ? () => onHelpTap?.('timeline') : handleClick}
+        style={{ width: '100%', height: 90, display: 'block', cursor: helpMode ? 'pointer' : 'pointer' }}
       />
-      <LegendStrip />
+      <div onClick={() => helpMode && onHelpTap?.('legend_strip')} style={{ cursor: helpMode ? 'pointer' : 'default' }}>
+        <LegendStrip />
+      </div>
     </div>
   )
 }

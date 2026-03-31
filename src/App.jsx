@@ -1,5 +1,5 @@
 import { useState, useCallback, useEffect } from 'react'
-import { MapContainer, TileLayer, ZoomControl, useMapEvents, useMap, Rectangle, Tooltip } from 'react-leaflet'
+import { MapContainer, TileLayer, useMapEvents, useMap, Rectangle, Tooltip } from 'react-leaflet'
 import 'leaflet/dist/leaflet.css'
 
 import Auth from './components/Auth.jsx'
@@ -23,7 +23,8 @@ import { useSightings, usePendingSpots } from './hooks/useSpots.js'
 import SubmitPhoto from './components/SubmitPhoto.jsx'
 import AdminQueue from './components/AdminQueue.jsx'
 
-import { useSpaceWeather } from './hooks/useSpaceWeather.js'
+import HelpPopup from './components/HelpPopup.jsx'
+import { HELP_CONTENT } from './utils/helpContent.js'
 import { useSpots } from './hooks/useSpots.js'
 import { useCloudCover } from './hooks/useCloudCover.js'
 import { getMoonData } from './utils/moon.js'
@@ -89,6 +90,15 @@ function App() {
 
 
   const [longShot, setLongShot] = useState(false)
+  const [helpMode, setHelpMode] = useState(false)
+  const [helpEntry, setHelpEntry] = useState(null) // { title, text }
+
+  function showHelp(key) {
+    const entry = HELP_CONTENT[key]
+    if (entry) setHelpEntry(entry)
+  }
+  function closeHelp() { setHelpEntry(null) }
+  function toggleHelp() { setHelpMode(m => { if (m) setHelpEntry(null); return !m }) }
 
   const moonData = getMoonData()
   const [bortleGrid, setBortleGrid] = useState(null)
@@ -158,6 +168,8 @@ function App() {
         selectedHour={selectedHour}
         onHourSelect={setSelectedHour}
         moonData={moonData}
+        helpMode={helpMode}
+        onHelpTap={showHelp}
       />
 
       {/* Map */}
@@ -181,11 +193,13 @@ function App() {
             opacity={0.8}
           />
 
-          {!layers.bortle && <ZoomControl position="bottomright" />}
+
 
 
 
           <MapSearch
+            helpMode={helpMode}
+            onHelpTap={showHelp}
             onSelectResult={(result, isPeru) => { if (isPeru) setPeruMode(m => !m) }}
             onAddPin={(lat, lon) => {
               setPendingPin({ lat, lon })
@@ -197,7 +211,7 @@ function App() {
           {/* Night mode toggle */}
           <div style={{ position: 'absolute', top: 56, left: 12, zIndex: 1000 }}>
             <button
-              onClick={() => { setNightMode(m => !m); setPeruMode(false) }}
+              onClick={() => helpMode ? showHelp('night_mode') : (() => { setNightMode(m => !m); setPeruMode(false) })()}
               title="Night vision mode"
               style={{
                 width: 36, height: 36,
@@ -216,7 +230,7 @@ function App() {
           {/* Camera advisor button */}
           <div style={{ position: 'absolute', top: 100, left: 12, zIndex: 1000 }}>
             <button
-              onClick={() => { setCameraMode(m => !m); setShowCamera(false) }}
+              onClick={() => helpMode ? showHelp('camera_advisor') : (() => { setCameraMode(m => !m); setShowCamera(false) })()}
               title="Camera settings advisor"
               style={{
                 width: 36, height: 36,
@@ -236,6 +250,7 @@ function App() {
           <div style={{ position: 'absolute', top: 144, left: 12, zIndex: 1000 }}>
             <button
               onClick={() => {
+                if (helpMode) { showHelp('clear_sky_finder'); return }
                 setClearSkyMode(m => {
                   if (!m) {
                     setLayers(prev => ({ ...prev, clouds: false, bortle: false }))
@@ -259,15 +274,15 @@ function App() {
             >☁️</button>
           </div>
 
-          {/* Map click handler — only active in pin placement mode */}
+          {/* Map click handler — pin placement and help mode */}
           <MapClickHandler
-            active={pinMode || sightingPinMode || cameraMode}
+            active={pinMode || sightingPinMode || cameraMode || helpMode}
             onMapClick={(lat, lon) => {
+              if (helpMode) { showHelp('map_area'); return }
               if (cameraMode) {
                 setCameraCoords({ lat, lon })
                 setCameraMode(false)
                 setShowCamera(true)
-                // LPM API first (matches visual map), grid as fallback
                 fetchBortleAt(lat, lon).then(b => {
                   if (b && b !== 5) { setCamBortleResolved(b); return }
                   const raw = bortleGrid ? getBortle(bortleGrid, lat, lon) : null
@@ -501,7 +516,7 @@ function App() {
         )}
 
         {/* Badges top-right */}
-        <Badges spaceWeather={sw} selectedHour={selectedHour}>
+        <Badges spaceWeather={sw} selectedHour={selectedHour} helpMode={helpMode} onHelpTap={showHelp}>
           {/* Bortle key — slots into Badges flex column, same gap as G→HSS */}
           {layers.bortle && (
             <div style={{
@@ -592,6 +607,43 @@ function App() {
           </div>
         )}
 
+        {/* ? Help button — bottom right above attribution */}
+        <div style={{ position: 'absolute', bottom: 76, right: 10, zIndex: 1000 }}>
+          <button
+            onClick={() => helpMode ? showHelp('help_button') : toggleHelp()}
+            title="Help"
+            style={{
+              width: 28, height: 28,
+              background: helpMode ? 'rgba(68,221,170,0.15)' : '#070b16',
+              border: `1px solid ${helpMode ? '#44ddaa' : '#1a2a3a'}`,
+              borderRadius: '50%',
+              cursor: 'pointer',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              color: helpMode ? '#44ddaa' : '#445566',
+              fontSize: 13, fontFamily: FONT,
+              boxShadow: helpMode ? '0 0 8px rgba(68,221,170,0.4)' : 'none',
+              transition: 'all 0.15s', outline: 'none',
+            }}
+          >?</button>
+        </div>
+
+        {/* Help mode banner */}
+        {helpMode && (
+          <div style={{
+            position: 'absolute', bottom: 112, left: '50%', transform: 'translateX(-50%)',
+            zIndex: 1100, whiteSpace: 'nowrap', pointerEvents: 'none',
+          }}>
+            <div style={{
+              background: 'rgba(7,11,22,0.92)', border: '1px solid #44ddaa',
+              borderRadius: 3, padding: '4px 14px',
+              color: '#44ddaa', fontSize: 10, fontFamily: FONT, letterSpacing: 1.5,
+              boxShadow: '0 2px 12px rgba(0,0,0,0.7)',
+            }}>
+              HELP MODE — TAP ANY ELEMENT
+            </div>
+          </div>
+        )}
+
         {/* NASA attribution — bottom right overlay */}
         <div style={{
           position: 'absolute', bottom: 58, right: 48,
@@ -608,6 +660,8 @@ function App() {
         <LayerControls
           layers={layers}
           onToggle={toggleLayer}
+          helpMode={helpMode}
+          onHelpTap={showHelp}
         />
 
         {/* Cloud loading indicator */}
@@ -636,7 +690,7 @@ function App() {
             paddingLeft: 10, height: '100%', paddingTop: 4, paddingBottom: 4 }}>
             {/* Report Aurora */}
             <button
-              onClick={() => { setSightingPinMode(false); setSightingPendingCoords(null); setModal('reportAurora') }}
+              onClick={() => helpMode ? showHelp('report_aurora') : (() => { setSightingPinMode(false); setSightingPendingCoords(null); setModal('reportAurora') })()}
               style={{
                 width: 53, flexShrink: 0, padding: 0,
                 background: sightingPinMode ? '#1a0a00' : '#1a0505',
@@ -654,7 +708,7 @@ function App() {
 
             {/* Place pin */}
             <button
-              onClick={() => { setPinMode(m => !m); setPendingPin(null) }}
+              onClick={() => helpMode ? showHelp('place_pin') : (() => { setPinMode(m => !m); setPendingPin(null) })()}
               style={{
                 width: 53, flexShrink: 0, padding: 0,
                 background: pinMode ? '#0d2a1a' : '#071a2a',
@@ -738,7 +792,10 @@ function App() {
             )}
           </div>
 
-          <div style={{ display: 'flex', gap: 8, alignItems: 'center', paddingRight: 10 }}>
+          <div
+            onClick={() => helpMode && showHelp('sw_cl_timestamps')}
+            style={{ display: 'flex', gap: 8, alignItems: 'center', paddingRight: 10, cursor: helpMode ? 'pointer' : 'default' }}
+          >
             <div style={{ color: '#2a3f55', fontSize: 8, letterSpacing: 0.5, fontFamily: FONT }}>
               SWL713
             </div>
@@ -770,7 +827,21 @@ function App() {
       </div>
 
       {/* Time slider */}
-      <TimeSlider value={selectedHour} onChange={setSelectedHour} />
+      <div
+        onClick={() => helpMode && showHelp('time_slider')}
+        style={{ cursor: helpMode ? 'pointer' : 'default' }}
+      >
+        <TimeSlider value={selectedHour} onChange={helpMode ? undefined : setSelectedHour} />
+      </div>
+
+      {/* Help popup */}
+      {helpEntry && (
+        <HelpPopup
+          title={helpEntry.title}
+          text={helpEntry.text}
+          onClose={closeHelp}
+        />
+      )}
 
       {/* Modals */}
       {modal && (

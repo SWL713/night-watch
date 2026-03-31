@@ -31,7 +31,7 @@ function parseCoords(q) {
   return { lat, lon }
 }
 
-export default function MapSearch({ onSelectResult, onAddPin }) {
+export default function MapSearch({ onSelectResult, onAddPin, helpMode, onHelpTap }) {
   const map = useMap()
   const [open, setOpen] = useState(false)
   const [query, setQuery] = useState('')
@@ -143,7 +143,7 @@ export default function MapSearch({ onSelectResult, onAddPin }) {
       <div style={{ position: 'absolute', top: 12, left: 12, zIndex: 2000 }}>
         {!open ? (
           <button
-            onClick={() => setOpen(true)}
+            onClick={() => helpMode ? onHelpTap?.('map_search') : setOpen(true)}
             title="Search location"
             style={{
               width: 36, height: 36,

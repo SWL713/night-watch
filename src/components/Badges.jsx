@@ -26,9 +26,7 @@ function gAtHour(selectedHour, kpNow, kpForecast) {
 
 const FONT = 'DejaVu Sans Mono, Consolas, monospace'
 
-// Accepts optional children rendered below HSS badge in the same flex column,
-// so bortle key and clear sky key share identical gap spacing automatically.
-export default function Badges({ spaceWeather, selectedHour, children }) {
+export default function Badges({ spaceWeather, selectedHour, helpMode, onHelpTap, children }) {
   const { hss_active, hss_watch, kp_now, kp_forecast } = spaceWeather
 
   const gLabel = gAtHour(selectedHour ?? 0, kp_now, kp_forecast)
@@ -47,27 +45,34 @@ export default function Badges({ spaceWeather, selectedHour, children }) {
       position: 'absolute', top: 12, right: 12, zIndex: 1000,
     }}>
       {/* G Badge */}
-      <div style={{
-        background: '#0a0810', border: `2px solid ${gColor}`,
-        borderRadius: 2, padding: '6px 10px', minWidth: 72,
-        textAlign: 'center', fontFamily: 'monospace',
-      }}>
+      <div
+        onClick={() => helpMode && onHelpTap?.('g_badge')}
+        style={{
+          background: '#0a0810', border: `2px solid ${gColor}`,
+          borderRadius: 2, padding: '6px 10px', minWidth: 72,
+          textAlign: 'center', fontFamily: 'monospace',
+          cursor: helpMode ? 'pointer' : 'default',
+        }}
+      >
         <div style={{ color: gColor + '99', fontSize: 9, letterSpacing: 1 }}>{gHeader}</div>
         <div style={{ color: gColor, fontSize: 26, fontWeight: 'bold', lineHeight: 1.1 }}>{gText}</div>
         <div style={{ color: gColor + '99', fontSize: 9, letterSpacing: 1 }}>{gFooter}</div>
       </div>
 
       {/* HSS Badge */}
-      <div style={{
-        background: '#080c14', border: `1.5px solid ${hssColor}`,
-        borderRadius: 2, padding: '4px 10px', minWidth: 72,
-        textAlign: 'center', fontFamily: 'monospace',
-      }}>
+      <div
+        onClick={() => helpMode && onHelpTap?.('hss_badge')}
+        style={{
+          background: '#080c14', border: `1.5px solid ${hssColor}`,
+          borderRadius: 2, padding: '4px 10px', minWidth: 72,
+          textAlign: 'center', fontFamily: 'monospace',
+          cursor: helpMode ? 'pointer' : 'default',
+        }}
+      >
         <div style={{ color: hssColor, fontSize: 11, fontWeight: 'bold', letterSpacing: 1 }}>HSS</div>
         <div style={{ color: hssColor + 'cc', fontSize: 9, letterSpacing: 1 }}>{hssSub}</div>
       </div>
 
-      {/* Bortle key and/or Clear Sky key — passed as children from App.jsx */}
       {children}
     </div>
   )

@@ -105,7 +105,7 @@ function bzToIntensity(bz) {
   return 'Calm'
 }
 
-export default function TimelinePanel({ spaceWeather, selectedHour, onHourSelect, moonData }) {
+export default function TimelinePanel({ spaceWeather, selectedHour, onHourSelect, moonData, helpMode, onHelpTap }) {
   const now = new Date()
 
   const { state, bz_now, intensity_label, aurora_quality, aurora_quality_color,
@@ -181,7 +181,10 @@ export default function TimelinePanel({ spaceWeather, selectedHour, onHourSelect
         </div>
 
         {/* Aurora image */}
-        <div style={{ flex:1, position:'relative', overflow:'hidden', minWidth:0 }}>
+        <div
+          style={{ flex:1, position:'relative', overflow:'hidden', minWidth:0, cursor: helpMode ? 'pointer' : 'default' }}
+          onClick={() => helpMode && onHelpTap?.('aurora_image')}
+        >
           <img src={auroraImg} alt={intensityAtHour} style={{
             position:'absolute', inset:0, width:'100%', height:'100%',
             objectFit:'cover', objectPosition:'center bottom', opacity:0.85,
@@ -190,11 +193,16 @@ export default function TimelinePanel({ spaceWeather, selectedHour, onHourSelect
             position:'absolute', inset:0,
             background:'linear-gradient(to bottom, rgba(6,8,15,0.55) 0%, rgba(6,8,15,0.15) 60%, rgba(6,8,15,0.5) 100%)',
           }} />
-          <img src={moonImg} alt={moonData.phaseLabel} style={{
-            position:'absolute', top:6, right:6, width:60, height:60,
-            objectFit:'contain', borderRadius:'50%',
-            filter:'drop-shadow(0 0 4px rgba(0,0,0,0.8))',
-          }} />
+          <img
+            src={moonImg} alt={moonData.phaseLabel}
+            onClick={e => { if (helpMode) { e.stopPropagation(); onHelpTap?.('moon_image') } }}
+            style={{
+              position:'absolute', top:6, right:6, width:60, height:60,
+              objectFit:'contain', borderRadius:'50%',
+              filter:'drop-shadow(0 0 4px rgba(0,0,0,0.8))',
+              cursor: helpMode ? 'pointer' : 'default',
+            }}
+          />
 
           <div style={{
             position:'absolute', top:8, left:8,
@@ -203,7 +211,10 @@ export default function TimelinePanel({ spaceWeather, selectedHour, onHourSelect
             {timeLabel}
           </div>
 
-          <div style={{ position:'absolute', bottom:8, left:8 }}>
+          <div
+            style={{ position:'absolute', bottom:8, left:8, cursor: helpMode ? 'pointer' : 'default' }}
+            onClick={e => { if (helpMode) { e.stopPropagation(); onHelpTap?.('bz_readout') } }}
+          >
             <div style={{ color:'#334455', fontSize:8, letterSpacing:1 }}>Bz</div>
             <div style={{
               color: bzAtHour < -5 ? '#ee5577' : bzAtHour < 0 ? '#ff8899' : '#44ddaa',
@@ -221,7 +232,10 @@ export default function TimelinePanel({ spaceWeather, selectedHour, onHourSelect
           borderLeft:'1px solid #1a2035',
           display:'flex', flexDirection:'column', justifyContent:'center',
         }}>
-          <div style={{ marginBottom:4 }}>
+          <div
+            style={{ marginBottom:4, cursor: helpMode ? 'pointer' : 'default' }}
+            onClick={() => helpMode && onHelpTap?.('chase_quality')}
+          >
             <div style={{ color:'#2a3a55', fontSize:7, letterSpacing:1, marginBottom:1 }}>
               CHASE QUALITY{!isNow ? ` · +${selectedHour}h` : ''}
             </div>
@@ -230,24 +244,15 @@ export default function TimelinePanel({ spaceWeather, selectedHour, onHourSelect
             </div>
           </div>
 
-          <StatRow
-            icon={`${BASE}/icons/fire_icon.png`}
-            label="Intensity"
-            value={intensityAtHour || 'Calm'}
-            color={intensityColor}
-          />
-          <StatRow
-            icon={`${BASE}/icons/moon_icon.png`}
-            label="Interference"
-            value={`${moonIllumAtHour}%`}
-            color={moonIllumAtHour < 25 ? '#44cc88' : moonIllumAtHour < 60 ? '#ffcc44' : '#ff5566'}
-          />
-          <StatRow
-            icon={`${BASE}/icons/sun_icon.png`}
-            label="Astro Dark"
-            value={`${astroDarkAtHour}%`}
-            color={astroDarkAtHour > 75 ? '#44cc88' : astroDarkAtHour > 40 ? '#ffcc44' : '#ff5566'}
-          />
+          <div onClick={() => helpMode && onHelpTap?.('intensity')} style={{ cursor: helpMode ? 'pointer' : 'default' }}>
+            <StatRow icon={`${BASE}/icons/fire_icon.png`} label="Intensity" value={intensityAtHour || 'Calm'} color={intensityColor} />
+          </div>
+          <div onClick={() => helpMode && onHelpTap?.('interference')} style={{ cursor: helpMode ? 'pointer' : 'default' }}>
+            <StatRow icon={`${BASE}/icons/moon_icon.png`} label="Interference" value={`${moonIllumAtHour}%`} color={moonIllumAtHour < 25 ? '#44cc88' : moonIllumAtHour < 60 ? '#ffcc44' : '#ff5566'} />
+          </div>
+          <div onClick={() => helpMode && onHelpTap?.('astro_dark')} style={{ cursor: helpMode ? 'pointer' : 'default' }}>
+            <StatRow icon={`${BASE}/icons/sun_icon.png`} label="Astro Dark" value={`${astroDarkAtHour}%`} color={astroDarkAtHour > 75 ? '#44cc88' : astroDarkAtHour > 40 ? '#ffcc44' : '#ff5566'} />
+          </div>
           <div style={{ marginTop:3, color:'#334455', fontSize:8 }}>
             {moonData.phaseLabel} · {moonIllumPct}% illuminated
           </div>
@@ -261,6 +266,8 @@ export default function TimelinePanel({ spaceWeather, selectedHour, onHourSelect
         onHourSelect={onHourSelect}
         bzTrace={bzTrace}
         plasmaTrace={plasmaTrace}
+        helpMode={helpMode}
+        onHelpTap={onHelpTap}
       />
     </div>
   )
