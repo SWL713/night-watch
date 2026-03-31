@@ -92,8 +92,9 @@ function App() {
 
 
   const [longShot, setLongShot] = useState(false)
-  const [userLocation, setUserLocation] = useState(null) // { lat, lng }
+  const [userLocation, setUserLocation] = useState(null)
   const mapRef = useRef(null)
+  const hasFlownToLocation = useRef(false)
   const [helpMode, setHelpMode] = useState(false)
   const [helpEntry, setHelpEntry] = useState(null) // { title, text }
 
@@ -198,12 +199,12 @@ function App() {
             opacity={0.8}
           />
 
-          {/* User location — pulsing crosshair, flies to location on first fix */}
+          {/* User location — pulsing crosshair, flies to location on first fix only */}
           <UserLocationLayer
             onLocationUpdate={loc => {
               setUserLocation(loc)
-              // Fly to user on first fix only
-              if (!userLocation && mapRef.current) {
+              if (!hasFlownToLocation.current && mapRef.current) {
+                hasFlownToLocation.current = true
                 mapRef.current.flyTo([loc.lat, loc.lng], 10, { duration: 1.5 })
               }
             }}
@@ -623,7 +624,7 @@ function App() {
           </div>
         )}
 
-        {/* Recenter button — left of ? button */}
+        {/* Recenter button — flies to user location */}
         <div style={{ position: 'absolute', bottom: 76, right: 44, zIndex: 1000 }}>
           <button
             onClick={() => {
@@ -635,13 +636,14 @@ function App() {
             title="Return to my location"
             style={{
               width: 28, height: 28,
-              background: '#070b16',
+              background: userLocation ? 'rgba(68,221,170,0.1)' : '#070b16',
               border: `1px solid ${userLocation ? '#44ddaa' : '#1a2a3a'}`,
               borderRadius: '50%',
               cursor: userLocation ? 'pointer' : 'default',
               display: 'flex', alignItems: 'center', justifyContent: 'center',
               color: userLocation ? '#44ddaa' : '#2a3a4a',
               fontSize: 14, fontFamily: FONT,
+              boxShadow: userLocation ? '0 0 6px rgba(68,221,170,0.3)' : 'none',
               transition: 'all 0.15s', outline: 'none',
             }}
           >⊕</button>
