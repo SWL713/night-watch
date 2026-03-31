@@ -25,6 +25,7 @@ import AdminQueue from './components/AdminQueue.jsx'
 
 import HelpPopup from './components/HelpPopup.jsx'
 import { HELP_CONTENT } from './utils/helpContent.js'
+import { useSpaceWeather } from './hooks/useSpaceWeather.js'
 import { useSpots } from './hooks/useSpots.js'
 import { useCloudCover } from './hooks/useCloudCover.js'
 import { getMoonData } from './utils/moon.js'
