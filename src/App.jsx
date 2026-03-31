@@ -636,12 +636,12 @@ function App() {
             title="Return to my location"
             style={{
               width: 28, height: 28,
-              background: userLocation ? 'rgba(42,74,74,0.15)' : '#070b16',
-              border: `1px solid ${userLocation ? '#2a4a4a' : '#1a2a3a'}`,
+              background: userLocation ? 'rgba(68,221,170,0.1)' : '#070b16',
+              border: `1px solid ${userLocation ? '#44ddaa' : '#1a2a3a'}`,
               borderRadius: '50%',
               cursor: userLocation ? 'pointer' : 'default',
               display: 'flex', alignItems: 'center', justifyContent: 'center',
-              color: userLocation ? '#2a4a4a' : '#1a2a3a',
+              color: userLocation ? '#44ddaa' : '#2a3a4a',
               fontSize: 14, fontFamily: FONT,
               transition: 'all 0.15s', outline: 'none',
             }}
