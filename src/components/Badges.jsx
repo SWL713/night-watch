@@ -44,20 +44,22 @@ export default function Badges({ spaceWeather, selectedHour, helpMode, onHelpTap
       display: 'flex', flexDirection: 'column', gap: 6,
       position: 'absolute', top: 12, right: 12, zIndex: 1000,
     }}>
-      {/* G Badge — perfect square, width = height ≈ 62px */}
+      {/* G Badge — explicit square 60×60px */}
       <div
         onClick={() => helpMode && onHelpTap?.('g_badge')}
         style={{
           background: '#0a0810', border: `2px solid ${gColor}`,
-          borderRadius: 2, padding: '6px 4px',
-          width: 62, boxSizing: 'border-box',
-          textAlign: 'center', fontFamily: 'monospace',
+          borderRadius: 2,
+          width: 60, height: 60, boxSizing: 'border-box',
+          display: 'flex', flexDirection: 'column',
+          alignItems: 'center', justifyContent: 'center',
+          fontFamily: 'monospace',
           cursor: helpMode ? 'pointer' : 'default',
         }}
       >
-        <div style={{ color: gColor + '99', fontSize: 8, letterSpacing: 0.5 }}>{gHeader}</div>
-        <div style={{ color: gColor, fontSize: 22, fontWeight: 'bold', lineHeight: 1.1 }}>{gText}</div>
-        <div style={{ color: gColor + '99', fontSize: 8, letterSpacing: 0.5 }}>{gFooter}</div>
+        <div style={{ color: gColor + '99', fontSize: 8, letterSpacing: 0.5, lineHeight: 1.2 }}>{gHeader}</div>
+        <div style={{ color: gColor, fontSize: 20, fontWeight: 'bold', lineHeight: 1.1 }}>{gText}</div>
+        <div style={{ color: gColor + '99', fontSize: 8, letterSpacing: 0.5, lineHeight: 1.2 }}>{gFooter}</div>
       </div>
 
       {/* HSS Badge — same width as G badge, natural height */}
@@ -65,9 +67,11 @@ export default function Badges({ spaceWeather, selectedHour, helpMode, onHelpTap
         onClick={() => helpMode && onHelpTap?.('hss_badge')}
         style={{
           background: '#080c14', border: `1.5px solid ${hssColor}`,
-          borderRadius: 2, padding: '4px 4px',
-          width: 62, boxSizing: 'border-box',
-          textAlign: 'center', fontFamily: 'monospace',
+          borderRadius: 2, padding: '4px 0',
+          width: 60, boxSizing: 'border-box',
+          display: 'flex', flexDirection: 'column',
+          alignItems: 'center', justifyContent: 'center',
+          fontFamily: 'monospace',
           cursor: helpMode ? 'pointer' : 'default',
         }}
       >
