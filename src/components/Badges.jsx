@@ -58,7 +58,7 @@ export default function Badges({ spaceWeather, selectedHour, helpMode, onHelpTap
         }}
       >
         <div style={{ color: gColor + '99', fontSize: 8, letterSpacing: 0.5, lineHeight: 1.2 }}>{gHeader}</div>
-        <div style={{ color: gColor, fontSize: 20, fontWeight: 'bold', lineHeight: 1.1 }}>{gText}</div>
+        <div style={{ color: gColor, fontSize: 28, fontWeight: 'bold', lineHeight: 1.1 }}>{gText}</div>
         <div style={{ color: gColor + '99', fontSize: 8, letterSpacing: 0.5, lineHeight: 1.2 }}>{gFooter}</div>
       </div>
 
