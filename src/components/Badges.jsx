@@ -44,13 +44,13 @@ export default function Badges({ spaceWeather, selectedHour, helpMode, onHelpTap
       display: 'flex', flexDirection: 'column', gap: 6,
       position: 'absolute', top: 12, right: 12, zIndex: 1000,
     }}>
-      {/* G Badge — explicit square 88×88px */}
+      {/* G Badge — square sized to content height ~62px */}
       <div
         onClick={() => helpMode && onHelpTap?.('g_badge')}
         style={{
           background: '#0a0810', border: `2px solid ${gColor}`,
           borderRadius: 2,
-          width: 88, height: 88, boxSizing: 'border-box',
+          width: 62, height: 62, boxSizing: 'border-box',
           display: 'flex', flexDirection: 'column',
           alignItems: 'center', justifyContent: 'center',
           fontFamily: 'monospace',
@@ -68,7 +68,7 @@ export default function Badges({ spaceWeather, selectedHour, helpMode, onHelpTap
         style={{
           background: '#080c14', border: `1.5px solid ${hssColor}`,
           borderRadius: 2, padding: '4px 0',
-          width: 88, boxSizing: 'border-box',
+          width: 62, boxSizing: 'border-box',
           display: 'flex', flexDirection: 'column',
           alignItems: 'center', justifyContent: 'center',
           fontFamily: 'monospace',
