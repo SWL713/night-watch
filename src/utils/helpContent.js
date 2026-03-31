@@ -106,6 +106,10 @@ export const HELP_CONTENT = {
     title: 'Data Timestamps',
     text: 'SW shows when space weather data was last updated. CL shows when the cloud cover forecast was last fetched. Both update automatically in the background — amber or red indicates stale data.',
   },
+  recenter: {
+    title: 'Return to My Location',
+    text: 'Returns the map to your current location.',
+  },
   help_button: {
     title: 'Help Mode',
     text: 'Toggles help mode. While active, tap any element on the map or interface to see a description of what it does.',

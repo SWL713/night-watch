@@ -23,6 +23,7 @@ import { useSightings, usePendingSpots } from './hooks/useSpots.js'
 import SubmitPhoto from './components/SubmitPhoto.jsx'
 import AdminQueue from './components/AdminQueue.jsx'
 
+import UserLocationLayer from './components/UserLocationLayer.jsx'
 import HelpPopup from './components/HelpPopup.jsx'
 import { HELP_CONTENT } from './utils/helpContent.js'
 import { useSpaceWeather } from './hooks/useSpaceWeather.js'
@@ -91,6 +92,8 @@ function App() {
 
 
   const [longShot, setLongShot] = useState(false)
+  const [userLocation, setUserLocation] = useState(null) // { lat, lng }
+  const mapRef = useRef(null)
   const [helpMode, setHelpMode] = useState(false)
   const [helpEntry, setHelpEntry] = useState(null) // { title, text }
 
@@ -185,6 +188,7 @@ function App() {
           wheelPxPerZoomLevel={120}
           zoomControl={false}
           worldCopyJump={true}
+          ref={mapRef}
           style={{ height: '100%', width: '100%', background: '#06080f', cursor: 'inherit' }}
         >
           {/* Dark base tile layer */}
@@ -192,6 +196,17 @@ function App() {
             url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png"
             attribution='&copy; <a href="https://carto.com/">CARTO</a> · NOAA SWPC'
             opacity={0.8}
+          />
+
+          {/* User location — pulsing crosshair, flies to location on first fix */}
+          <UserLocationLayer
+            onLocationUpdate={loc => {
+              setUserLocation(loc)
+              // Fly to user on first fix only
+              if (!userLocation && mapRef.current) {
+                mapRef.current.flyTo([loc.lat, loc.lng], 10, { duration: 1.5 })
+              }
+            }}
           />
 
 
@@ -607,6 +622,30 @@ function App() {
             📷 TAP YOUR SHOOTING LOCATION ON THE MAP
           </div>
         )}
+
+        {/* Recenter button — left of ? button */}
+        <div style={{ position: 'absolute', bottom: 76, right: 44, zIndex: 1000 }}>
+          <button
+            onClick={() => {
+              if (helpMode) { showHelp('recenter'); return }
+              if (userLocation && mapRef.current) {
+                mapRef.current.flyTo([userLocation.lat, userLocation.lng], 13, { duration: 1.2 })
+              }
+            }}
+            title="Return to my location"
+            style={{
+              width: 28, height: 28,
+              background: '#070b16',
+              border: `1px solid ${userLocation ? '#44ddaa' : '#1a2a3a'}`,
+              borderRadius: '50%',
+              cursor: userLocation ? 'pointer' : 'default',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              color: userLocation ? '#44ddaa' : '#2a3a4a',
+              fontSize: 14, fontFamily: FONT,
+              transition: 'all 0.15s', outline: 'none',
+            }}
+          >⊕</button>
+        </div>
 
         {/* ? Help button — bottom right above attribution */}
         <div style={{ position: 'absolute', bottom: 76, right: 10, zIndex: 1000 }}>

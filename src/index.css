@@ -105,3 +105,13 @@ button:focus-visible { outline: none; }
     display: flex !important;
   }
 }
+
+/* User location pulse animation */
+@keyframes nw-pulse {
+  0%   { transform: scale(1);   opacity: 0.8; }
+  70%  { transform: scale(2.8); opacity: 0; }
+  100% { transform: scale(2.8); opacity: 0; }
+}
+.nw-location-pulse {
+  animation: nw-pulse 2s ease-out infinite;
+}
