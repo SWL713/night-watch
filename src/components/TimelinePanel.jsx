@@ -226,7 +226,7 @@ export default function TimelinePanel({ spaceWeather, selectedHour, onHourSelect
           </div>
         </div>
 
-        {/* Stats panel — single tappable box on mobile */}
+        {/* Chase quality panel — single tappable box on mobile */}
         <div
           onClick={() => helpMode && onHelpTap?.('chase_quality')}
           style={{
