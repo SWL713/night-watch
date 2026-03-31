@@ -176,8 +176,10 @@ export default function TimelinePanel({ spaceWeather, selectedHour, onHourSelect
           display:'flex', alignItems:'center', justifyContent:'center',
           padding:'8px 4px', borderRight:'1px solid #1a2035',
         }}>
-          <img src={`${BASE}/logo.jpg`} alt="Substorm Society"
-            style={{ width:90, height:90, objectFit:'contain', borderRadius:4 }} />
+          <a href="https://www.facebook.com/share/g/1CUrP5oFuy/" target="_blank" rel="noopener">
+            <img src={`${BASE}/logo.jpg`} alt="Substorm Society"
+              style={{ width:90, height:90, objectFit:'contain', borderRadius:4, cursor:'pointer' }} />
+          </a>
         </div>
 
         {/* Aurora image */}
