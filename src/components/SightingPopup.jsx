@@ -51,16 +51,17 @@ export default function SightingPopup({ sighting, screenPos, adminAuthed, onDele
   }
 
   const containerStyle = {
-    position: 'absolute',
-    left: Math.min(screenPos.x + 12, window.innerWidth - 225),
-    top: Math.max(10, screenPos.y - 20),
-    zIndex: 1200,
+    position: 'fixed',
+    top: '50%', left: '50%',
+    transform: 'translate(-50%, -50%)',
+    zIndex: 9998,
     background: '#070b16',
     border: '1px solid #44ffaa44',
     borderRadius: 4,
     padding: '10px 12px',
-    minWidth: 200,
-    maxWidth: 220,
+    width: 'min(280px, 92vw)',
+    maxHeight: 'calc(100vh - 20px)',
+    overflowY: 'auto',
     fontFamily: FONT,
     boxShadow: '0 4px 20px rgba(0,0,0,0.7)',
     pointerEvents: 'all',

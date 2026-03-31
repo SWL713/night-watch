@@ -29,16 +29,18 @@ export default function CameraPopup({ camera, onClose }) {
 
   return (
     <div style={{
-      position: 'absolute',
+      position: 'fixed',
       top: '50%', left: '50%',
       transform: 'translate(-50%, -50%)',
-      zIndex: 2500,
+      zIndex: 9998,
       background: '#07090f',
       border: '1px solid #44aaff44',
       borderRadius: 6,
       boxShadow: '0 8px 32px rgba(0,0,0,0.85)',
       overflow: 'hidden',
       width: 'min(480px, 92vw)',
+      maxHeight: 'calc(100vh - 20px)',
+      overflowY: 'auto',
       fontFamily: FONT,
     }}>
       {/* Header */}
