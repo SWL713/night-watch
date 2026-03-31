@@ -56,7 +56,9 @@ export default function HelpPopup({ title, text, onClose }) {
           color: '#aabbcc', fontSize: 11,
           lineHeight: 1.7, fontFamily: FONT,
         }}>
-          {text}
+          {text.split('\n\n').map((para, i) => (
+            <p key={i} style={{ margin: i === 0 ? 0 : '8px 0 0 0' }}>{para}</p>
+          ))}
         </div>
       </div>
     </div>

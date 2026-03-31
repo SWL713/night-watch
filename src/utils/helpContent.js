@@ -24,7 +24,7 @@ export const HELP_CONTENT = {
   },
   chase_quality: {
     title: 'Chase Quality',
-    text: 'An overall chase quality score for the current or selected hour — combining aurora intensity, astronomical darkness, and moon interference into a single rating.',
+    text: 'An overall chase quality score for the current or selected hour — combining aurora intensity, astronomical darkness, and moon interference into a single rating.\n\nIntensity: Rates aurora driving strength from Calm to Extreme based on real-time solar wind conditions. Higher intensity means stronger and more widespread aurora pushed further south.\n\nInterference: A measure of how much the moon will impact aurora visibility and photography — combining lunar illumination and its position in the sky. Lower is better. When the moon is below the horizon interference drops to zero regardless of phase.\n\nAstro Dark: A measure of astronomical darkness at the current or selected hour. 0% is full daylight, 100% is reached once the sun is more than 18 degrees below the horizon. The gradient in between covers civil, nautical, and astronomical twilight.',
   },
   intensity: {
     title: 'Intensity',
