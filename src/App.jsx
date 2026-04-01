@@ -13,6 +13,7 @@ import SpotPins from './components/SpotPins.jsx'
 import SubmitSpot from './components/SubmitSpot.jsx'
 import MapSearch from './components/MapSearch.jsx'
 import SightingLayer from './components/SightingLayer.jsx'
+import { useSpaceWeatherHistory } from './hooks/useSpaceWeatherHistory.js'
 import SightingForm from './components/SightingForm.jsx'
 import CameraLayer from './components/CameraLayer.jsx'
 import ClearSkyLayer from './components/ClearSkyLayer.jsx'
@@ -80,6 +81,7 @@ export default function AppWrapper() {
 function App() {
   const [selectedHour, setSelectedHour] = useState(0)
   const [activeTab, setActiveTab] = useState('map')
+  const swHistory = useSpaceWeatherHistory(activeTab === 'spaceweather')
   const [layers, setLayers] = useState(initLayers())
   const [modal, setModal] = useState(null) // null | 'submitSpot' | 'submitPhoto' | 'admin'
   const [selectedSpotForPhoto, setSelectedSpotForPhoto] = useState(null)
@@ -192,8 +194,41 @@ function App() {
         activeTab={activeTab}
       />
 
-      {/* Content area — map or tab placeholder */}
-      {activeTab !== 'map' && (
+      {/* Content area — tab panels */}
+      {activeTab === 'spaceweather' && (
+        <div style={{ flex: 1, background: '#06080f', display: 'flex', flexDirection: 'column', overflow: 'hidden', fontFamily: FONT }}>
+          {swHistory.loading && (
+            <div style={{ color: '#334455', fontSize: 9, letterSpacing: 1, padding: '6px 12px', borderBottom: '1px solid #0d1525' }}>
+              LOADING SOLAR WIND DATA...
+            </div>
+          )}
+          {swHistory.error && (
+            <div style={{ color: '#ff5544', fontSize: 9, letterSpacing: 1, padding: '6px 12px', borderBottom: '1px solid #0d1525' }}>
+              DATA ERROR: {swHistory.error}
+            </div>
+          )}
+          {!swHistory.loading && !swHistory.error && (!swHistory.mag || swHistory.mag.length === 0) && (
+            <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <div style={{ border: '1px solid #44ddaa', padding: '24px 32px', color: '#44ddaa', fontSize: 11, letterSpacing: 2, textAlign: 'center', borderRadius: 2 }}>
+                SPACE WEATHER<br/><br/>LOADING DATA...
+              </div>
+            </div>
+          )}
+          {swHistory.mag && swHistory.mag.length > 0 && (
+            <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <div style={{ border: '1px solid #44ddaa', padding: '24px 32px', color: '#44ddaa', fontSize: 11, letterSpacing: 2, textAlign: 'center', borderRadius: 2 }}>
+                SPACE WEATHER<br/><br/>
+                <span style={{ fontSize: 9, color: '#2a4a5a' }}>
+                  {swHistory.mag.length} MAG PTS · {swHistory.plasma?.length || 0} PLASMA PTS · {swHistory.epam?.length || 0} EPAM PTS
+                </span><br/>
+                <span style={{ fontSize: 9, color: '#2a4a5a' }}>PLOTS COMING SOON</span>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
+      {(activeTab === 'substorm' || activeTab === 'cme') && (
         <div style={{
           flex: 1, background: '#000', display: 'flex',
           alignItems: 'center', justifyContent: 'center',
@@ -203,11 +238,9 @@ function App() {
             fontFamily: FONT, color: '#44ddaa', fontSize: 11,
             letterSpacing: 2, textAlign: 'center', borderRadius: 2,
           }}>
-            {activeTab === 'spaceweather' && 'SPACE WEATHER'}
-            {activeTab === 'substorm'    && 'SUBSTORM TIMING'}
-            {activeTab === 'cme'         && 'CME DASHBOARD'}
-            <br/><br/>
-            THIS FEATURE IS COMING SOON
+            {activeTab === 'substorm' && 'SUBSTORM TIMING'}
+            {activeTab === 'cme'      && 'CME DASHBOARD'}
+            <br/><br/>THIS FEATURE IS COMING SOON
           </div>
         </div>
       )}
