@@ -300,9 +300,22 @@ function App() {
                     if (!sessionStorage.getItem('nw_clearsky_seen')) {
                       setShowClearSkyIntro(true)
                     }
-                    // Immediately set anchor from GPS if available
-                    if (userLocation) {
-                      setClearSkyAnchor({ lat: userLocation.lat, lng: userLocation.lng })
+                    // Set anchor synchronously so circle appears immediately
+                    const anchor = manualAnchor
+                      ? manualAnchor
+                      : userLocation
+                      ? { lat: userLocation.lat, lng: userLocation.lng }
+                      : null
+                    if (anchor) {
+                      setClearSkyAnchor(anchor)
+                      // Center map on anchor immediately
+                      if (mapRef.current) {
+                        const R = clearSkyRadius / 69
+                        mapRef.current.fitBounds([
+                          [anchor.lat - R, anchor.lng - R * 1.5],
+                          [anchor.lat + R, anchor.lng + R * 1.5],
+                        ], { padding: [80, 80], animate: true, duration: 0.8 })
+                      }
                     }
                     setBestInCircle(null)
                   } else {
@@ -510,6 +523,7 @@ function App() {
                       setRenderedRadius(miles)
                       if (clearSkyAnchor && mapRef.current) {
                         const R = miles / 69
+                        // Use fitBounds so circle fits with padding — anchor stays centered
                         mapRef.current.fitBounds([
                           [clearSkyAnchor.lat - R, clearSkyAnchor.lng - R * 1.5],
                           [clearSkyAnchor.lat + R, clearSkyAnchor.lng + R * 1.5],
@@ -672,73 +686,78 @@ function App() {
         )}
 
         {/* Badges top-right */}
-        <Badges spaceWeather={sw} selectedHour={selectedHour} helpMode={helpMode} onHelpTap={showHelp}>
-          {/* Bortle key — slots into Badges flex column, same gap as G→HSS */}
-          {layers.bortle && (
-            <div style={{
-              alignSelf: 'flex-end',
-              background: 'rgba(6,8,15,0.85)', border: '1px solid #1a2a3a',
-              borderRadius: 4, padding: '4px 2px',
-              display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2,
-              pointerEvents: 'none',
-            }}>
-              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', marginBottom: 1 }}>
-                <span style={{ color: '#6688aa', fontSize: 6, fontFamily: FONT, letterSpacing: 0, lineHeight: 1.2 }}>BRT</span>
-                <span style={{ color: '#6688aa', fontSize: 6, fontFamily: FONT, letterSpacing: 0, lineHeight: 1.2 }}>EQV</span>
-              </div>
-              {[
-                { color: 'rgba(0,0,0,0)',        label: '1' },
-                { color: 'rgba(255,235,0,0.04)', label: '2' },
-                { color: 'rgba(255,225,0,0.28)', label: '3' },
-                { color: 'rgba(255,215,0,0.42)', label: '4' },
-                { color: 'rgba(255,200,0,0.55)', label: '5' },
-                { color: 'rgba(255,160,0,0.68)', label: '6' },
-                { color: 'rgba(255,70,0,0.80)',  label: '7' },
-                { color: 'rgba(255,10,0,0.88)',  label: '8' },
-                { color: 'rgba(255,0,40,0.95)',  label: '9' },
-              ].map(({ color, label }) => (
-                <div key={label} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 1 }}>
-                  <div style={{ width: 12, height: 9, borderRadius: 1, background: color, border: '1px solid rgba(255,255,255,0.12)' }} />
-                  <span style={{ color: '#aabbcc', fontSize: 6, fontFamily: FONT }}>{label}</span>
+        <Badges spaceWeather={sw} selectedHour={selectedHour} helpMode={helpMode} onHelpTap={showHelp} />
+
+        {/* Keys — horizontal row top-right, always below HSS badge, bortle on right, clear sky to its left */}
+        {(layers.bortle || clearSkyMode) && (
+          <div style={{
+            position: 'absolute', top: 155, right: 12,
+            zIndex: 1000, display: 'flex', flexDirection: 'row',
+            alignItems: 'flex-start', gap: 4, pointerEvents: 'none',
+          }}>
+            {/* Clear sky key — left of bortle */}
+            {clearSkyMode && (
+              <div style={{
+                background: 'rgba(6,8,15,0.85)', border: `1px solid ${longShot ? '#ff8c00' : '#1a2a3a'}`,
+                borderRadius: 4, padding: '4px 3px',
+                display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2,
+              }}>
+                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', marginBottom: 1 }}>
+                  <span style={{ color: '#44ddaa', fontSize: 6, fontFamily: FONT, letterSpacing: 0, lineHeight: 1.2 }}>CLR</span>
+                  <span style={{ color: '#44ddaa', fontSize: 6, fontFamily: FONT, letterSpacing: 0, lineHeight: 1.2 }}>SKY</span>
                 </div>
-              ))}
-            </div>
-          )}
-          {/* Clear sky key — slots into Badges flex column below bortle key (or HSS if bortle off) */}
-          {clearSkyMode && (
-            <div style={{
-              alignSelf: 'flex-end',
-              background: 'rgba(6,8,15,0.85)', border: `1px solid ${longShot ? '#ff8c00' : '#1a2a3a'}`,
-              borderRadius: 4, padding: '4px 2px',
-              display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2,
-              pointerEvents: 'none',
-            }}>
-              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', marginBottom: 1 }}>
-                <span style={{ color: '#44ddaa', fontSize: 6, fontFamily: FONT, letterSpacing: 0, lineHeight: 1.2 }}>CLR</span>
-                <span style={{ color: '#44ddaa', fontSize: 6, fontFamily: FONT, letterSpacing: 0, lineHeight: 1.2 }}>SKY</span>
-              </div>
-              {[
-                { alpha: 0.60, label: 'B' },
-                { alpha: 0.37, label: 'G' },
-                { alpha: 0.18, label: 'F' },
-              ].map(({ alpha, label }) => (
-                <div key={label} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 1 }}>
-                  <div style={{ width: 12, height: 9, borderRadius: 1, background: `rgba(0,210,160,${alpha})`, border: '1px solid rgba(255,255,255,0.12)' }} />
-                  <span style={{ color: '#aabbcc', fontSize: 6, fontFamily: FONT }}>{label}</span>
-                </div>
-              ))}
-              {longShot && (
-                <>
-                  <div style={{ width: 12, height: 1, background: 'rgba(255,140,0,0.3)', margin: '1px 0' }} />
-                  <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 1 }}>
-                    <div style={{ width: 12, height: 9, borderRadius: 1, background: 'rgba(150,210,120,0.18)', border: '1.5px dashed rgba(255,140,0,0.85)' }} />
-                    <span style={{ color: 'rgb(150,210,120)', fontSize: 6, fontFamily: FONT }}>L</span>
+                {[
+                  { alpha: 0.60, label: 'BEST' },
+                  { alpha: 0.37, label: 'GOOD' },
+                  { alpha: 0.18, label: 'FAIR' },
+                ].map(({ alpha, label }) => (
+                  <div key={label} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 1 }}>
+                    <div style={{ width: 18, height: 9, borderRadius: 1, background: `rgba(0,210,160,${alpha})`, border: '1px solid rgba(255,255,255,0.12)' }} />
+                    <span style={{ color: '#aabbcc', fontSize: 6, fontFamily: FONT }}>{label}</span>
                   </div>
-                </>
-              )}
-            </div>
-          )}
-        </Badges>
+                ))}
+                {longShot && (
+                  <>
+                    <div style={{ width: 18, height: 1, background: 'rgba(255,140,0,0.3)', margin: '1px 0' }} />
+                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 1 }}>
+                      <div style={{ width: 18, height: 9, borderRadius: 1, background: 'rgba(150,210,120,0.18)', border: '1.5px dashed rgba(255,140,0,0.85)' }} />
+                      <span style={{ color: 'rgb(150,210,120)', fontSize: 6, fontFamily: FONT }}>SHOT</span>
+                    </div>
+                  </>
+                )}
+              </div>
+            )}
+            {/* Bortle key — always on right */}
+            {layers.bortle && (
+              <div style={{
+                background: 'rgba(6,8,15,0.85)', border: '1px solid #1a2a3a',
+                borderRadius: 4, padding: '4px 2px',
+                display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2,
+              }}>
+                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', marginBottom: 1 }}>
+                  <span style={{ color: '#6688aa', fontSize: 6, fontFamily: FONT, letterSpacing: 0, lineHeight: 1.2 }}>BRT</span>
+                  <span style={{ color: '#6688aa', fontSize: 6, fontFamily: FONT, letterSpacing: 0, lineHeight: 1.2 }}>EQV</span>
+                </div>
+                {[
+                  { color: 'rgba(0,0,0,0)',        label: '1' },
+                  { color: 'rgba(255,235,0,0.04)', label: '2' },
+                  { color: 'rgba(255,225,0,0.28)', label: '3' },
+                  { color: 'rgba(255,215,0,0.42)', label: '4' },
+                  { color: 'rgba(255,200,0,0.55)', label: '5' },
+                  { color: 'rgba(255,160,0,0.68)', label: '6' },
+                  { color: 'rgba(255,70,0,0.80)',  label: '7' },
+                  { color: 'rgba(255,10,0,0.88)',  label: '8' },
+                  { color: 'rgba(255,0,40,0.95)',  label: '9' },
+                ].map(({ color, label }) => (
+                  <div key={label} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 1 }}>
+                    <div style={{ width: 12, height: 9, borderRadius: 1, background: color, border: '1px solid rgba(255,255,255,0.12)' }} />
+                    <span style={{ color: '#aabbcc', fontSize: 6, fontFamily: FONT }}>{label}</span>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
 
         {/* Night Watch title — hidden in clear sky mode to save space */}
         {!clearSkyMode && (
