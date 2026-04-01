@@ -119,6 +119,7 @@ export default function ClearSkyLayer({
     ctx.clearRect(0, 0, CANVAS_W, CANVAS_H)
     const imageData = ctx.createImageData(CANVAS_W, CANVAS_H)
     const d = imageData.data
+    const lsPixels = globalLongShot ? new Uint8Array(CANVAS_W * CANVAS_H) : null
     const latSpan = maxLat - minLat
     const lonSpan = maxLon - minLon
 
@@ -162,11 +163,37 @@ export default function ClearSkyLayer({
           const t = Math.max(0, Math.min(1, (p05 + AA * 100 - cf) / (2 * AA * 100)))
           const s = t * t * (3 - 2 * t)
           const alpha = Math.round(40 * s * edgeFade)
-          if (alpha > 0) { d[idx]=150; d[idx+1]=210; d[idx+2]=120; d[idx+3]=alpha }
+          if (alpha > 0) {
+            d[idx]=150; d[idx+1]=210; d[idx+2]=120; d[idx+3]=alpha
+            if (lsPixels) lsPixels[py * CANVAS_W + px] = 1
+          }
         }
       }
     }
     ctx.putImageData(imageData, 0, 0)
+
+    // Bake dashed orange border around Long Shot zone edges into canvas
+    if (globalLongShot && lsPixels) {
+      ctx.strokeStyle = 'rgba(255,140,0,0.75)'
+      ctx.lineWidth = 1
+      ctx.setLineDash([3, 6])
+      ctx.beginPath()
+      for (let py = 1; py < CANVAS_H - 1; py++) {
+        for (let px = 1; px < CANVAS_W - 1; px++) {
+          if (!lsPixels[py * CANVAS_W + px]) continue
+          if (
+            !lsPixels[(py-1) * CANVAS_W + px] ||
+            !lsPixels[(py+1) * CANVAS_W + px] ||
+            !lsPixels[py * CANVAS_W + px - 1] ||
+            !lsPixels[py * CANVAS_W + px + 1]
+          ) {
+            ctx.rect(px, py, 1, 1)
+          }
+        }
+      }
+      ctx.stroke()
+    }
+
     return { dataUrl: canvas.toDataURL('image/png'), bounds: { minLat, maxLat, minLon, maxLon }, longShot: globalLongShot }
   }, [cloudData, windowHours, anchor, renderedRadius])  // eslint-disable-line
 
@@ -257,20 +284,6 @@ export default function ClearSkyLayer({
     }).addTo(mapInstance)
     return () => { if (circleRef.current) { mapInstance.removeLayer(circleRef.current); circleRef.current = null } }
   }, [anchor, radiusMiles, mapInstance])
-
-  // ── 5. Long Shot dashed orange inner border ───────────────────────────────
-  const lsCircleRef = useRef(null)
-  useEffect(() => {
-    if (lsCircleRef.current) { mapInstance.removeLayer(lsCircleRef.current); lsCircleRef.current = null }
-    if (!anchor || !geoImage?.longShot) return
-    lsCircleRef.current = L.circle([anchor.lat, anchor.lng], {
-      radius: (radiusMiles - 1) * 1609.34,
-      color: 'rgba(255,140,0,0.7)', weight: 1,
-      fill: false, opacity: 0.7, interactive: false,
-      dashArray: '4 8',
-    }).addTo(mapInstance)
-    return () => { if (lsCircleRef.current) { mapInstance.removeLayer(lsCircleRef.current); lsCircleRef.current = null } }
-  }, [anchor, radiusMiles, geoImage?.longShot, mapInstance])
 
   return null
 }
