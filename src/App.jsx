@@ -516,28 +516,66 @@ function App() {
                 style={{ display: 'flex', alignItems: 'center', gap: 4 }}
                 onClick={() => helpMode && showHelp('radius_slider')}
               >
-                <input
-                  type="range" min={0} max={100}
-                  value={Math.round(Math.sqrt((clearSkyRadius - 10) / (400 - 10)) * 100)}
-                  onChange={e => {
-                    if (helpMode) return
-                    const pct = parseFloat(e.target.value) / 100
-                    const miles = Math.round(10 + pct * pct * (400 - 10))
-                    setClearSkyRadius(miles)
-                    clearTimeout(radiusDebounceRef.current)
-                    radiusDebounceRef.current = setTimeout(() => {
-                      setRenderedRadius(miles)
-                      if (clearSkyAnchor && mapRef.current) {
-                        const R = miles / 69
-                        mapRef.current.fitBounds([
-                          [clearSkyAnchor.lat - R, clearSkyAnchor.lng - R * 1.5],
-                          [clearSkyAnchor.lat + R, clearSkyAnchor.lng + R * 1.5],
-                        ], { paddingTopLeft: [120, 80], paddingBottomRight: [80, 120], animate: true, duration: 0.5 })
-                      }
-                    }, 200)
-                  }}
-                  style={{ width: 90, cursor: 'pointer' }}
-                />
+                {/* Custom slider — iOS Safari ignores CSS on native range inputs */}
+                {(() => {
+                  const sliderPct = Math.round(Math.sqrt((clearSkyRadius - 10) / (400 - 10)) * 100)
+                  const TRACK_W = 90
+                  const THUMB_W = 18, THUMB_H = 10
+                  const thumbLeft = Math.round((sliderPct / 100) * (TRACK_W - THUMB_W))
+                  return (
+                    <div
+                      style={{ position: 'relative', width: TRACK_W, height: 20, cursor: 'pointer', flexShrink: 0 }}
+                      onPointerDown={e => {
+                        if (helpMode) return
+                        e.currentTarget.setPointerCapture(e.pointerId)
+                        const rect = e.currentTarget.getBoundingClientRect()
+                        const update = clientX => {
+                          const pct = Math.max(0, Math.min(1, (clientX - rect.left) / rect.width))
+                          const miles = Math.round(10 + pct * pct * (400 - 10))
+                          setClearSkyRadius(miles)
+                          clearTimeout(radiusDebounceRef.current)
+                          radiusDebounceRef.current = setTimeout(() => {
+                            setRenderedRadius(miles)
+                            if (clearSkyAnchor && mapRef.current) {
+                              const R = miles / 69
+                              mapRef.current.fitBounds([
+                                [clearSkyAnchor.lat - R, clearSkyAnchor.lng - R * 1.5],
+                                [clearSkyAnchor.lat + R, clearSkyAnchor.lng + R * 1.5],
+                              ], { paddingTopLeft: [120, 80], paddingBottomRight: [80, 120], animate: true, duration: 0.5 })
+                            }
+                          }, 200)
+                        }
+                        update(e.clientX)
+                        e.currentTarget.onpointermove = ev => update(ev.clientX)
+                        e.currentTarget.onpointerup = () => { e.currentTarget.onpointermove = null; e.currentTarget.onpointerup = null }
+                      }}
+                    >
+                      {/* Track */}
+                      <div style={{
+                        position: 'absolute', top: '50%', left: 0,
+                        transform: 'translateY(-50%)',
+                        width: TRACK_W, height: 4,
+                        background: '#1a2a3a', borderRadius: 2,
+                      }} />
+                      {/* Fill */}
+                      <div style={{
+                        position: 'absolute', top: '50%', left: 0,
+                        transform: 'translateY(-50%)',
+                        width: thumbLeft + THUMB_W / 2,
+                        height: 4, background: '#44ddaa44', borderRadius: 2,
+                      }} />
+                      {/* Thumb */}
+                      <div style={{
+                        position: 'absolute', top: '50%',
+                        left: thumbLeft,
+                        transform: 'translateY(-50%)',
+                        width: THUMB_W, height: THUMB_H,
+                        background: '#44ddaa', borderRadius: 4,
+                        boxShadow: '0 1px 4px rgba(0,0,0,0.5)',
+                      }} />
+                    </div>
+                  )
+                })()}
                 <span style={{ color: '#2a6655', fontSize: 9, fontFamily: FONT, whiteSpace: 'nowrap' }}>
                   {Math.round(clearSkyRadius)}mi
                 </span>
