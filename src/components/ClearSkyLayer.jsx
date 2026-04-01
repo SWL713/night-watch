@@ -211,12 +211,16 @@ export default function ClearSkyLayer({
       svg.setAttribute('width', size.x)
       svg.setAttribute('height', size.y)
 
-      // containerPoint stays stable — no pane transform involved
-      const c  = mapInstance.latLngToContainerPoint([anchor.lat, anchor.lng])
-      const e  = mapInstance.latLngToContainerPoint([anchor.lat + milesToDeg(radiusMiles), anchor.lng])
-      const r  = Math.abs(e.y - c.y)
+      // Use same Mercator formula Leaflet uses for L.circle radius → pixels
+      // This guarantees mask circle matches the teal/orange boundary circle exactly
+      const zoom = mapInstance.getZoom()
+      const metersPerPixel = 40075016.686 *
+        Math.abs(Math.cos(anchor.lat * Math.PI / 180)) /
+        Math.pow(2, zoom + 8)
+      const r = (radiusMiles * 1609.34) / metersPerPixel
 
-      // Rect covering full viewport + padding, circle hole punched out via evenodd
+      const c = mapInstance.latLngToContainerPoint([anchor.lat, anchor.lng])
+
       const pad = 100
       const d = [
         `M ${-pad} ${-pad} h ${size.x + pad * 2} v ${size.y + pad * 2} h ${-(size.x + pad * 2)} Z`,
