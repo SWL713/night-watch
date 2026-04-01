@@ -207,23 +207,24 @@ export default function TimelinePanel({ spaceWeather, selectedHour, onHourSelect
           />
 
           <div style={{
-            position:'absolute', top:8, left:8,
+            position:'absolute', bottom:6, right:8,
             color:'#445566', fontSize:9, letterSpacing:1,
+            cursor: helpMode ? 'pointer' : 'default',
           }}>
             {timeLabel}
           </div>
 
           <div
-            style={{ position:'absolute', bottom:8, left:8, cursor: helpMode ? 'pointer' : 'default' }}
+            style={{ position:'absolute', bottom:6, left:8, cursor: helpMode ? 'pointer' : 'default' }}
             onClick={e => { if (helpMode) { e.stopPropagation(); onHelpTap?.('bz_readout') } }}
           >
-            <div style={{ color:'#334455', fontSize:8, letterSpacing:1 }}>Bz</div>
+            <div style={{ color:'#334455', fontSize:7, letterSpacing:1 }}>Bz</div>
             <div style={{
               color: bzAtHour < -5 ? '#ee5577' : bzAtHour < 0 ? '#ff8899' : '#44ddaa',
-              fontSize:22, fontWeight:'bold', lineHeight:1,
+              fontSize:18, fontWeight:'bold', lineHeight:1,
             }}>
               {bzAtHour != null ? (bzAtHour > 0 ? '+' : '') + bzAtHour.toFixed(1) : '—'}
-              <span style={{ fontSize:10, color:'#334455' }}> nT</span>
+              <span style={{ fontSize:9, color:'#334455' }}> nT</span>
             </div>
           </div>
         </div>
