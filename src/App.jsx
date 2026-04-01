@@ -202,6 +202,7 @@ function App() {
             mag={swHistory.mag}
             plasma={swHistory.plasma}
             epam={swHistory.epam}
+            stereo={swHistory.stereo}
             spaceWeather={sw}
             loading={swHistory.loading}
             error={swHistory.error}

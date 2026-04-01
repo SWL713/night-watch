@@ -500,7 +500,7 @@ function usePersist(key, def) {
 }
 
 // ── Main component ────────────────────────────────────────────────────────────
-export default function SpaceWeatherPanel({ mag, plasma, epam, spaceWeather }) {
+export default function SpaceWeatherPanel({ mag, plasma, epam, stereo, spaceWeather }) {
   const [subTab,      setSubTab]      = usePersist('subTab',      'l1')
   const [presetMs,    setPresetMs]    = usePersist('presetMs',    24 * 3600000)
   const [zoomRange,   setZoomRange]   = usePersist('zoomRange',   null)
@@ -527,6 +527,7 @@ export default function SpaceWeatherPanel({ mag, plasma, epam, spaceWeather }) {
   // Plot visibility toggles — EPAM
   const [showElec,    setShowElec]    = usePersist('showElec',    true)
   const [showProt,    setShowProt]    = usePersist('showProt',     true)
+  const [showStereo,  setShowStereo]  = usePersist('showStereo',  true)
 
   // Annotations toggle (SSC, SB markers) — off by default
   const [showAnnots,  setShowAnnots]  = usePersist('showAnnots',  false)
@@ -806,11 +807,59 @@ export default function SpaceWeatherPanel({ mag, plasma, epam, spaceWeather }) {
             </div>
           )}
 
+          {/* STEREO-A upstream preview */}
+          {showStereo && (
+            <div style={{ borderBottom: `1px solid ${C.border}`, flex: 1, display: 'flex', flexDirection: 'column', minHeight: 0 }}>
+              <div style={{ padding: '3px 8px 2px', flexShrink: 0 }}>
+                <span style={{ color: C.textDim, fontSize: 7, letterSpacing: 1 }}>STEREO-A UPSTREAM · Bz</span>
+                {stereo && stereo.length > 0
+                  ? <span style={{ color: '#2a4a5a', fontSize: 6, marginLeft: 8 }}>{stereo.length} PTS</span>
+                  : <span style={{ color: '#ff5544', fontSize: 6, marginLeft: 8 }}>NO DATA YET — ACCUMULATING</span>
+                }
+              </div>
+              {stereo && stereo.length > 0
+                ? <PlotCanvas
+                    data={stereo}
+                    series={[
+                      { key: 'bz', color: C.bz_pos, width: 1.6,
+                        colorFn: v => v < 0 ? C.bz_neg : C.bz_pos },
+                      { key: 'bt', color: C.bt, width: 1.0, dash: [3, 2] },
+                    ]}
+                    yMin={-20} yMax={20}
+                    {...commonProps} annotations={[]}
+                  />
+                : <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                    <span style={{ color: '#1a2a3a', fontSize: 8, letterSpacing: 1 }}>
+                      PIPELINE WILL POPULATE ON NEXT RUN
+                    </span>
+                  </div>
+              }
+            </div>
+          )}
+
+          {showStereo && stereo && stereo.length > 0 && (
+            <div style={{ borderBottom: `1px solid ${C.border}`, flex: 1, display: 'flex', flexDirection: 'column', minHeight: 0 }}>
+              <div style={{ padding: '3px 8px 2px', flexShrink: 0 }}>
+                <span style={{ color: C.textDim, fontSize: 7, letterSpacing: 1 }}>STEREO-A UPSTREAM · Speed &amp; Density</span>
+              </div>
+              <PlotCanvas
+                data={stereo}
+                series={[
+                  { key: 'speed',   color: C.speed,   width: 1.3 },
+                  { key: 'density', color: C.density, width: 1.3 },
+                ]}
+                yMin={200} yMax={900}
+                {...commonProps} annotations={[]}
+              />
+            </div>
+          )}
+
           {/* EPAM toggles */}
           <div style={{ display: 'flex', gap: 3, padding: '6px 8px', borderTop: `1px solid ${C.border}`, flexWrap: 'wrap', flexShrink: 0 }}>
             <span style={{ color: C.textDim, fontSize: 7, letterSpacing: 1, width: '100%', marginBottom: 2 }}>SHOW PLOTS</span>
-            <Toggle label="ELECTRONS" active={showElec} color={C.e38}  onClick={() => setShowElec(v => !v)} />
-            <Toggle label="PROTONS"   active={showProt} color={C.p310} onClick={() => setShowProt(v => !v)} />
+            <Toggle label="ELECTRONS" active={showElec}   color={C.e38}    onClick={() => setShowElec(v => !v)} />
+            <Toggle label="PROTONS"   active={showProt}   color={C.p310}   onClick={() => setShowProt(v => !v)} />
+            <Toggle label="STEREO-A"  active={showStereo} color="#cc88ff"  onClick={() => setShowStereo(v => !v)} />
             <div style={{ flex: 1 }} />
             <Toggle label="ZOOM"   active={zoomMode}   color="#ffaa44" onClick={() => { setZoomMode(v => !v); zoomStartRef.current = null; setZoomStep(0) }} />
             <Toggle label="ANNOTS" active={showAnnots} onClick={() => setShowAnnots(v => !v)} />

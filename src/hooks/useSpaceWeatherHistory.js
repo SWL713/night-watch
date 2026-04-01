@@ -1,31 +1,31 @@
 /**
  * useSpaceWeatherHistory
  *
- * Lazy-fetches 7-day IMF/plasma history and EPAM data for the Space Weather tab.
+ * Lazy-fetches 7-day IMF/plasma history, EPAM, and STEREO-A data.
  * Only fetches when `active` is true — does nothing while on other tabs.
- *
- * Returns parsed, ready-to-plot arrays. All timestamps are JS Date objects.
- * All fill values (-9999, -1e5, null) are stripped — gaps are represented as
- * missing array entries so the canvas renderer can draw hatched gap regions.
  *
  * Data files (written by pipeline every 15 min):
  *   data/sw_mag_7day.json     columns: [time, bx, by, bz, bt, phi]
  *   data/sw_plasma_7day.json  columns: [time, density, speed, temperature]
  *   data/sw_epam.json         columns: [time, e38, e175, p47, p68, p115, p310, p795, p1060]
+ *   data/sw_stereo_a.json     columns: [time, bz, bt, bx, by, speed, density]
  */
 
 import { useState, useEffect, useRef } from 'react'
 
-const BASE = 'https://raw.githubusercontent.com/SWL713/night-watch/main/data'
-const MAG_URL     = `${BASE}/sw_mag_7day.json`
-const PLASMA_URL  = `${BASE}/sw_plasma_7day.json`
-const EPAM_URL    = `${BASE}/sw_epam.json`
+const BASE       = 'https://raw.githubusercontent.com/SWL713/night-watch/main/data'
+const MAG_URL    = `${BASE}/sw_mag_7day.json`
+const PLASMA_URL = `${BASE}/sw_plasma_7day.json`
+const EPAM_URL   = `${BASE}/sw_epam.json`
+const STEREO_URL = `${BASE}/sw_stereo_a.json`
 
-// Cache TTL: re-fetch at most once per 10 minutes per file
 const TTL_MS = 10 * 60 * 1000
 
-// Module-level cache so data persists across tab switches without re-fetching
-const _cache = { mag: null, plasma: null, epam: null, fetchedAt: {} }
+// Module-level cache persists across tab switches
+const _cache = {
+  mag: null, plasma: null, epam: null, stereo: null,
+  fetchedAt: {}
+}
 
 async function fetchJson(url) {
   const res = await fetch(url)
@@ -33,15 +33,23 @@ async function fetchJson(url) {
   return res.json()
 }
 
+// Fetch without throwing on 404 — STEREO-A file may not exist on first pipeline run
+async function fetchJsonSoft(url) {
+  try {
+    const res = await fetch(url)
+    if (!res.ok) return null
+    return res.json()
+  } catch (_) {
+    return null
+  }
+}
+
 /**
  * Parse a column-array file into an array of typed objects.
- * Strips null values but preserves time gaps (null rows become missing entries).
- * @param {object} raw   - { columns: [...], data: [[...], ...] }
- * @param {string[]} keep - which column names to include (all if omitted)
- * @returns {object[]} array of { time: Date, [col]: number|null, ... }
+ * { columns: [...], data: [[...], ...] } -> [{ time: Date, col: number|null, ... }]
  */
 function parseColumnFile(raw, keep) {
-  if (!raw?.columns || !raw?.data) return []
+  if (!raw || !raw.columns || !raw.data) return []
   const cols = raw.columns
   const ti = cols.indexOf('time')
   if (ti === -1) return []
@@ -69,6 +77,7 @@ export function useSpaceWeatherHistory(active) {
   const [mag,    setMag]    = useState(_cache.mag)
   const [plasma, setPlasma] = useState(_cache.plasma)
   const [epam,   setEpam]   = useState(_cache.epam)
+  const [stereo, setStereo] = useState(_cache.stereo)
   const [loading, setLoading] = useState(false)
   const [error,   setError]   = useState(null)
   const fetchedRef = useRef(false)
@@ -76,53 +85,49 @@ export function useSpaceWeatherHistory(active) {
   useEffect(() => {
     if (!active) return
 
-    // Check if cached data is still fresh
     const now = Date.now()
-    const magFresh    = _cache.mag    && (now - (_cache.fetchedAt.mag    || 0)) < TTL_MS
-    const plasmaFresh = _cache.plasma && (now - (_cache.fetchedAt.plasma || 0)) < TTL_MS
-    const epamFresh   = _cache.epam   && (now - (_cache.fetchedAt.epam   || 0)) < TTL_MS
+    const fresh = key => _cache[key] !== null && (now - (_cache.fetchedAt[key] || 0)) < TTL_MS
 
-    if (magFresh && plasmaFresh && epamFresh) {
+    if (fresh('mag') && fresh('plasma') && fresh('epam') && fresh('stereo')) {
       setMag(_cache.mag)
       setPlasma(_cache.plasma)
       setEpam(_cache.epam)
+      setStereo(_cache.stereo)
       return
     }
 
     if (fetchedRef.current) return
     fetchedRef.current = true
-
     setLoading(true)
     setError(null)
 
     const fetchAll = async () => {
       try {
-        const [magRaw, plasmaRaw, epamRaw] = await Promise.all([
-          magFresh    ? Promise.resolve(null) : fetchJson(MAG_URL),
-          plasmaFresh ? Promise.resolve(null) : fetchJson(PLASMA_URL),
-          epamFresh   ? Promise.resolve(null) : fetchJson(EPAM_URL),
+        const [magRaw, plasmaRaw, epamRaw, stereoRaw] = await Promise.all([
+          fresh('mag')    ? Promise.resolve(null) : fetchJson(MAG_URL),
+          fresh('plasma') ? Promise.resolve(null) : fetchJson(PLASMA_URL),
+          fresh('epam')   ? Promise.resolve(null) : fetchJson(EPAM_URL),
+          fresh('stereo') ? Promise.resolve(null) : fetchJsonSoft(STEREO_URL),
         ])
 
         if (magRaw) {
-          const parsed = parseColumnFile(magRaw, ['bx', 'by', 'bz', 'bt', 'phi'])
-          _cache.mag = parsed
-          _cache.fetchedAt.mag = Date.now()
-          setMag(parsed)
+          const p = parseColumnFile(magRaw, ['bx', 'by', 'bz', 'bt', 'phi'])
+          _cache.mag = p; _cache.fetchedAt.mag = Date.now(); setMag(p)
         }
-
         if (plasmaRaw) {
-          const parsed = parseColumnFile(plasmaRaw, ['density', 'speed', 'temperature'])
-          _cache.plasma = parsed
-          _cache.fetchedAt.plasma = Date.now()
-          setPlasma(parsed)
+          const p = parseColumnFile(plasmaRaw, ['density', 'speed', 'temperature'])
+          _cache.plasma = p; _cache.fetchedAt.plasma = Date.now(); setPlasma(p)
         }
-
         if (epamRaw) {
-          const parsed = parseColumnFile(epamRaw, ['e38', 'e175', 'p47', 'p68', 'p115', 'p310', 'p795', 'p1060'])
-          _cache.epam = parsed
-          _cache.fetchedAt.epam = Date.now()
-          setEpam(parsed)
+          const p = parseColumnFile(epamRaw, ['e38', 'e175', 'p47', 'p68', 'p115', 'p310', 'p795', 'p1060'])
+          _cache.epam = p; _cache.fetchedAt.epam = Date.now(); setEpam(p)
         }
+        // STEREO-A: soft fetch — null if file doesn't exist yet
+        const stereoVal = stereoRaw
+          ? parseColumnFile(stereoRaw, ['bz', 'bt', 'bx', 'by', 'speed', 'density'])
+          : []
+        _cache.stereo = stereoVal; _cache.fetchedAt.stereo = Date.now(); setStereo(stereoVal)
+
       } catch (err) {
         setError(err.message)
       } finally {
@@ -134,5 +139,5 @@ export function useSpaceWeatherHistory(active) {
     fetchAll()
   }, [active])
 
-  return { mag, plasma, epam, loading, error }
+  return { mag, plasma, epam, stereo, loading, error }
 }

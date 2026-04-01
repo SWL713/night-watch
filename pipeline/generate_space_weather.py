@@ -26,6 +26,7 @@ CLOUD_OUTPUT_PATH = os.path.join(os.path.dirname(__file__), '..', 'data', 'cloud
 SW_MAG_PATH       = os.path.join(os.path.dirname(__file__), '..', 'data', 'sw_mag_7day.json')
 SW_PLASMA_PATH    = os.path.join(os.path.dirname(__file__), '..', 'data', 'sw_plasma_7day.json')
 SW_EPAM_PATH      = os.path.join(os.path.dirname(__file__), '..', 'data', 'sw_epam.json')
+SW_STEREO_A_PATH  = os.path.join(os.path.dirname(__file__), '..', 'data', 'sw_stereo_a.json')
 
 # ── Data source URLs ─────────────────────────────────────────────────────────
 DSCOVR_MAG_URL    = 'https://services.swpc.noaa.gov/json/rtsw/rtsw_mag_1m.json'
@@ -36,6 +37,22 @@ NOAA_FORECAST_URL = 'https://services.swpc.noaa.gov/text/3-day-forecast.txt'
 OVATION_URL       = 'https://services.swpc.noaa.gov/json/ovation_aurora_latest.json'
 ENLIL_BASE        = 'https://nomads.ncep.noaa.gov/pub/data/nccf/com/wsa_enlil/prod/'
 ENLIL_JSON_URL    = 'https://services.swpc.noaa.gov/json/enlil_time_series.json'
+
+# STEREO-A: multiple URL candidates — first 200-OK wins, logged so we can pin the right one
+STEREO_A_MAG_CANDIDATES = [
+    'https://services.swpc.noaa.gov/json/stereo/stereo_a_7day.json',
+    'https://services.swpc.noaa.gov/json/stereo/stereo_a_mag_7day.json',
+    'https://services.swpc.noaa.gov/json/stereo/stereo_a_mag_1m.json',
+    'https://services.swpc.noaa.gov/json/stereo/stereo-a-mag-7-day.json',
+    'https://services.swpc.noaa.gov/products/solar-wind/ste-a-mag.json',
+    'https://services.swpc.noaa.gov/json/stereo/stereo_a_impact_mag_1m.json',
+]
+STEREO_A_PLASMA_CANDIDATES = [
+    'https://services.swpc.noaa.gov/json/stereo/stereo_a_plasma_7day.json',
+    'https://services.swpc.noaa.gov/json/stereo/stereo_a_plastic_1m.json',
+    'https://services.swpc.noaa.gov/json/stereo/stereo-a-plasma-7-day.json',
+    'https://services.swpc.noaa.gov/products/solar-wind/ste-a-plasma.json',
+]
 KP_1M_URL         = 'https://services.swpc.noaa.gov/json/planetary_k_index_1m.json'
 KP_FORECAST_URL   = 'https://services.swpc.noaa.gov/products/noaa-planetary-k-index-forecast.json'
 SW_MAG_7DAY_URL   = 'https://services.swpc.noaa.gov/products/solar-wind/mag-7-day.json'
@@ -1002,6 +1019,178 @@ def fetch_epam():
     return True
 
 
+def _probe_url(candidates):
+    """Try each URL in order, return (url, data) for first 200-OK JSON response."""
+    for url in candidates:
+        try:
+            r = requests.get(url, timeout=15)
+            if r.status_code == 200:
+                data = r.json()
+                if data:
+                    log.info(f'STEREO-A: using {url}')
+                    return url, data
+        except Exception as e:
+            log.debug(f'STEREO-A probe {url}: {e}')
+    return None, None
+
+
+def fetch_sw_stereo_a():
+    """
+    Fetch STEREO-A in-situ solar wind data from NOAA SWPC.
+    STEREO-A orbits ahead of Earth — its data gives advance warning of
+    solar wind conditions before they reach L1/DSCOVR.
+
+    Probes multiple URL candidates; logs which one succeeds so we can pin it.
+    Uses merge+cache so history accumulates to 7 days across runs.
+
+    Output: data/sw_stereo_a.json
+    Columns: [time, bz, bt, bx, by, speed, density]
+
+    Data characteristics:
+    - Beacon mode: low-rate, compressed — cadence varies (1-60 min gaps normal)
+    - Fill values: -1e5, -999, None — all filtered
+    - Lead time over L1: depends on STEREO-A's current separation angle
+      (stored in output metadata so frontend can display "N hours upstream")
+    """
+    # Try mag first
+    mag_url, mag_data = _probe_url(STEREO_A_MAG_CANDIDATES)
+    if not mag_data:
+        log.warning('STEREO-A: no mag URL responded — skipping')
+        return False
+
+    # Try plasma (optional — don't abort if missing)
+    plasma_url, plasma_data = _probe_url(STEREO_A_PLASMA_CANDIDATES)
+    if plasma_data:
+        log.info(f'STEREO-A plasma: {len(plasma_data)} records')
+    else:
+        log.warning('STEREO-A: no plasma URL responded — mag only')
+
+    # ── Parse mag ────────────────────────────────────────────────────────────
+    # STEREO-A data can be column-array (header row first) or list-of-dicts
+    mag_rows_raw = []
+    if isinstance(mag_data, list) and len(mag_data) > 1:
+        if isinstance(mag_data[0], list):
+            # Column-array format: first row = headers
+            headers = [str(h).lower().strip() for h in mag_data[0]]
+            ti  = next((i for i, h in enumerate(headers) if 'time' in h), 0)
+            bxi = next((i for i, h in enumerate(headers) if h in ('bx','bx_gse','bx_gsm')), None)
+            byi = next((i for i, h in enumerate(headers) if h in ('by','by_gse','by_gsm')), None)
+            bzi = next((i for i, h in enumerate(headers) if h in ('bz','bz_gse','bz_gsm')), None)
+            bti = next((i for i, h in enumerate(headers) if h in ('bt','b_total','btotal','b')), None)
+            log.info(f'STEREO-A mag headers: {headers} | bx={bxi} by={byi} bz={bzi} bt={bti}')
+            for row in mag_data[1:]:
+                mag_rows_raw.append({'time': row[ti],
+                    'bx': row[bxi] if bxi is not None else None,
+                    'by': row[byi] if byi is not None else None,
+                    'bz': row[bzi] if bzi is not None else None,
+                    'bt': row[bti] if bti is not None else None})
+        elif isinstance(mag_data[0], dict):
+            # Dict format
+            first = mag_data[0]
+            log.info(f'STEREO-A mag dict keys: {list(first.keys())}')
+            def _pick(rec, names):
+                for n in names:
+                    if n in rec: return rec[n]
+                return None
+            for rec in mag_data:
+                t = rec.get('time_tag') or rec.get('time') or rec.get('Time')
+                mag_rows_raw.append({'time': t,
+                    'bx': _pick(rec, ['bx_gsm','bx_gse','Bx','bx']),
+                    'by': _pick(rec, ['by_gsm','by_gse','By','by']),
+                    'bz': _pick(rec, ['bz_gsm','bz_gse','Bz','bz']),
+                    'bt': _pick(rec, ['bt','b_total','B','btotal'])})
+
+    # ── Parse plasma ─────────────────────────────────────────────────────────
+    plasma_lookup = {}  # time_str → {speed, density}
+    if plasma_data and isinstance(plasma_data, list) and len(plasma_data) > 1:
+        if isinstance(plasma_data[0], list):
+            headers = [str(h).lower().strip() for h in plasma_data[0]]
+            ti  = next((i for i, h in enumerate(headers) if 'time' in h), 0)
+            si  = next((i for i, h in enumerate(headers) if 'speed' in h or h == 'v'), None)
+            di  = next((i for i, h in enumerate(headers) if 'density' in h or h in ('n','np')), None)
+            log.info(f'STEREO-A plasma headers: {headers}')
+            for row in plasma_data[1:]:
+                t = str(row[ti])
+                plasma_lookup[t] = {
+                    'speed':   row[si] if si is not None else None,
+                    'density': row[di] if di is not None else None,
+                }
+        elif isinstance(plasma_data[0], dict):
+            first = plasma_data[0]
+            log.info(f'STEREO-A plasma dict keys: {list(first.keys())}')
+            def _pick(rec, names):
+                for n in names:
+                    if n in rec: return rec[n]
+                return None
+            for rec in plasma_data:
+                t = str(rec.get('time_tag') or rec.get('time') or '')
+                plasma_lookup[t] = {
+                    'speed':   _pick(rec, ['speed','proton_speed','v','V']),
+                    'density': _pick(rec, ['density','proton_density','n','Np']),
+                }
+
+    # ── Build rows ───────────────────────────────────────────────────────────
+    FILL = -9e4  # catch -1e5 and -999 fill values
+    def fv(v, lo=None, hi=None):
+        if v is None: return None
+        try:
+            f = float(v)
+            if f < FILL: return None
+            if lo is not None and f < lo: return None
+            if hi is not None and f > hi: return None
+            return round(f, 3)
+        except Exception:
+            return None
+
+    new_rows = []
+    for raw in mag_rows_raw:
+        t = str(raw.get('time', '')).replace('Z', '+00:00').strip()
+        if not t: continue
+        plasma = plasma_lookup.get(t, {})
+        row = [
+            t,
+            fv(raw.get('bz'), lo=-200, hi=200),
+            fv(raw.get('bt'), lo=0,    hi=200),
+            fv(raw.get('bx'), lo=-200, hi=200),
+            fv(raw.get('by'), lo=-200, hi=200),
+            fv(plasma.get('speed'),   lo=100, hi=4000),
+            fv(plasma.get('density'), lo=0.01, hi=500),
+        ]
+        new_rows.append(row)
+
+    log.info(f'STEREO-A: {len(new_rows)} fresh rows parsed')
+
+    # ── Merge with cache ─────────────────────────────────────────────────────
+    cached_rows = []
+    try:
+        with open(SW_STEREO_A_PATH) as f:
+            existing = json.load(f)
+        cached_rows = existing.get('data', [])
+        log.info(f'STEREO-A: {len(cached_rows)} rows from cache')
+    except Exception:
+        log.info('STEREO-A: no existing cache (first run)')
+
+    merged = {row[0]: row for row in cached_rows}
+    for row in new_rows:
+        merged[row[0]] = row
+    rows = sorted(merged.values(), key=lambda r: r[0])
+    rows = _purge_old(rows, time_key=0, cutoff_days=8)
+    log.info(f'STEREO-A: {len(rows)} rows after merge+purge')
+
+    output = {
+        'fetched_at':  datetime.now(timezone.utc).isoformat(),
+        'mag_url':     mag_url,
+        'plasma_url':  plasma_url,
+        'columns':     ['time', 'bz', 'bt', 'bx', 'by', 'speed', 'density'],
+        'data':        rows,
+    }
+    os.makedirs(os.path.dirname(SW_STEREO_A_PATH), exist_ok=True)
+    with open(SW_STEREO_A_PATH, 'w') as f:
+        json.dump(output, f, separators=(',', ':'))
+    log.info(f'sw_stereo_a.json written: {len(rows)} points | mag_url={mag_url}')
+    return True
+
+
 # ── Main ──────────────────────────────────────────────────────────────────────
 
 def main():
@@ -1154,10 +1343,11 @@ def main():
     log.info(f'space_weather.json written: state={state} intensity={intensity_label} '
              f'bz={bz_now:.1f} quality={quality_label}')
 
-    # Fetch 7-day history and EPAM for Space Weather tab
+    # Fetch 7-day history, EPAM, and STEREO-A for Space Weather tab
     fetch_sw_mag_7day()
     fetch_sw_plasma_7day()
     fetch_epam()
+    fetch_sw_stereo_a()
 
 
 
@@ -1581,10 +1771,11 @@ def main_with_clouds():
         json.dump(sw_output, f, indent=2)
     log.info(f'space_weather.json written: {state} {intensity_label} bz={bz_now:.1f}')
 
-    # Fetch 7-day history and EPAM for Space Weather tab
+    # Fetch 7-day history, EPAM, and STEREO-A for Space Weather tab
     fetch_sw_mag_7day()
     fetch_sw_plasma_7day()
     fetch_epam()
+    fetch_sw_stereo_a()
 
     # Cloud cover — HRRR primary (3km, no rate limits, no seams)
     # Falls back to Open-Meteo if HRRR fails or covers < 80% of grid
