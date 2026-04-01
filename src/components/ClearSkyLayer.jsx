@@ -172,28 +172,6 @@ export default function ClearSkyLayer({
     }
     ctx.putImageData(imageData, 0, 0)
 
-    // Bake dashed orange border around Long Shot zone edges into canvas
-    if (globalLongShot && lsPixels) {
-      ctx.strokeStyle = 'rgba(255,140,0,0.75)'
-      ctx.lineWidth = 1
-      ctx.setLineDash([3, 6])
-      ctx.beginPath()
-      for (let py = 1; py < CANVAS_H - 1; py++) {
-        for (let px = 1; px < CANVAS_W - 1; px++) {
-          if (!lsPixels[py * CANVAS_W + px]) continue
-          if (
-            !lsPixels[(py-1) * CANVAS_W + px] ||
-            !lsPixels[(py+1) * CANVAS_W + px] ||
-            !lsPixels[py * CANVAS_W + px - 1] ||
-            !lsPixels[py * CANVAS_W + px + 1]
-          ) {
-            ctx.rect(px, py, 1, 1)
-          }
-        }
-      }
-      ctx.stroke()
-    }
-
     return { dataUrl: canvas.toDataURL('image/png'), bounds: { minLat, maxLat, minLon, maxLon }, longShot: globalLongShot }
   }, [cloudData, windowHours, anchor, renderedRadius])  // eslint-disable-line
 
@@ -207,50 +185,41 @@ export default function ClearSkyLayer({
     return () => { if (overlayRef.current) { mapInstance.removeLayer(overlayRef.current); overlayRef.current = null } }
   }, [geoImage, mapInstance])
 
-  // ── 3. Mask — fixed position div on body, immune to Leaflet pane transforms ──
+  // ── 3. Mask — overlayPane canvas using layerPoint coordinates ────────────
   useEffect(() => {
     if (!anchor) return
 
-    // Get map container DOM element for bounding rect
-    const mapContainer = mapInstance.getContainer()
-
     function drawMask() {
-      const rect = mapContainer.getBoundingClientRect()
-      const dpr  = Math.min(window.devicePixelRatio || 1, 1.5)
-      const W = Math.round(rect.width * dpr)
-      const H = Math.round(rect.height * dpr)
+      const size = mapInstance.getSize()
 
       if (!maskRef.current) {
         const c = document.createElement('canvas')
-        c.style.cssText = `
-          position:fixed;pointer-events:none;z-index:400;
-          left:${rect.left}px;top:${rect.top}px;
-          width:${rect.width}px;height:${rect.height}px;
-        `
-        document.body.appendChild(c)
+        c.style.cssText = 'position:absolute;top:0;left:0;pointer-events:none;z-index:202;'
+        mapInstance.getPanes().overlayPane.appendChild(c)
         maskRef.current = c
       }
 
       const canvas = maskRef.current
-      // Update position in case map container moved
-      canvas.style.left  = rect.left + 'px'
-      canvas.style.top   = rect.top  + 'px'
-      canvas.style.width  = rect.width  + 'px'
-      canvas.style.height = rect.height + 'px'
-      canvas.width  = W
-      canvas.height = H
+      canvas.width  = size.x
+      canvas.height = size.y
+      canvas.style.width  = size.x + 'px'
+      canvas.style.height = size.y + 'px'
+
+      // Keep canvas aligned with the pane's transform offset
+      const topLeft = mapInstance.containerPointToLayerPoint([0, 0])
+      L.DomUtil.setPosition(canvas, topLeft)
 
       const ctx = canvas.getContext('2d')
-      ctx.clearRect(0, 0, W, H)
+      ctx.clearRect(0, 0, size.x, size.y)
       ctx.fillStyle = 'rgba(6,8,15,0.72)'
-      ctx.fillRect(0, 0, W, H)
+      ctx.fillRect(0, 0, size.x, size.y)
 
-      // Convert anchor and edge point to container pixels
-      const center = mapInstance.latLngToContainerPoint([anchor.lat, anchor.lng])
-      const edgePt = mapInstance.latLngToContainerPoint([anchor.lat + milesToDeg(radiusMiles), anchor.lng])
-      const radiusPx = Math.abs(edgePt.y - center.y) * dpr
-      const cx = center.x * dpr
-      const cy = center.y * dpr
+      // Use layerPoint so coordinates match the pane transform exactly
+      const centerLayer = mapInstance.latLngToLayerPoint([anchor.lat, anchor.lng])
+      const edgeLayer   = mapInstance.latLngToLayerPoint([anchor.lat + milesToDeg(radiusMiles), anchor.lng])
+      const radiusPx    = Math.abs(edgeLayer.y - centerLayer.y)
+      const cx = centerLayer.x - topLeft.x
+      const cy = centerLayer.y - topLeft.y
 
       ctx.globalCompositeOperation = 'destination-out'
       ctx.beginPath()
@@ -259,31 +228,37 @@ export default function ClearSkyLayer({
       ctx.fill()
       ctx.globalCompositeOperation = 'source-over'
 
-      // Report circle bottom-center in container coords for label positioning
-      onCircleBottom?.({ x: center.x, y: center.y + Math.abs(edgePt.y - center.y) + 10 })
+      // Report circle bottom-center in container coords for label
+      const centerContainer = mapInstance.latLngToContainerPoint([anchor.lat, anchor.lng])
+      const edgeContainer   = mapInstance.latLngToContainerPoint([anchor.lat + milesToDeg(radiusMiles), anchor.lng])
+      onCircleBottom?.({ x: centerContainer.x, y: centerContainer.y + Math.abs(edgeContainer.y - centerContainer.y) + 10 })
     }
 
     drawMask()
     mapInstance.on('moveend zoomend resize move', drawMask)
-    window.addEventListener('resize', drawMask)
     return () => {
       mapInstance.off('moveend zoomend resize move', drawMask)
-      window.removeEventListener('resize', drawMask)
       if (maskRef.current) { maskRef.current.remove(); maskRef.current = null }
       onCircleBottom?.(null)
     }
   }, [anchor, radiusMiles, mapInstance])  // eslint-disable-line
 
-  // ── 4. Circle boundary — redraws on live radiusMiles ─────────────────────
+  // ── 4. Circle boundary — teal solid normally, dashed orange on Long Shot ──
   useEffect(() => {
     if (circleRef.current) { mapInstance.removeLayer(circleRef.current); circleRef.current = null }
     if (!anchor) return
+    const isLongShot = geoImage?.longShot ?? false
     circleRef.current = L.circle([anchor.lat, anchor.lng], {
       radius: radiusMiles * 1609.34,
-      color: '#44ddaa', weight: 2, fill: false, opacity: 0.9, interactive: false,
+      color:    isLongShot ? 'rgba(255,140,0,0.85)' : '#44ddaa',
+      weight:   isLongShot ? 1.5 : 2,
+      dashArray: isLongShot ? '6 8' : null,
+      fill: false,
+      opacity: 0.9,
+      interactive: false,
     }).addTo(mapInstance)
     return () => { if (circleRef.current) { mapInstance.removeLayer(circleRef.current); circleRef.current = null } }
-  }, [anchor, radiusMiles, mapInstance])
+  }, [anchor, radiusMiles, geoImage?.longShot, mapInstance])
 
   return null
 }
