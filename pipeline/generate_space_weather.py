@@ -40,7 +40,7 @@ KP_1M_URL         = 'https://services.swpc.noaa.gov/json/planetary_k_index_1m.js
 KP_FORECAST_URL   = 'https://services.swpc.noaa.gov/products/noaa-planetary-k-index-forecast.json'
 SW_MAG_7DAY_URL   = 'https://services.swpc.noaa.gov/products/solar-wind/mag-7-day.json'
 SW_PLASMA_7DAY_URL= 'https://services.swpc.noaa.gov/products/solar-wind/plasma-7-day.json'
-ACE_EPAM_URL      = 'https://services.swpc.noaa.gov/json/ace/ace_epam_1m.json'
+ACE_EPAM_URL      = 'https://services.swpc.noaa.gov/json/ace/epam/ace_epam_5m.json'
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -892,15 +892,15 @@ def fetch_epam():
 
     # EPAM returns list of dicts
     # Field names vary slightly — probe common ones
-    ELECTRON_FIELDS = ['e38-53', 'e38', 'de1', 'DE1', 'E1']
-    ELECTRON2_FIELDS = ['e175-315', 'e175', 'de4', 'DE4', 'E4']
+    ELECTRON_FIELDS  = ['e38-53',  'e38',  'de1', 'DE1', 'E1',  'electron_38-53']
+    ELECTRON2_FIELDS = ['e175-315','e175', 'de4', 'DE4', 'E4',  'electron_175-315']
     PROTON_FIELDS = {
-        'p47':   ['p47-68',  'p47',  'P1', 'lems120_47-68'],
-        'p68':   ['p68-115', 'p68',  'P2'],
-        'p115':  ['p115-195','p115', 'P3'],
-        'p310':  ['p310-580','p310', 'P5'],
-        'p795':  ['p795-1193','p795','P6'],
-        'p1060': ['p1060-1900','p1060','P7'],
+        'p47':   ['p47-68',   'p47',  'P1', 'proton_47-68'],
+        'p68':   ['p68-115',  'p68',  'P2', 'proton_68-115'],
+        'p115':  ['p115-195', 'p115', 'P3', 'proton_115-195'],
+        'p310':  ['p310-580', 'p310', 'P5', 'proton_310-580'],
+        'p795':  ['p795-1193','p795', 'P6', 'proton_795-1193'],
+        'p1060': ['p1060-1900','p1060','P7','proton_1060-1900'],
     }
 
     def probe_key(rec, candidates):
@@ -922,6 +922,8 @@ def fetch_epam():
     p_keys  = {k: probe_key(first, v) for k, v in PROTON_FIELDS.items()}
 
     log.info(f'EPAM keys found: e1={e1_key} e4={e4_key} protons={p_keys}')
+    if not e1_key and not e4_key:
+        log.warning(f'EPAM: no electron keys found. Available keys: {list(first.keys())}')
 
     FILL = -1e5
     rows = []
