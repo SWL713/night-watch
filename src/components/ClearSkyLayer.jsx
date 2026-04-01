@@ -69,6 +69,7 @@ export default function ClearSkyLayer({
     const p20 = meds[Math.floor(meds.length * 0.20)] ?? 100
     const p40 = meds[Math.floor(meds.length * 0.40)] ?? 100
     const p60 = Math.min(meds[Math.floor(meds.length * 0.60)] ?? 100, 55)
+    const p05 = meds[Math.floor(meds.length * 0.05)] ?? 100
     const globalLongShot = meds[0] > 55
     const bestClear = Math.round(Math.max(0, 100 - (meds[0] ?? 100)))
 
@@ -140,6 +141,11 @@ export default function ClearSkyLayer({
           if (aAlpha > 2) {
             d[idx]=0; d[idx+1]=210; d[idx+2]=160; d[idx+3]=Math.round(aAlpha * edgeFade)
           }
+        } else if (globalLongShot && cf <= p05 + AA * 100) {
+          const t = Math.max(0, Math.min(1, (p05 + AA * 100 - cf) / (2 * AA * 100)))
+          const s = t * t * (3 - 2 * t)
+          const alpha = Math.round(40 * s * edgeFade)
+          if (alpha > 0) { d[idx]=150; d[idx+1]=210; d[idx+2]=120; d[idx+3]=alpha }
         }
       }
     }
