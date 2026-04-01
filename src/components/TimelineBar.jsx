@@ -193,7 +193,7 @@ export default function TimelineBar({ spaceWeather, moonData, selectedHour, onHo
     const bzMax = Math.max(8, ...allBzVals.map(Math.abs)) * 1.3
     function bzY(bz) {
       const y = yZero - (bz / bzMax) * (pH * 0.47)
-      return Math.max(0, Math.min(cH, y))
+      return Math.max(PAD_T, Math.min(PAD_T + pH, y))
     }
 
     ctx.lineJoin = 'round'; ctx.lineCap = 'round'
@@ -346,7 +346,7 @@ export default function TimelineBar({ spaceWeather, moonData, selectedHour, onHo
     // Quiet wind (~450) sits at 28%, fast stream (~700) at 56%, CME (~900) at 78%
     var vMin = 200, vMax = 1100
     const vRange = vMax - vMin
-    function vY(v) { return Math.max(0, Math.min(cH, PAD_T + pH * (1 - (v - vMin) / vRange))) }
+    function vY(v) { return Math.max(PAD_T, Math.min(PAD_T + pH, PAD_T + pH * (1 - (v - vMin) / vRange))) }
 
     // Observed V solid
     const vPoints = plasma.filter(p => p.speed != null)
@@ -388,7 +388,7 @@ export default function TimelineBar({ spaceWeather, moonData, selectedHour, onHo
     // Quiet density (~5) sits at 10%, elevated (~20) at 40%, CME sheath (~40) at 80%
     let dMin = 0, dMax = 50
     const dRange = dMax - dMin
-    function dY(d) { return Math.max(0, Math.min(cH, PAD_T + pH * (1 - (d - dMin) / dRange))) }
+    function dY(d) { return Math.max(PAD_T, Math.min(PAD_T + pH, PAD_T + pH * (1 - (d - dMin) / dRange))) }
 
     const dPoints = plasma.filter(p => p.density != null)
     if (dPoints.length >= 2) {
