@@ -56,7 +56,19 @@ export const HELP_CONTENT = {
   },
   clear_sky_finder: {
     title: 'Clear Sky Finder',
-    text: 'Scores and ranks locations by cloud cover relative to tonight\'s conditions across the region — showing your best options even on a bad night. BEST, GOOD, and FAIR zones update based on your selected 4H or 8H window. On heavily clouded nights Long Shot highlights the least-bad options available.',
+    text: 'Scores and ranks locations by cloud cover within your selected radius — showing your best options relative to each other tonight. Your anchor point defaults to your GPS location or can be set manually with a long press on the map. Adjust the radius slider to explore near or far. BEST, GOOD, and FAIR zones update based on your selected 4H or 8H window. On heavily clouded nights Long Shot highlights the least-bad options available.',
+  },
+  radius_slider: {
+    title: 'Radius Slider',
+    text: 'Sets the search radius around your anchor point — drag to expand or contract the area being scored. Everything outside the circle is masked. Scoring renormalizes to only the points inside your selected radius.',
+  },
+  anchor_marker: {
+    title: 'Anchor Point',
+    text: 'Your scoring anchor — the center point of the radius search. Defaults to your GPS location when available. Long press anywhere on the map to place a manual anchor and explore from a different origin. Tap X to clear the manual anchor and return to your GPS location.',
+  },
+  best_in_selection: {
+    title: 'Best In Selection',
+    text: 'Shows the clearest point inside your current radius as a percentage of clear sky. Updates when the radius changes or cloud data refreshes.',
   },
   time_slider: {
     title: 'Time Slider',
