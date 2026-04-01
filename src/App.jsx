@@ -49,6 +49,18 @@ const FONT = 'DejaVu Sans Mono, Consolas, monospace'
 // Admin passphrase — change this to your own admin password
 const ADMIN_PHRASE = 'nwadmin2026'
 
+// Moves Leaflet attribution from bottom-right to bottom-left
+function AttributionMover() {
+  const map = useMap()
+  useEffect(() => {
+    const ctrl = map.attributionControl
+    if (ctrl) {
+      ctrl.setPosition('bottomleft')
+    }
+  }, [map])
+  return null
+}
+
 // Listens for flyto events dispatched when admin clicks 'View on App Map'
 function MapFlyToHandler() {
   const map = useMap()
@@ -187,6 +199,33 @@ function App() {
         activeTab={activeTab}
       />
 
+      {/* Developer attribution bar — always visible, sits below top panel */}
+      <div style={{
+        background: '#06080f', borderBottom: '1px solid #0d1525',
+        padding: '2px 12px',
+        display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+        fontFamily: FONT, flexShrink: 0,
+      }}>
+        <span style={{ color: '#4a6a88', fontSize: 8, letterSpacing: 0.5 }}>
+          Developed by Scott W. LeFevre — 2026
+        </span>
+        <div
+          onClick={() => helpMode && showHelp('sw_cl_timestamps')}
+          style={{ display: 'flex', gap: 8, alignItems: 'center', cursor: helpMode ? 'pointer' : 'default' }}
+        >
+          <span style={{ color: sw.last_updated ? '#334455' : '#1e2a3a', fontSize: 8 }}>
+            {sw.last_updated ? `SW: ${new Date(sw.last_updated).toUTCString().slice(17,22)} UTC` : 'SW: —'}
+          </span>
+          {(() => {
+            const cu = cloudData?.lastUpdated
+            if (!cu) return null
+            const ageMin = Math.round((Date.now() - new Date(cu)) / 60000)
+            const color = ageMin > 180 ? '#ff5544' : ageMin > 90 ? '#ffaa33' : '#334455'
+            return <span style={{ color, fontSize: 8 }}>{`CL: ${new Date(cu).toUTCString().slice(17,22)} UTC`}</span>
+          })()}
+        </div>
+      </div>
+
       {/* Content area — map or tab placeholder */}
       {activeTab !== 'map' && (
         <div style={{
@@ -218,6 +257,7 @@ function App() {
           zoomDelta={0.25}
           wheelPxPerZoomLevel={120}
           zoomControl={false}
+          attributionControl={true}
           worldCopyJump={true}
           ref={mapRef}
           style={{ height: '100%', width: '100%', background: '#06080f', cursor: 'inherit' }}
@@ -261,6 +301,7 @@ function App() {
               setModal('submitSpot')
             }}
           />
+          <AttributionMover />
           <MapFlyToHandler />
 
           {/* Night mode toggle */}
@@ -902,18 +943,6 @@ function App() {
           </div>
         )}
 
-        {/* NASA attribution — bottom right overlay */}
-        <div style={{
-          position: 'absolute', bottom: 10, right: 48,
-          color: 'rgba(40,70,100,0.55)', fontSize: 8, letterSpacing: 0.5,
-          fontFamily: FONT, zIndex: 900, pointerEvents: 'none',
-        }}>
-          sky brightness: <a href="https://djlorenz.github.io/astronomy/lp" target="_blank" rel="noopener"
-            style={{ color: 'rgba(40,80,120,0.55)', textDecoration: 'none' }}>© David Lorenz</a>
-        </div>
-
-
-
         {/* Layer controls bottom-left */}
         <LayerControls
           layers={layers}
@@ -1075,41 +1104,15 @@ function App() {
           )}
         </div>{/* end action bar */}
 
-      {/* Developer attribution + Time slider — map tab only */}
-      {activeTab === 'map' && (<>
-        <div style={{
-          background: '#06080f', borderTop: '1px solid #0d1525',
-          padding: '2px 12px',
-          display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-          fontFamily: FONT, flexShrink: 0,
-        }}>
-          <span style={{ color: '#4a6a88', fontSize: 8, letterSpacing: 0.5 }}>
-            Developed by Scott W. LeFevre — 2026
-          </span>
-          <div
-            onClick={() => helpMode && showHelp('sw_cl_timestamps')}
-            style={{ display: 'flex', gap: 8, alignItems: 'center', cursor: helpMode ? 'pointer' : 'default' }}
-          >
-            <span style={{ color: sw.last_updated ? '#334455' : '#1e2a3a', fontSize: 8 }}>
-              {sw.last_updated ? `SW: ${new Date(sw.last_updated).toUTCString().slice(17,22)} UTC` : 'SW: —'}
-            </span>
-            {(() => {
-              const cu = cloudData?.lastUpdated
-              if (!cu) return null
-              const ageMin = Math.round((Date.now() - new Date(cu)) / 60000)
-              const color = ageMin > 180 ? '#ff5544' : ageMin > 90 ? '#ffaa33' : '#334455'
-              return <span style={{ color, fontSize: 8 }}>{`CL: ${new Date(cu).toUTCString().slice(17,22)} UTC`}</span>
-            })()}
-          </div>
-        </div>
-
+      {/* Time slider — map tab only */}
+      {activeTab === 'map' && (
         <div
           onClick={() => helpMode && showHelp('time_slider')}
           style={{ cursor: helpMode ? 'pointer' : 'default' }}
         >
           <TimeSlider value={selectedHour} onChange={helpMode ? undefined : setSelectedHour} />
         </div>
-      </>)}
+      )}
 
       {/* Help popup */}
       {helpEntry && (

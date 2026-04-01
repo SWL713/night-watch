@@ -33,6 +33,21 @@ html, body, #root {
   background: #06080f;
 }
 
+/* Move Leaflet attribution to bottom-left */
+.leaflet-bottom.leaflet-right {
+  display: none !important;
+}
+.leaflet-bottom.leaflet-left .leaflet-control-attribution {
+  background: rgba(6,8,15,0.7) !important;
+  color: #2a3a4a !important;
+  font-size: 9px !important;
+  border-radius: 0 !important;
+  padding: 2px 6px !important;
+}
+.leaflet-bottom.leaflet-left .leaflet-control-attribution a {
+  color: #3a5a6a !important;
+}
+
 /* Scrollbar styling */
 ::-webkit-scrollbar { width: 4px; height: 4px; }
 ::-webkit-scrollbar-track { background: #06080f; }
