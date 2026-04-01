@@ -39,10 +39,10 @@ function stateColor(state) {
 
 function StatRow({ icon, label, value, color }) {
   return (
-    <div style={{ display:'flex', alignItems:'center', gap:5, marginBottom:2 }}>
-      <img src={icon} alt="" style={{ width:16, height:16, objectFit:'contain', flexShrink:0 }} />
-      <span style={{ color:'#445566', fontSize:9, letterSpacing:1, width:74, flexShrink:0 }}>{label}</span>
-      <span style={{ color, fontSize:11, fontWeight:'bold' }}>{value}</span>
+    <div style={{ display:'flex', alignItems:'center', gap:4, marginBottom:2 }}>
+      <img src={icon} alt="" style={{ width:13, height:13, objectFit:'contain', flexShrink:0 }} />
+      <span style={{ color:'#445566', fontSize:8, letterSpacing:0.5, width:70, flexShrink:0 }}>{label}</span>
+      <span style={{ color, fontSize:10, fontWeight:'bold' }}>{value}</span>
     </div>
   )
 }
@@ -168,17 +168,17 @@ export default function TimelinePanel({ spaceWeather, selectedHour, onHourSelect
       background:'#06080f', borderBottom:'1px solid #1a2035',
       fontFamily:FONT, color:'#ccd', flexShrink:0,
     }}>
-      <div style={{ display:'flex', height:110 }}>
+      <div style={{ display:'flex', height:88 }}>
 
         {/* Logo */}
         <div style={{
-          width:110, flexShrink:0,
+          width:90, flexShrink:0,
           display:'flex', alignItems:'center', justifyContent:'center',
-          padding:'8px 4px', borderRight:'1px solid #1a2035',
+          padding:'6px 4px', borderRight:'1px solid #1a2035',
         }}>
           <a href="https://www.facebook.com/share/g/1CUrP5oFuy/" target="_blank" rel="noopener">
             <img src={`${BASE}/logo.jpg`} alt="Substorm Society"
-              style={{ width:90, height:90, objectFit:'contain', borderRadius:4, cursor:'pointer' }} />
+              style={{ width:70, height:70, objectFit:'contain', borderRadius:4, cursor:'pointer' }} />
           </a>
         </div>
 
@@ -199,7 +199,7 @@ export default function TimelinePanel({ spaceWeather, selectedHour, onHourSelect
             src={moonImg} alt={moonData.phaseLabel}
             onClick={e => { if (helpMode) { e.stopPropagation(); onHelpTap?.('moon_image') } }}
             style={{
-              position:'absolute', top:6, right:6, width:60, height:60,
+              position:'absolute', top:5, right:5, width:48, height:48,
               objectFit:'contain', borderRadius:'50%',
               filter:'drop-shadow(0 0 4px rgba(0,0,0,0.8))',
               cursor: helpMode ? 'pointer' : 'default',
@@ -232,17 +232,17 @@ export default function TimelinePanel({ spaceWeather, selectedHour, onHourSelect
         <div
           onClick={() => helpMode && onHelpTap?.('chase_quality')}
           style={{
-            width:175, flexShrink:0, padding:'5px 10px',
+            width:175, flexShrink:0, padding:'3px 8px',
             borderLeft:'1px solid #1a2035',
             display:'flex', flexDirection:'column', justifyContent:'center',
             cursor: helpMode ? 'pointer' : 'default',
           }}
         >
-          <div style={{ marginBottom:4 }}>
-            <div style={{ color:'#2a3a55', fontSize:7, letterSpacing:1, marginBottom:1 }}>
+          <div style={{ marginBottom:3 }}>
+            <div style={{ color:'#2a3a55', fontSize:6, letterSpacing:1, marginBottom:1 }}>
               CHASE QUALITY{!isNow ? ` · +${selectedHour}h` : ''}
             </div>
-            <div style={{ color:qualityColor, fontSize:16, fontWeight:'bold', letterSpacing:2 }}>
+            <div style={{ color:qualityColor, fontSize:14, fontWeight:'bold', letterSpacing:2 }}>
               {qualityLabel}
             </div>
           </div>
