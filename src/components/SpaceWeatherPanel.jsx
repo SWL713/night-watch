@@ -164,7 +164,7 @@ function detectAnnotations(mag, plasma) {
 // ── Single plot canvas ────────────────────────────────────────────────────────
 function PlotCanvas({ data, series, yMin, yMax, logScale, timeRange, crosshairTime, onCrosshair,
                       annotations, phiMode, speedKms, showParker, showSector,
-                      showLabels, yLabel, nowTime, zoomMode, thresholds }) {
+                      showLabels, yLabel, nowTime, zoomMode, thresholds, symmetric }) {
   const canvasRef = useRef(null)
   const dpr = window.devicePixelRatio || 1
 
@@ -209,12 +209,17 @@ function PlotCanvas({ data, series, yMin, yMax, logScale, timeRange, crosshairTi
         if (logScale) {
           effectiveYMin = yMin ?? dataMin * 0.5
           effectiveYMax = yMax ?? dataMax * 2
+        } else if (symmetric) {
+          // Symmetric around zero — for Bz/Bx/By type plots
+          const absMax = Math.max(Math.abs(dataMin), Math.abs(dataMax), 2) * 1.15
+          effectiveYMin = yMin ?? -absMax
+          effectiveYMax = yMax ??  absMax
         } else {
           const span = dataMax - dataMin || Math.abs(dataMax) || 1
           const pad = span * 0.12
           effectiveYMin = yMin ?? dataMin - pad
           effectiveYMax = yMax ?? dataMax + pad
-          // Always include zero if data spans near zero
+          // Always include zero if data is all-positive
           if (effectiveYMin > 0 && dataMin >= 0) effectiveYMin = 0
         }
       } else {
@@ -482,7 +487,7 @@ function PlotCanvas({ data, series, yMin, yMax, logScale, timeRange, crosshairTi
     }
 
   }, [data, series, yMin, yMax, logScale, timeRange, crosshairTime, annotations,
-      phiMode, speedKms, showParker, showSector, showLabels, nowTime, thresholds])
+      phiMode, speedKms, showParker, showSector, showLabels, nowTime, thresholds, symmetric])
 
   useEffect(() => { draw() }, [draw])
 
@@ -737,7 +742,7 @@ export default function SpaceWeatherPanel({ mag, plasma, epam, stereo, goes, spa
                   showBz && { key: 'bz', color: C.bz_pos, width: 1.6,
                     colorFn: v => v < 0 ? C.bz_neg : C.bz_pos },
                 ].filter(Boolean)}
-                yMin={bzRange[0]} yMax={bzRange[1]}
+                yMin={null} yMax={null} symmetric={true}
                 {...commonProps}
               />
             </div>
@@ -772,7 +777,7 @@ export default function SpaceWeatherPanel({ mag, plasma, epam, stereo, goes, spa
               <PlotCanvas
                 data={plasma || []}
                 series={[{ key: 'speed', color: C.speed, width: 1.3 }]}
-                yMin={speedRange[0]} yMax={speedRange[1]}
+                yMin={null} yMax={null}
                 {...commonProps}
               />
             </div>
@@ -787,7 +792,7 @@ export default function SpaceWeatherPanel({ mag, plasma, epam, stereo, goes, spa
               <PlotCanvas
                 data={plasma || []}
                 series={[{ key: 'density', color: C.density, width: 1.3 }]}
-                yMin={densityRange[0]} yMax={densityRange[1]}
+                yMin={null} yMax={null}
                 {...commonProps}
               />
             </div>
@@ -802,7 +807,7 @@ export default function SpaceWeatherPanel({ mag, plasma, epam, stereo, goes, spa
               <PlotCanvas
                 data={plasma || []}
                 series={[{ key: 'temperature', color: C.temp, width: 1.3 }]}
-                yMin={1e4} yMax={1e6} logScale={true}
+                yMin={null} yMax={null} logScale={true}
                 {...commonProps}
               />
             </div>
