@@ -476,6 +476,10 @@ function App() {
             position: 'absolute', top: 4, left: '50%', transform: 'translateX(-50%)',
             zIndex: 2000, textAlign: 'center',
             fontFamily: FONT,
+            // Diffuse dark backdrop — radial gradient fading to transparent, no hard edge
+            background: 'radial-gradient(ellipse 85% 95% at 50% 30%, rgba(4,7,14,0.72) 0%, rgba(4,7,14,0.45) 60%, transparent 100%)',
+            padding: '0 24px 18px 24px',
+            borderRadius: 12,
           }}>
             {/* Banner */}
             <div style={{
