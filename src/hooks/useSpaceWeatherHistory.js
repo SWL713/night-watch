@@ -1,14 +1,15 @@
 /**
  * useSpaceWeatherHistory
  *
- * Lazy-fetches 7-day IMF/plasma history, EPAM, and STEREO-A data.
- * Only fetches when `active` is true — does nothing while on other tabs.
+ * Lazy-fetches 7-day space weather history for the Space Weather tab.
+ * Only fetches when `active` is true.
  *
- * Data files (written by pipeline every 15 min):
- *   data/sw_mag_7day.json     columns: [time, bx, by, bz, bt, phi]
- *   data/sw_plasma_7day.json  columns: [time, density, speed, temperature]
- *   data/sw_epam.json         columns: [time, e38, e175, p47, p68, p115, p310, p795, p1060]
- *   data/sw_stereo_a.json     columns: [time, bz, bt, bx, by, speed, density]
+ * Data files (written by pipeline every 15-30 min):
+ *   sw_mag_7day.json     columns: [time, bx, by, bz, bt, phi]
+ *   sw_plasma_7day.json  columns: [time, density, speed, temperature]
+ *   sw_epam.json         columns: [time, e38, e175, p47, p68, p115, p310, p795, p1060]
+ *   sw_stereo_a.json     columns: [time, bz, bt, bx, by, speed, density]
+ *   sw_goes_mag.json     columns: [time, e_hp, e_he, e_hn, e_ht, w_hp, w_he, w_hn, w_ht]
  */
 
 import { useState, useEffect, useRef } from 'react'
@@ -18,12 +19,12 @@ const MAG_URL    = `${BASE}/sw_mag_7day.json`
 const PLASMA_URL = `${BASE}/sw_plasma_7day.json`
 const EPAM_URL   = `${BASE}/sw_epam.json`
 const STEREO_URL = `${BASE}/sw_stereo_a.json`
+const GOES_URL   = `${BASE}/sw_goes_mag.json`
 
 const TTL_MS = 10 * 60 * 1000
 
-// Module-level cache persists across tab switches
 const _cache = {
-  mag: null, plasma: null, epam: null, stereo: null,
+  mag: null, plasma: null, epam: null, stereo: null, goes: null,
   fetchedAt: {}
 }
 
@@ -33,30 +34,21 @@ async function fetchJson(url) {
   return res.json()
 }
 
-// Fetch without throwing on 404 — STEREO-A file may not exist on first pipeline run
 async function fetchJsonSoft(url) {
   try {
     const res = await fetch(url)
     if (!res.ok) return null
     return res.json()
-  } catch (_) {
-    return null
-  }
+  } catch (_) { return null }
 }
 
-/**
- * Parse a column-array file into an array of typed objects.
- * { columns: [...], data: [[...], ...] } -> [{ time: Date, col: number|null, ... }]
- */
 function parseColumnFile(raw, keep) {
   if (!raw || !raw.columns || !raw.data) return []
   const cols = raw.columns
   const ti = cols.indexOf('time')
   if (ti === -1) return []
-
   const wanted = keep || cols.filter(c => c !== 'time')
   const indices = wanted.map(c => cols.indexOf(c))
-
   return raw.data.reduce((acc, row) => {
     try {
       const t = new Date(row[ti])
@@ -78,66 +70,56 @@ export function useSpaceWeatherHistory(active) {
   const [plasma, setPlasma] = useState(_cache.plasma)
   const [epam,   setEpam]   = useState(_cache.epam)
   const [stereo, setStereo] = useState(_cache.stereo)
+  const [goes,   setGoes]   = useState(_cache.goes)
   const [loading, setLoading] = useState(false)
   const [error,   setError]   = useState(null)
   const fetchedRef = useRef(false)
 
   useEffect(() => {
     if (!active) return
-
     const now = Date.now()
     const fresh = key => _cache[key] !== null && (now - (_cache.fetchedAt[key] || 0)) < TTL_MS
 
-    if (fresh('mag') && fresh('plasma') && fresh('epam') && fresh('stereo')) {
-      setMag(_cache.mag)
-      setPlasma(_cache.plasma)
-      setEpam(_cache.epam)
-      setStereo(_cache.stereo)
+    if (fresh('mag') && fresh('plasma') && fresh('epam') && fresh('stereo') && fresh('goes')) {
+      setMag(_cache.mag); setPlasma(_cache.plasma); setEpam(_cache.epam)
+      setStereo(_cache.stereo); setGoes(_cache.goes)
       return
     }
 
     if (fetchedRef.current) return
     fetchedRef.current = true
-    setLoading(true)
-    setError(null)
+    setLoading(true); setError(null)
 
     const fetchAll = async () => {
       try {
-        const [magRaw, plasmaRaw, epamRaw, stereoRaw] = await Promise.all([
+        const [magRaw, plasmaRaw, epamRaw, stereoRaw, goesRaw] = await Promise.all([
           fresh('mag')    ? Promise.resolve(null) : fetchJson(MAG_URL),
           fresh('plasma') ? Promise.resolve(null) : fetchJson(PLASMA_URL),
           fresh('epam')   ? Promise.resolve(null) : fetchJson(EPAM_URL),
           fresh('stereo') ? Promise.resolve(null) : fetchJsonSoft(STEREO_URL),
+          fresh('goes')   ? Promise.resolve(null) : fetchJsonSoft(GOES_URL),
         ])
 
-        if (magRaw) {
-          const p = parseColumnFile(magRaw, ['bx', 'by', 'bz', 'bt', 'phi'])
-          _cache.mag = p; _cache.fetchedAt.mag = Date.now(); setMag(p)
+        const store = (key, raw, cols, setter) => {
+          const val = raw ? parseColumnFile(raw, cols) : []
+          _cache[key] = val; _cache.fetchedAt[key] = Date.now(); setter(val)
         }
-        if (plasmaRaw) {
-          const p = parseColumnFile(plasmaRaw, ['density', 'speed', 'temperature'])
-          _cache.plasma = p; _cache.fetchedAt.plasma = Date.now(); setPlasma(p)
-        }
-        if (epamRaw) {
-          const p = parseColumnFile(epamRaw, ['e38', 'e175', 'p47', 'p68', 'p115', 'p310', 'p795', 'p1060'])
-          _cache.epam = p; _cache.fetchedAt.epam = Date.now(); setEpam(p)
-        }
-        // STEREO-A: soft fetch — null if file doesn't exist yet
-        const stereoVal = stereoRaw
-          ? parseColumnFile(stereoRaw, ['bz', 'bt', 'bx', 'by', 'speed', 'density'])
-          : []
-        _cache.stereo = stereoVal; _cache.fetchedAt.stereo = Date.now(); setStereo(stereoVal)
+
+        if (magRaw)    store('mag',    magRaw,    ['bx','by','bz','bt','phi'],                              setMag)
+        if (plasmaRaw) store('plasma', plasmaRaw, ['density','speed','temperature'],                        setPlasma)
+        if (epamRaw)   store('epam',   epamRaw,   ['e38','e175','p47','p68','p115','p310','p795','p1060'],   setEpam)
+        store('stereo', stereoRaw, ['bz','bt','bx','by','speed','density'],                                 setStereo)
+        store('goes',   goesRaw,   ['e_hp','e_he','e_hn','e_ht','w_hp','w_he','w_hn','w_ht'],               setGoes)
 
       } catch (err) {
         setError(err.message)
       } finally {
-        setLoading(false)
-        fetchedRef.current = false
+        setLoading(false); fetchedRef.current = false
       }
     }
 
     fetchAll()
   }, [active])
 
-  return { mag, plasma, epam, stereo, loading, error }
+  return { mag, plasma, epam, stereo, goes, loading, error }
 }

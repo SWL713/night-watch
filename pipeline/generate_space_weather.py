@@ -27,6 +27,7 @@ SW_MAG_PATH       = os.path.join(os.path.dirname(__file__), '..', 'data', 'sw_ma
 SW_PLASMA_PATH    = os.path.join(os.path.dirname(__file__), '..', 'data', 'sw_plasma_7day.json')
 SW_EPAM_PATH      = os.path.join(os.path.dirname(__file__), '..', 'data', 'sw_epam.json')
 SW_STEREO_A_PATH  = os.path.join(os.path.dirname(__file__), '..', 'data', 'sw_stereo_a.json')
+SW_GOES_MAG_PATH  = os.path.join(os.path.dirname(__file__), '..', 'data', 'sw_goes_mag.json')
 
 # ── Data source URLs ─────────────────────────────────────────────────────────
 DSCOVR_MAG_URL    = 'https://services.swpc.noaa.gov/json/rtsw/rtsw_mag_1m.json'
@@ -52,6 +53,17 @@ STEREO_A_PLASMA_CANDIDATES = [
     'https://services.swpc.noaa.gov/json/stereo/stereo_a_plastic_1m.json',
     'https://services.swpc.noaa.gov/json/stereo/stereo-a-plasma-7-day.json',
     'https://services.swpc.noaa.gov/products/solar-wind/ste-a-plasma.json',
+]
+
+# GOES magnetometer (primary = East/GOES-16, secondary = West/GOES-18)
+# Fields: Hp (parallel to Earth spin axis), He (earthward), Hn (eastward), Ht (total)
+GOES_MAG_PRIMARY_CANDIDATES   = [
+    'https://services.swpc.noaa.gov/json/goes/primary/magnetometers-7-day.json',
+    'https://services.swpc.noaa.gov/json/goes/primary/magnetometers-1-day.json',
+]
+GOES_MAG_SECONDARY_CANDIDATES = [
+    'https://services.swpc.noaa.gov/json/goes/secondary/magnetometers-7-day.json',
+    'https://services.swpc.noaa.gov/json/goes/secondary/magnetometers-1-day.json',
 ]
 KP_1M_URL         = 'https://services.swpc.noaa.gov/json/planetary_k_index_1m.json'
 KP_FORECAST_URL   = 'https://services.swpc.noaa.gov/products/noaa-planetary-k-index-forecast.json'
@@ -1019,6 +1031,143 @@ def fetch_epam():
     return True
 
 
+def fetch_goes_mag():
+    """
+    Fetch GOES geostationary magnetometer data from NOAA SWPC.
+    Primary = East (GOES-16), Secondary = West (GOES-18).
+
+    Fields (nT, spacecraft Earth-referenced coordinates):
+      Hp  — parallel to Earth spin axis (perp to orbital plane)
+            Large decrease during storm main phase indicates ring current
+      He  — perpendicular to Hp, directed earthward
+            Rapid He change = substorm onset / dipolarization signature
+      Hn  — perpendicular to both Hp and He, directed eastward
+      Ht  — total field magnitude
+
+    Output: data/sw_goes_mag.json
+    Columns: [time, e_hp, e_he, e_hn, e_ht, w_hp, w_he, w_hn, w_ht]
+
+    Uses merge+cache so history accumulates across runs.
+    Probes 7-day then 1-day endpoints; logs which succeeds.
+    """
+    FILL = -1e5
+
+    def fv(v):
+        if v is None: return None
+        try:
+            f = float(v)
+            return None if abs(f) >= abs(FILL * 0.9) else round(f, 2)
+        except Exception:
+            return None
+
+    def parse_mag(data):
+        """Parse GOES mag JSON into {time_str: {hp,he,hn,ht}} dict.
+        Handles both column-array format (first row = headers) and list-of-dicts."""
+        out = {}
+        if not data: return out
+        if isinstance(data, list) and len(data) > 1:
+            if isinstance(data[0], list):
+                # Column-array: first row is headers
+                headers = [str(h).lower().strip() for h in data[0]]
+                ti   = next((i for i, h in enumerate(headers) if 'time' in h), 0)
+                hpi  = next((i for i, h in enumerate(headers) if h in ('hp','b_perp_orbital','hp_1')), None)
+                hei  = next((i for i, h in enumerate(headers) if h in ('he','b_earthward','he_1')), None)
+                hni  = next((i for i, h in enumerate(headers) if h in ('hn','b_eastward','hn_1')), None)
+                hti  = next((i for i, h in enumerate(headers) if h in ('ht','b_total','bt','total')), None)
+                log.info(f'GOES mag col-array headers: {headers} | hp={hpi} he={hei} hn={hni} ht={hti}')
+                for row in data[1:]:
+                    t = str(row[ti]).replace('Z', '+00:00')
+                    out[t] = {
+                        'hp': fv(row[hpi]) if hpi is not None else None,
+                        'he': fv(row[hei]) if hei is not None else None,
+                        'hn': fv(row[hni]) if hni is not None else None,
+                        'ht': fv(row[hti]) if hti is not None else None,
+                    }
+            elif isinstance(data[0], dict):
+                first = data[0]
+                log.info(f'GOES mag dict keys: {list(first.keys())}')
+                def pick(rec, names):
+                    for n in names:
+                        if n in rec: return fv(rec[n])
+                    return None
+                for rec in data:
+                    t = str(rec.get('time_tag', '') or rec.get('time', '')).replace('Z', '+00:00')
+                    if not t: continue
+                    out[t] = {
+                        'hp': pick(rec, ['Hp','hp','b_perp_orbital','Hp_1','Hp1']),
+                        'he': pick(rec, ['He','he','b_earthward','He_1','He1']),
+                        'hn': pick(rec, ['Hn','hn','b_eastward','Hn_1','Hn1']),
+                        'ht': pick(rec, ['Ht','ht','b_total','Bt','total','Ht_1']),
+                    }
+        return out
+
+    # Fetch East (primary)
+    east_url, east_data = _probe_url(GOES_MAG_PRIMARY_CANDIDATES)
+    if not east_data:
+        log.warning('GOES mag: no primary URL responded')
+        east = {}
+    else:
+        east = parse_mag(east_data)
+        log.info(f'GOES mag East: {len(east)} timestamps from {east_url}')
+
+    # Fetch West (secondary)
+    west_url, west_data = _probe_url(GOES_MAG_SECONDARY_CANDIDATES)
+    if not west_data:
+        log.warning('GOES mag: no secondary URL responded')
+        west = {}
+    else:
+        west = parse_mag(west_data)
+        log.info(f'GOES mag West: {len(west)} timestamps from {west_url}')
+
+    if not east and not west:
+        log.warning('GOES mag: no data from either satellite')
+        return False
+
+    # Merge East+West by timestamp
+    all_times = sorted(set(east.keys()) | set(west.keys()))
+    new_rows = []
+    for t in all_times:
+        e = east.get(t, {})
+        w = west.get(t, {})
+        new_rows.append([
+            t,
+            e.get('hp'), e.get('he'), e.get('hn'), e.get('ht'),
+            w.get('hp'), w.get('he'), w.get('hn'), w.get('ht'),
+        ])
+
+    log.info(f'GOES mag: {len(new_rows)} fresh rows')
+
+    # Merge with existing cache so history accumulates
+    cached_rows = []
+    try:
+        with open(SW_GOES_MAG_PATH) as f:
+            existing = json.load(f)
+        cached_rows = existing.get('data', [])
+        log.info(f'GOES mag: {len(cached_rows)} cached rows loaded')
+    except Exception:
+        log.info('GOES mag: no existing cache')
+
+    merged = {row[0]: row for row in cached_rows}
+    for row in new_rows:
+        merged[row[0]] = row
+    rows = sorted(merged.values(), key=lambda r: r[0])
+    rows = _purge_old(rows, time_key=0, cutoff_days=8)
+    log.info(f'GOES mag: {len(rows)} rows after merge+purge')
+
+    os.makedirs(os.path.dirname(SW_GOES_MAG_PATH), exist_ok=True)
+    with open(SW_GOES_MAG_PATH, 'w') as f:
+        json.dump({
+            'fetched_at': datetime.now(timezone.utc).isoformat(),
+            'east_url':   east_url,
+            'west_url':   west_url,
+            'columns':    ['time', 'e_hp', 'e_he', 'e_hn', 'e_ht', 'w_hp', 'w_he', 'w_hn', 'w_ht'],
+            'units':      'nT',
+            'data':       rows,
+        }, f, separators=(',', ':'))
+    log.info(f'sw_goes_mag.json written: {len(rows)} points | east={east_url} west={west_url}')
+    return True
+
+
 def _probe_url(candidates):
     """Try each URL in order, return (url, data) for first 200-OK JSON response."""
     for url in candidates:
@@ -1343,11 +1492,12 @@ def main():
     log.info(f'space_weather.json written: state={state} intensity={intensity_label} '
              f'bz={bz_now:.1f} quality={quality_label}')
 
-    # Fetch 7-day history, EPAM, and STEREO-A for Space Weather tab
+    # Fetch 7-day history, EPAM, STEREO-A, and GOES for Space Weather tab
     fetch_sw_mag_7day()
     fetch_sw_plasma_7day()
     fetch_epam()
     fetch_sw_stereo_a()
+    fetch_goes_mag()
 
 
 
@@ -1771,11 +1921,12 @@ def main_with_clouds():
         json.dump(sw_output, f, indent=2)
     log.info(f'space_weather.json written: {state} {intensity_label} bz={bz_now:.1f}')
 
-    # Fetch 7-day history, EPAM, and STEREO-A for Space Weather tab
+    # Fetch 7-day history, EPAM, STEREO-A, and GOES for Space Weather tab
     fetch_sw_mag_7day()
     fetch_sw_plasma_7day()
     fetch_epam()
     fetch_sw_stereo_a()
+    fetch_goes_mag()
 
     # Cloud cover — HRRR primary (3km, no rate limits, no seams)
     # Falls back to Open-Meteo if HRRR fails or covers < 80% of grid

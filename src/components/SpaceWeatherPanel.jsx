@@ -164,7 +164,7 @@ function detectAnnotations(mag, plasma) {
 // ── Single plot canvas ────────────────────────────────────────────────────────
 function PlotCanvas({ data, series, yMin, yMax, logScale, timeRange, crosshairTime, onCrosshair,
                       annotations, phiMode, speedKms, showParker, showSector,
-                      showLabels, yLabel, nowTime, zoomMode }) {
+                      showLabels, yLabel, nowTime, zoomMode, thresholds }) {
   const canvasRef = useRef(null)
   const dpr = window.devicePixelRatio || 1
 
@@ -193,13 +193,17 @@ function PlotCanvas({ data, series, yMin, yMax, logScale, timeRange, crosshairTi
     function tx(t) { return PAD_L + ((t - tMin) / spanMs) * pW }
     function vy(v) {
       if (v === null || v === undefined || isNaN(v)) return null
+      let y
       if (logScale) {
         if (v <= 0) return null
         const logMin = Math.log10(Math.max(yMin, 1e-10))
         const logMax = Math.log10(Math.max(yMax, 1e-9))
-        return PAD_T + pH - ((Math.log10(v) - logMin) / (logMax - logMin)) * pH
+        y = PAD_T + pH - ((Math.log10(v) - logMin) / (logMax - logMin)) * pH
+      } else {
+        y = PAD_T + pH - ((v - yMin) / (yMax - yMin)) * pH
       }
-      return PAD_T + pH - ((v - yMin) / (yMax - yMin)) * pH
+      // Clamp to plot area so no dot ever escapes the canvas
+      return Math.max(PAD_T, Math.min(PAD_T + pH, y))
     }
 
     // Background
@@ -237,6 +241,23 @@ function PlotCanvas({ data, series, yMin, yMax, logScale, timeRange, crosshairTi
       const y0 = vy(0)
       ctx.strokeStyle = C.zero; ctx.lineWidth = 1
       ctx.beginPath(); ctx.moveTo(PAD_L, y0); ctx.lineTo(W - PAD_R, y0); ctx.stroke()
+    }
+
+    // Threshold lines (e.g. B/C/M/X for X-ray, S1/S2/S3 for protons)
+    if (thresholds && thresholds.length > 0) {
+      ctx.setLineDash([6, 3])
+      for (const th of thresholds) {
+        const y = vy(th.value)
+        if (y === null) continue
+        ctx.strokeStyle = th.color || 'rgba(255,255,255,0.3)'; ctx.lineWidth = 1
+        ctx.beginPath(); ctx.moveTo(PAD_L, y); ctx.lineTo(W - PAD_R, y); ctx.stroke()
+        if (th.label) {
+          ctx.fillStyle = th.color || 'rgba(255,255,255,0.5)'
+          ctx.font = `7px ${FONT}`; ctx.textAlign = 'left'
+          ctx.fillText(th.label, PAD_L + 2, y - 2)
+        }
+      }
+      ctx.setLineDash([])
     }
 
     // Parker spiral reference lines
@@ -426,7 +447,7 @@ function PlotCanvas({ data, series, yMin, yMax, logScale, timeRange, crosshairTi
     }
 
   }, [data, series, yMin, yMax, logScale, timeRange, crosshairTime, annotations,
-      phiMode, speedKms, showParker, showSector, showLabels, nowTime])
+      phiMode, speedKms, showParker, showSector, showLabels, nowTime, thresholds])
 
   useEffect(() => { draw() }, [draw])
 
@@ -500,7 +521,7 @@ function usePersist(key, def) {
 }
 
 // ── Main component ────────────────────────────────────────────────────────────
-export default function SpaceWeatherPanel({ mag, plasma, epam, stereo, spaceWeather }) {
+export default function SpaceWeatherPanel({ mag, plasma, epam, stereo, goes, spaceWeather }) {
   const [subTab,      setSubTab]      = usePersist('subTab',      'l1')
   const [presetMs,    setPresetMs]    = usePersist('presetMs',    24 * 3600000)
   const [zoomRange,   setZoomRange]   = usePersist('zoomRange',   null)
@@ -528,6 +549,14 @@ export default function SpaceWeatherPanel({ mag, plasma, epam, stereo, spaceWeat
   const [showElec,    setShowElec]    = usePersist('showElec',    true)
   const [showProt,    setShowProt]    = usePersist('showProt',     true)
   const [showStereo,  setShowStereo]  = usePersist('showStereo',  true)
+
+  // Plot visibility toggles — GOES
+  // GOES magnetometer component toggles
+  const [showGoesHp, setShowGoesHp] = usePersist('showGoesHp', true)
+  const [showGoesHe, setShowGoesHe] = usePersist('showGoesHe', true)
+  const [showGoesHn, setShowGoesHn] = usePersist('showGoesHn', false)
+  const [showGoesEast, setShowGoesEast] = usePersist('showGoesEast', true)
+  const [showGoesWest, setShowGoesWest] = usePersist('showGoesWest', true)
 
   // Annotations toggle (SSC, SB markers) — off by default
   const [showAnnots,  setShowAnnots]  = usePersist('showAnnots',  false)
@@ -598,7 +627,7 @@ export default function SpaceWeatherPanel({ mag, plasma, epam, stereo, spaceWeat
 
       {/* Sub-tab selector */}
       <div style={{ display: 'flex', gap: 3, padding: '4px 8px', borderBottom: `1px solid ${C.border}`, flexShrink: 0 }}>
-        {[['l1', 'L1 SOLAR WIND'], ['epam', 'EARLY DETECTION']].map(([key, label]) => (
+        {[['l1', 'L1 SOLAR WIND'], ['epam', 'EARLY DETECTION'], ['goes', 'GOES']].map(([key, label]) => (
           <button key={key} onClick={() => setSubTab(key)} style={{
             flex: 1, height: 28, background: subTab === key ? '#0d1a2a' : '#060810',
             border: `1px solid ${subTab === key ? '#44ddaa' : '#1a2a3a'}`,
@@ -685,7 +714,7 @@ export default function SpaceWeatherPanel({ mag, plasma, epam, stereo, spaceWeat
               <PlotCanvas
                 data={mag || []}
                 series={[{ key: 'phi', color: C.phi, scatter: true }]}
-                yMin={0} yMax={360}
+                yMin={-10} yMax={370}
                 phiMode={true}
                 showSector={showSector}
                 showParker={showParker}
@@ -863,9 +892,88 @@ export default function SpaceWeatherPanel({ mag, plasma, epam, stereo, spaceWeat
             <div style={{ flex: 1 }} />
             <Toggle label="ZOOM"   active={zoomMode}   color="#ffaa44" onClick={() => { setZoomMode(v => !v); zoomStartRef.current = null; setZoomStep(0) }} />
             <Toggle label="ANNOTS" active={showAnnots} onClick={() => setShowAnnots(v => !v)} />
-            <span style={{ color: '#1a2a3a', fontSize: 7, letterSpacing: 0.5, width: '100%', marginTop: 4 }}>
-              STEREO-A UPSTREAM PREVIEW — COMING SOON
-            </span>
+          </div>
+
+        </>)}
+
+        {subTab === 'goes' && (<>
+
+          {/* GOES Hp — parallel to Earth spin axis, key storm indicator */}
+          {showGoesHp && (
+            <div style={{ borderBottom: `1px solid ${C.border}`, flex: 1, display: 'flex', flexDirection: 'column', minHeight: 0 }}>
+              <div style={{ padding: '3px 8px 2px', flexShrink: 0, display: 'flex', gap: 6, alignItems: 'center' }}>
+                <span style={{ color: C.textDim, fontSize: 7, letterSpacing: 1, flex: 1 }}>Hp — PERP TO ORBITAL PLANE (nT)</span>
+                {showGoesEast && <span style={{ color: '#4488ff', fontSize: 6 }}>■ EAST</span>}
+                {showGoesWest && <span style={{ color: '#ff8844', fontSize: 6 }}>■ WEST</span>}
+              </div>
+              {goes && goes.length > 0
+                ? <PlotCanvas
+                    data={goes}
+                    series={[
+                      showGoesEast && { key: 'e_hp', color: '#4488ff', width: 1.4 },
+                      showGoesWest && { key: 'w_hp', color: '#ff8844', width: 1.2 },
+                    ].filter(Boolean)}
+                    yMin={-200} yMax={200}
+                    {...commonProps} annotations={[]}
+                  />
+                : <div style={{ flex:1, display:'flex', alignItems:'center', justifyContent:'center' }}>
+                    <span style={{ color: '#1a2a3a', fontSize: 8 }}>PIPELINE POPULATES ON NEXT RUN</span>
+                  </div>
+              }
+            </div>
+          )}
+
+          {/* GOES He — earthward component, substorm dipolarization */}
+          {showGoesHe && goes && goes.length > 0 && (
+            <div style={{ borderBottom: `1px solid ${C.border}`, flex: 1, display: 'flex', flexDirection: 'column', minHeight: 0 }}>
+              <div style={{ padding: '3px 8px 2px', flexShrink: 0, display: 'flex', gap: 6, alignItems: 'center' }}>
+                <span style={{ color: C.textDim, fontSize: 7, letterSpacing: 1, flex: 1 }}>He — EARTHWARD (nT)</span>
+                {showGoesEast && <span style={{ color: '#44ddaa', fontSize: 6 }}>■ EAST</span>}
+                {showGoesWest && <span style={{ color: '#ffdd44', fontSize: 6 }}>■ WEST</span>}
+              </div>
+              <PlotCanvas
+                data={goes}
+                series={[
+                  showGoesEast && { key: 'e_he', color: '#44ddaa', width: 1.3 },
+                  showGoesWest && { key: 'w_he', color: '#ffdd44', width: 1.1 },
+                ].filter(Boolean)}
+                yMin={-200} yMax={200}
+                {...commonProps} annotations={[]}
+              />
+            </div>
+          )}
+
+          {/* GOES Hn — eastward component */}
+          {showGoesHn && goes && goes.length > 0 && (
+            <div style={{ borderBottom: `1px solid ${C.border}`, flex: 1, display: 'flex', flexDirection: 'column', minHeight: 0 }}>
+              <div style={{ padding: '3px 8px 2px', flexShrink: 0, display: 'flex', gap: 6, alignItems: 'center' }}>
+                <span style={{ color: C.textDim, fontSize: 7, letterSpacing: 1, flex: 1 }}>Hn — EASTWARD (nT)</span>
+                {showGoesEast && <span style={{ color: '#aa66ff', fontSize: 6 }}>■ EAST</span>}
+                {showGoesWest && <span style={{ color: '#ff66aa', fontSize: 6 }}>■ WEST</span>}
+              </div>
+              <PlotCanvas
+                data={goes}
+                series={[
+                  showGoesEast && { key: 'e_hn', color: '#aa66ff', width: 1.2 },
+                  showGoesWest && { key: 'w_hn', color: '#ff66aa', width: 1.0 },
+                ].filter(Boolean)}
+                yMin={-200} yMax={200}
+                {...commonProps} annotations={[]}
+              />
+            </div>
+          )}
+
+          {/* GOES toggle row */}
+          <div style={{ display: 'flex', gap: 3, padding: '6px 8px', borderTop: `1px solid ${C.border}`, flexWrap: 'wrap', flexShrink: 0 }}>
+            <span style={{ color: C.textDim, fontSize: 7, letterSpacing: 1, width: '100%', marginBottom: 2 }}>COMPONENTS</span>
+            <Toggle label="Hp"   active={showGoesHp}   onClick={() => setShowGoesHp(v => !v)}   color="#4488ff" />
+            <Toggle label="He"   active={showGoesHe}   onClick={() => setShowGoesHe(v => !v)}   color="#44ddaa" />
+            <Toggle label="Hn"   active={showGoesHn}   onClick={() => setShowGoesHn(v => !v)}   color="#aa66ff" />
+            <Toggle label="EAST" active={showGoesEast} onClick={() => setShowGoesEast(v => !v)} color="#4488ff" />
+            <Toggle label="WEST" active={showGoesWest} onClick={() => setShowGoesWest(v => !v)} color="#ff8844" />
+            <div style={{ flex: 1 }} />
+            <Toggle label="ZOOM"   active={zoomMode}   color="#ffaa44" onClick={() => { setZoomMode(v => !v); zoomStartRef.current = null; setZoomStep(0) }} />
+            <Toggle label="ANNOTS" active={showAnnots} onClick={() => setShowAnnots(v => !v)} />
           </div>
 
         </>)}
