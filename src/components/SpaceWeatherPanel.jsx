@@ -164,7 +164,7 @@ function detectAnnotations(mag, plasma) {
 // ── Single plot canvas ────────────────────────────────────────────────────────
 function PlotCanvas({ data, series, yMin, yMax, logScale, timeRange, crosshairTime, onCrosshair,
                       annotations, phiMode, speedKms, showParker, showSector,
-                      showLabels, yLabel, nowTime }) {
+                      showLabels, yLabel, nowTime, zoomMode }) {
   const canvasRef = useRef(null)
   const dpr = window.devicePixelRatio || 1
 
@@ -443,21 +443,26 @@ function PlotCanvas({ data, series, yMin, yMax, logScale, timeRange, crosshairTi
     const canvas = canvasRef.current
     if (!canvas) return
     const rect = canvas.getBoundingClientRect()
-    const PAD_L = 36, PAD_R = 6
+    const PAD_L = showLabels ? 36 : 8
+    const PAD_R = 6
     const pW = rect.width - PAD_L - PAD_R
     const x = e.clientX - rect.left - PAD_L
     const frac = Math.max(0, Math.min(1, x / pW))
     const [tMin, tMax] = timeRange
-    onCrosshair(tMin + frac * (tMax - tMin))
+    const t = tMin + frac * (tMax - tMin)
+    // In zoom mode only fire on tap (pointerDown), not on move
+    if (zoomMode && e.type !== 'pointerdown') return
+    onCrosshair(t)
   }
 
   return (
     <canvas
       ref={canvasRef}
-      onPointerMove={handlePointer}
-      onPointerLeave={() => onCrosshair && onCrosshair(null)}
+      onPointerMove={zoomMode ? undefined : handlePointer}
+      onPointerLeave={() => !zoomMode && onCrosshair && onCrosshair(null)}
       onPointerDown={handlePointer}
-      style={{ width: '100%', height: '100%', display: 'block', cursor: 'crosshair', overflow: 'hidden' }}
+      style={{ width: '100%', height: '100%', display: 'block',
+               cursor: zoomMode ? 'col-resize' : 'crosshair', overflow: 'hidden' }}
     />
   )
 }
@@ -476,32 +481,55 @@ function Toggle({ label, active, color, onClick }) {
   )
 }
 
+// ── Session-persistent state ──────────────────────────────────────────────────
+function usePersist(key, def) {
+  const [val, setVal] = useState(() => {
+    try {
+      const s = sessionStorage.getItem('nw_sw_' + key)
+      return s !== null ? JSON.parse(s) : def
+    } catch { return def }
+  })
+  const set = useCallback((v) => {
+    setVal(prev => {
+      const next = typeof v === 'function' ? v(prev) : v
+      try { sessionStorage.setItem('nw_sw_' + key, JSON.stringify(next)) } catch {}
+      return next
+    })
+  }, [key])
+  return [val, set]
+}
+
 // ── Main component ────────────────────────────────────────────────────────────
 export default function SpaceWeatherPanel({ mag, plasma, epam, spaceWeather }) {
-  const [subTab,      setSubTab]      = useState('l1')
-  const [presetMs,    setPresetMs]    = useState(24 * 3600000)
+  const [subTab,      setSubTab]      = usePersist('subTab',      'l1')
+  const [presetMs,    setPresetMs]    = usePersist('presetMs',    24 * 3600000)
+  const [zoomRange,   setZoomRange]   = usePersist('zoomRange',   null)
   const [crosshairT,  setCrosshairT]  = useState(null)
-  const [zoomRange,   setZoomRange]   = useState(null)
+
+  // Zoom mode — two-tap to define range
+  const [zoomMode,    setZoomMode]    = useState(false)
+  const [zoomStep,    setZoomStep]    = useState(0)  // 0=waiting first tap, 1=waiting second tap
+  const zoomStartRef  = useRef(null)
 
   // Plot visibility toggles — L1
-  const [showBxyz,    setShowBxyz]    = useState(true)
-  const [showBx,      setShowBx]      = useState(true)
-  const [showBy,      setShowBy]      = useState(true)
-  const [showBz,      setShowBz]      = useState(true)
-  const [showBt,      setShowBt]      = useState(true)
-  const [showPhi,     setShowPhi]     = useState(true)
-  const [showSector,  setShowSector]  = useState(true)
-  const [showParker,  setShowParker]  = useState(true)
-  const [showSpeed,   setShowSpeed]   = useState(true)
-  const [showDensity, setShowDensity] = useState(true)
-  const [showTemp,    setShowTemp]    = useState(true)
+  const [showBxyz,    setShowBxyz]    = usePersist('showBxyz',    true)
+  const [showBx,      setShowBx]      = usePersist('showBx',      true)
+  const [showBy,      setShowBy]      = usePersist('showBy',      true)
+  const [showBz,      setShowBz]      = usePersist('showBz',      true)
+  const [showBt,      setShowBt]      = usePersist('showBt',      true)
+  const [showPhi,     setShowPhi]     = usePersist('showPhi',      true)
+  const [showSector,  setShowSector]  = usePersist('showSector',  true)
+  const [showParker,  setShowParker]  = usePersist('showParker',  true)
+  const [showSpeed,   setShowSpeed]   = usePersist('showSpeed',   true)
+  const [showDensity, setShowDensity] = usePersist('showDensity', true)
+  const [showTemp,    setShowTemp]    = usePersist('showTemp',     true)
 
   // Plot visibility toggles — EPAM
-  const [showElec,    setShowElec]    = useState(true)
-  const [showProt,    setShowProt]    = useState(true)
+  const [showElec,    setShowElec]    = usePersist('showElec',    true)
+  const [showProt,    setShowProt]    = usePersist('showProt',     true)
 
-  // Label toggle (off by default — clean mobile view)
-  const [showLabels,  setShowLabels]  = useState(false)
+  // Annotations toggle (SSC, SB markers) — off by default
+  const [showAnnots,  setShowAnnots]  = usePersist('showAnnots',  false)
 
   const now = Date.now()
   const timeRange = useMemo(() => {
@@ -537,7 +565,30 @@ export default function SpaceWeatherPanel({ mag, plasma, epam, spaceWeather }) {
     return [0, Math.max(20, Math.max(...vals) * 1.1)]
   }, [plasma])
 
-  const commonProps = { timeRange, crosshairTime: crosshairT, onCrosshair: setCrosshairT, annotations, nowTime: now, speedKms, showLabels }
+  // Zoom-mode tap handler — passed to all PlotCanvas via commonProps
+  const handleZoomTap = useCallback((t) => {
+    if (!zoomMode) return
+    if (zoomStartRef.current === null) {
+      zoomStartRef.current = t
+      setZoomStep(1)
+    } else {
+      const a = zoomStartRef.current, b = t
+      setZoomRange([Math.min(a, b), Math.max(a, b)])
+      zoomStartRef.current = null
+      setZoomStep(0)
+      setZoomMode(false)
+    }
+  }, [zoomMode, setZoomRange])
+
+  const commonProps = {
+    timeRange,
+    crosshairTime: zoomMode ? null : crosshairT,
+    onCrosshair:   zoomMode ? handleZoomTap : setCrosshairT,
+    annotations:   showAnnots ? annotations : [],
+    nowTime: now, speedKms,
+    showLabels: true,   // y-axis always visible
+    zoomMode,
+  }
 
   // plot height now handled by flex:1 on container
 
@@ -581,6 +632,16 @@ export default function SpaceWeatherPanel({ mag, plasma, epam, spaceWeather }) {
         )}
       </div>
 
+      {/* Zoom mode instruction */}
+      {zoomMode && (
+        <div style={{ padding: '3px 10px', background: '#1a0d00', borderBottom: `1px solid #ff8800`,
+          color: '#ff8800', fontSize: 8, letterSpacing: 0.5, flexShrink: 0, textAlign: 'center' }}>
+          {zoomStep === 0
+            ? 'TAP FIRST POINT ON ANY PLOT'
+            : 'TAP SECOND POINT TO SET ZOOM RANGE'}
+        </div>
+      )}
+
       {/* Plot area — flex column, each plot gets equal share of space */}
       <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
 
@@ -600,7 +661,8 @@ export default function SpaceWeatherPanel({ mag, plasma, epam, spaceWeather }) {
                 data={mag || []}
                 series={[
                   showBx && { key: 'bx', color: C.bx, width: 1.0 },
-                  showBy && { key: 'by', color: C.by, width: 1.0 },
+                  showBy && { key: 'by', color: C.by, width: 1.0,
+                    colorFn: v => v < 0 ? '#ff8800' : C.by },
                   showBt && { key: 'bt', color: C.bt, width: 1.0, dash: [4, 2] },
                   showBz && { key: 'bz', color: C.bz_pos, width: 1.6,
                     colorFn: v => v < 0 ? C.bz_neg : C.bz_pos },
@@ -684,7 +746,9 @@ export default function SpaceWeatherPanel({ mag, plasma, epam, spaceWeather }) {
             <Toggle label="SPEED"   active={showSpeed} onClick={() => setShowSpeed(v => !v)} />
             <Toggle label="DENSITY" active={showDensity} onClick={() => setShowDensity(v => !v)} />
             <Toggle label="TEMP"    active={showTemp}  onClick={() => setShowTemp(v => !v)} />
-            <Toggle label="LABELS"  active={showLabels} onClick={() => setShowLabels(v => !v)} />
+            <div style={{ flex: 1 }} />
+            <Toggle label="ZOOM"  active={zoomMode}   color="#ffaa44" onClick={() => { setZoomMode(v => !v); zoomStartRef.current = null; setZoomStep(0) }} />
+            <Toggle label="ANNOTS" active={showAnnots} onClick={() => setShowAnnots(v => !v)} />
           </div>
 
         </>)}
@@ -747,7 +811,9 @@ export default function SpaceWeatherPanel({ mag, plasma, epam, spaceWeather }) {
             <span style={{ color: C.textDim, fontSize: 7, letterSpacing: 1, width: '100%', marginBottom: 2 }}>SHOW PLOTS</span>
             <Toggle label="ELECTRONS" active={showElec} color={C.e38}  onClick={() => setShowElec(v => !v)} />
             <Toggle label="PROTONS"   active={showProt} color={C.p310} onClick={() => setShowProt(v => !v)} />
-            <Toggle label="LABELS"    active={showLabels} onClick={() => setShowLabels(v => !v)} />
+            <div style={{ flex: 1 }} />
+            <Toggle label="ZOOM"   active={zoomMode}   color="#ffaa44" onClick={() => { setZoomMode(v => !v); zoomStartRef.current = null; setZoomStep(0) }} />
+            <Toggle label="ANNOTS" active={showAnnots} onClick={() => setShowAnnots(v => !v)} />
             <span style={{ color: '#1a2a3a', fontSize: 7, letterSpacing: 0.5, width: '100%', marginTop: 4 }}>
               STEREO-A UPSTREAM PREVIEW — COMING SOON
             </span>
