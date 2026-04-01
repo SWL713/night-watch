@@ -7,16 +7,25 @@ import { fetchBortleAt } from '../utils/bortleApi.js'
 import SpotCard from './SpotCard.jsx'
 import { getAvgCloudForSpot } from '../utils/cloudUtils.js'
 
-function createPin(r, g, b, size) {
-  const color = `rgb(${r},${g},${b})`
+function createPin(r, g, b, size, outside) {
+  // Outside radius — blend toward dark grey at ~45% opacity
+  let cr = r, cg = g, cb = b, opacity = 1
+  if (outside) {
+    cr = Math.round(r * 0.35 + 40 * 0.65)
+    cg = Math.round(g * 0.35 + 40 * 0.65)
+    cb = Math.round(b * 0.35 + 50 * 0.65)
+    opacity = 0.45
+  }
+  const color = `rgba(${cr},${cg},${cb},${opacity})`
+  const shadow = outside ? 'none' : `0 0 8px rgba(${r},${g},${b},0.6)`
   return L.divIcon({
     className: '',
     html: `<div style="
       width:${size}px;height:${size}px;
       background:${color};
-      border:2px solid rgba(255,255,255,0.25);
+      border:2px solid rgba(255,255,255,${outside ? 0.08 : 0.25});
       border-radius:50%;
-      box-shadow:0 0 8px ${color}99;
+      box-shadow:${shadow};
     "></div>`,
     iconSize:   [size, size],
     iconAnchor: [size / 2, size / 2],
@@ -39,7 +48,7 @@ function addCloudRed(rgb, cloudFraction) {
   ]
 }
 
-function SpotPin({ spot, selectedHour, getCloudAt, cloudData, spaceWeather, onSubmitPhoto, mode, bortleGrid, clearSkyMode, adminAuthed, onAdminUpdate, onAdminDeleteSpot, onAdminDeletePhoto }) {
+function SpotPin({ spot, selectedHour, getCloudAt, cloudData, spaceWeather, onSubmitPhoto, mode, bortleGrid, clearSkyMode, clearSkyAnchor, clearSkyRadius, adminAuthed, onAdminUpdate, onAdminDeleteSpot, onAdminDeletePhoto }) {
   // Bortle priority: LPM API (matches visual map) → stored value → grid → fallback
   const storedBortle = spot.bortle ?? null
   const gridBortle   = bortleGrid ? getBortle(bortleGrid, spot.lat, spot.lon) : null
@@ -82,6 +91,16 @@ function SpotPin({ spot, selectedHour, getCloudAt, cloudData, spaceWeather, onSu
     rgb = addCloudRed(bortleToRGB(bortle), cloudFraction)
   }
 
+  // Dim spots outside clear sky radius
+  const outside = clearSkyMode && clearSkyAnchor && clearSkyRadius
+    ? (() => {
+        const dLat = spot.lat - clearSkyAnchor.lat
+        const dLon = (spot.lon - clearSkyAnchor.lng) * Math.cos(clearSkyAnchor.lat * Math.PI / 180)
+        const distMiles = Math.sqrt(dLat * dLat + dLon * dLon) * 69
+        return distMiles > clearSkyRadius
+      })()
+    : false
+
   // Size: bigger = better sky conditions
   const quality = (1 - cloudFraction) * bortleScore(bortle)
   const size    = 12
@@ -89,7 +108,7 @@ function SpotPin({ spot, selectedHour, getCloudAt, cloudData, spaceWeather, onSu
   return (
     <Marker
       position={[spot.lat, spot.lon]}
-      icon={createPin(rgb[0], rgb[1], rgb[2], size)}
+      icon={createPin(rgb[0], rgb[1], rgb[2], size, outside)}
     >
       <Popup minWidth={300} maxWidth={320} className="night-watch-popup">
         <SpotCard
@@ -107,7 +126,7 @@ function SpotPin({ spot, selectedHour, getCloudAt, cloudData, spaceWeather, onSu
   )
 }
 
-export default function SpotPins({ spots, selectedHour, getCloudAt, cloudData, spaceWeather, onSubmitPhoto, mode, bortleGrid, clearSkyMode, adminAuthed, onAdminUpdate, onAdminDeleteSpot, onAdminDeletePhoto }) {
+export default function SpotPins({ spots, selectedHour, getCloudAt, cloudData, spaceWeather, onSubmitPhoto, mode, bortleGrid, clearSkyMode, clearSkyAnchor, clearSkyRadius, adminAuthed, onAdminUpdate, onAdminDeleteSpot, onAdminDeletePhoto }) {
   return (
     <>
       {spots.map(spot => (
@@ -122,6 +141,8 @@ export default function SpotPins({ spots, selectedHour, getCloudAt, cloudData, s
           mode={mode}
           bortleGrid={bortleGrid}
           clearSkyMode={clearSkyMode}
+          clearSkyAnchor={clearSkyAnchor}
+          clearSkyRadius={clearSkyRadius}
           adminAuthed={adminAuthed}
           onAdminUpdate={onAdminUpdate}
           onAdminDeleteSpot={onAdminDeleteSpot}
