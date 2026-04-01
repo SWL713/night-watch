@@ -1,12 +1,12 @@
 const FONT = 'DejaVu Sans Mono, Consolas, monospace'
 
 const LAYER_DEFS = [
-  { key: 'clouds',    label: 'Cloud Cover',   helpKey: 'layer_clouds' },
-  { key: 'bortle',    label: 'Light Pollution', helpKey: 'layer_bortle' },
-  { key: 'ovation',   label: 'Ovation Model', helpKey: 'layer_ovation' },
-  { key: 'pins',      label: 'Locations',     helpKey: 'layer_pins' },
-  { key: 'cameras',   label: 'Live Cams',     helpKey: 'layer_cameras',  accent: '#44aaff' },
-  { key: 'sightings', label: 'Active Hunt',   helpKey: 'layer_sightings', accent: '#ff8800' },
+  { key: 'clouds',    label: 'Clouds',    helpKey: 'layer_clouds' },
+  { key: 'bortle',    label: 'LP',        helpKey: 'layer_bortle' },
+  { key: 'ovation',   label: 'Ovation',   helpKey: 'layer_ovation' },
+  { key: 'pins',      label: 'Locations', helpKey: 'layer_pins' },
+  { key: 'cameras',   label: 'Live Cams', helpKey: 'layer_cameras',  accent: '#44aaff' },
+  { key: 'sightings', label: 'Active Hunt', helpKey: 'layer_sightings', accent: '#ff8800' },
 ]
 
 export default function LayerControls({ layers, onToggle, helpMode, onHelpTap }) {
@@ -34,7 +34,7 @@ export default function LayerControls({ layers, onToggle, helpMode, onHelpTap })
                 color: active ? (accent || '#44ddaa') : '#334455',
                 padding: '5px 7px', fontSize: 10,
                 fontFamily: FONT, cursor: 'pointer', letterSpacing: 0.5,
-                borderRadius: 2, textAlign: 'left', minWidth: 100,
+                borderRadius: 2, textAlign: 'left', minWidth: 82,
                 transition: 'all 0.15s', width: '100%',
               }}
             >
