@@ -176,15 +176,15 @@ function App() {
         : 'none',
 
     }}>
-      {/* Timeline panel */}
-      <TimelinePanel
+      {/* Timeline panel — map tab only */}
+      {activeTab === 'map' && <TimelinePanel
         spaceWeather={sw}
         selectedHour={selectedHour}
         onHourSelect={setSelectedHour}
         moonData={moonData}
         helpMode={helpMode}
         onHelpTap={showHelp}
-      />
+      />}
 
       {/* Content area — map or tab placeholder */}
       {activeTab !== 'map' && (
@@ -1074,40 +1074,41 @@ function App() {
           )}
         </div>{/* end action bar */}
 
-      {/* Developer attribution — between action bar and time slider */}
-      <div style={{
-        background: '#06080f', borderTop: '1px solid #0d1525',
-        padding: '2px 12px',
-        display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-        fontFamily: FONT, flexShrink: 0,
-      }}>
-        <span style={{ color: '#4a6a88', fontSize: 8, letterSpacing: 0.5 }}>
-          Developed by Scott W. LeFevre — 2026
-        </span>
-        <div
-          onClick={() => helpMode && showHelp('sw_cl_timestamps')}
-          style={{ display: 'flex', gap: 8, alignItems: 'center', cursor: helpMode ? 'pointer' : 'default' }}
-        >
-          <span style={{ color: sw.last_updated ? '#334455' : '#1e2a3a', fontSize: 8 }}>
-            {sw.last_updated ? `SW: ${new Date(sw.last_updated).toUTCString().slice(17,22)} UTC` : 'SW: —'}
+      {/* Developer attribution + Time slider — map tab only */}
+      {activeTab === 'map' && (<>
+        <div style={{
+          background: '#06080f', borderTop: '1px solid #0d1525',
+          padding: '2px 12px',
+          display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+          fontFamily: FONT, flexShrink: 0,
+        }}>
+          <span style={{ color: '#4a6a88', fontSize: 8, letterSpacing: 0.5 }}>
+            Developed by Scott W. LeFevre — 2026
           </span>
-          {(() => {
-            const cu = cloudData?.lastUpdated
-            if (!cu) return null
-            const ageMin = Math.round((Date.now() - new Date(cu)) / 60000)
-            const color = ageMin > 180 ? '#ff5544' : ageMin > 90 ? '#ffaa33' : '#334455'
-            return <span style={{ color, fontSize: 8 }}>{`CL: ${new Date(cu).toUTCString().slice(17,22)} UTC`}</span>
-          })()}
+          <div
+            onClick={() => helpMode && showHelp('sw_cl_timestamps')}
+            style={{ display: 'flex', gap: 8, alignItems: 'center', cursor: helpMode ? 'pointer' : 'default' }}
+          >
+            <span style={{ color: sw.last_updated ? '#334455' : '#1e2a3a', fontSize: 8 }}>
+              {sw.last_updated ? `SW: ${new Date(sw.last_updated).toUTCString().slice(17,22)} UTC` : 'SW: —'}
+            </span>
+            {(() => {
+              const cu = cloudData?.lastUpdated
+              if (!cu) return null
+              const ageMin = Math.round((Date.now() - new Date(cu)) / 60000)
+              const color = ageMin > 180 ? '#ff5544' : ageMin > 90 ? '#ffaa33' : '#334455'
+              return <span style={{ color, fontSize: 8 }}>{`CL: ${new Date(cu).toUTCString().slice(17,22)} UTC`}</span>
+            })()}
+          </div>
         </div>
-      </div>
 
-      {/* Time slider */}
-      <div
-        onClick={() => helpMode && showHelp('time_slider')}
-        style={{ cursor: helpMode ? 'pointer' : 'default' }}
-      >
-        <TimeSlider value={selectedHour} onChange={helpMode ? undefined : setSelectedHour} />
-      </div>
+        <div
+          onClick={() => helpMode && showHelp('time_slider')}
+          style={{ cursor: helpMode ? 'pointer' : 'default' }}
+        >
+          <TimeSlider value={selectedHour} onChange={helpMode ? undefined : setSelectedHour} />
+        </div>
+      </>)}
 
       {/* Help popup */}
       {helpEntry && (
