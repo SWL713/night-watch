@@ -552,7 +552,7 @@ function App() {
 
             {/* Long Shot warning — separate row below slider, clear of thumb */}
             {longShot && (
-              <div style={{ color: '#ff8c00', fontSize: 8, fontFamily: FONT, letterSpacing: 1, marginTop: 8, whiteSpace: 'nowrap' }}>
+              <div style={{ color: '#ff8c00', fontSize: 8, fontFamily: FONT, letterSpacing: 1, marginTop: 18, whiteSpace: 'nowrap' }}>
                 ⚠️ LONG SHOT · HEAVILY CLOUDED REGION
               </div>
             )}
