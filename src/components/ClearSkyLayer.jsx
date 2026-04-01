@@ -86,7 +86,8 @@ export default function ClearSkyLayer({
     const p60 = Math.min(meds[Math.floor(meds.length * 0.60)] ?? 100, 45)
     const p05 = meds[Math.floor(meds.length * 0.05)] ?? 100
     const qualCount = meds.filter(m => m <= 45).length
-    const globalLongShot = qualCount / meds.length < 0.05
+    // Long Shot only when even the best available spot is heavily clouded (>55% cloud = <45% clear)
+    const globalLongShot = meds[0] > 55
     const bestClear = Math.round(Math.max(0, 100 - (meds[0] ?? 100)))
 
     onBestInCircle?.(bestClear)
