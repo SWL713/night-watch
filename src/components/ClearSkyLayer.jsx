@@ -106,8 +106,18 @@ export default function ClearSkyLayer({
     const latSpan = maxLat - minLat
     const lonSpan = maxLon - minLon
 
+    // Mercator-correct lat mapping — ImageOverlay positions using Mercator projection
+    // so canvas pixels must map to lat/lon the same way Mercator does, otherwise
+    // teal zones drift from their actual geographic position at higher zoom levels
+    const MERC_R = 6378137.0
+    const maxY = MERC_R * Math.log(Math.tan(Math.PI / 4 + maxLat * Math.PI / 360))
+    const minY = MERC_R * Math.log(Math.tan(Math.PI / 4 + minLat * Math.PI / 360))
+    const ySpan = maxY - minY
+
     for (let py = 0; py < CANVAS_H; py++) {
-      const lat = maxLat - (py / (CANVAS_H - 1)) * latSpan
+      // Mercator-correct lat for this pixel row
+      const projY = maxY - (py / (CANVAS_H - 1)) * ySpan
+      const lat = (360 / Math.PI) * Math.atan(Math.exp(projY / MERC_R)) - 90
       for (let px = 0; px < CANVAS_W; px++) {
         const lon = minLon + (px / (CANVAS_W - 1)) * lonSpan
         const distFromAnchor = Math.sqrt(
