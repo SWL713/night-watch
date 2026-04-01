@@ -537,9 +537,9 @@ function App() {
               )}
             </div>
 
-            {/* Long Shot warning — below buttons */}
+            {/* Long Shot warning — separate row below slider, clear of thumb */}
             {longShot && (
-              <div style={{ color: '#ff8c00', fontSize: 8, fontFamily: FONT, letterSpacing: 1, marginTop: 2, whiteSpace: 'nowrap' }}>
+              <div style={{ color: '#ff8c00', fontSize: 8, fontFamily: FONT, letterSpacing: 1, marginTop: 8, whiteSpace: 'nowrap' }}>
                 ⚠️ LONG SHOT · HEAVILY CLOUDED REGION
               </div>
             )}
@@ -572,7 +572,7 @@ function App() {
           </div>
         )}
 
-        {/* Best in selection — hugs bottom of circle, centered on anchor */}
+        {/* Best in radius — hugs bottom of circle, centered on anchor */}
         {clearSkyMode && bestInCircle !== null && circleBottomPos && (
           <div
             onClick={() => helpMode && showHelp('best_in_selection')}
@@ -582,13 +582,17 @@ function App() {
               left: circleBottomPos.x,
               transform: 'translateX(-50%)',
               zIndex: 2000, pointerEvents: helpMode ? 'auto' : 'none',
-              color: '#44ddaa', fontSize: 9, fontFamily: FONT,
+              fontSize: 9, fontFamily: FONT,
               letterSpacing: 0.5, cursor: helpMode ? 'pointer' : 'default',
               whiteSpace: 'nowrap',
               textShadow: '0 1px 4px rgba(6,8,15,0.9)',
             }}
           >
-            best in selection: {bestInCircle}% clear
+            <span style={{ color: '#44ddaa' }}>best in radius: </span>
+            <span style={{
+              color: bestInCircle >= 60 ? '#44cc88' : bestInCircle >= 40 ? '#ffcc44' : '#ff5566',
+              fontWeight: 'bold',
+            }}>{bestInCircle}% clear</span>
           </div>
         )}
 

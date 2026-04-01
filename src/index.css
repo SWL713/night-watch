@@ -49,9 +49,9 @@ input[type="range"] {
 }
 input[type="range"]::-webkit-slider-thumb {
   -webkit-appearance: none;
-  width: 14px; height: 14px;
+  width: 12px; height: 12px;
   background: #44ddaa;
-  border-radius: 50%;
+  border-radius: 2px;
   cursor: pointer;
 }
 
