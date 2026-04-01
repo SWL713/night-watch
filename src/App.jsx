@@ -299,6 +299,18 @@ function App() {
                     if (!sessionStorage.getItem('nw_clearsky_seen')) {
                       setShowClearSkyIntro(true)
                     }
+                    // Immediately set anchor from GPS if available
+                    if (userLocation) {
+                      setClearSkyAnchor({ lat: userLocation.lat, lng: userLocation.lng })
+                    }
+                    // Reset radius each session
+                    setClearSkyRadius(40)
+                    setRenderedRadius(40)
+                    setBestInCircle(null)
+                  } else {
+                    // Deactivating — clear manual anchor
+                    setManualAnchor(null)
+                    setBestInCircle(null)
                   }
                   return !m
                 })
@@ -449,8 +461,8 @@ function App() {
         {clearSkyMode && (
           <div style={{
             position: 'absolute', top: 28, left: '50%', transform: 'translateX(-50%)',
-            zIndex: 1100, textAlign: 'center',
-            fontFamily: FONT, whiteSpace: 'nowrap',
+            zIndex: 2000, textAlign: 'center',
+            fontFamily: FONT,
           }}>
             <div style={{
               background: 'rgba(7,11,22,0.92)', border: '1px solid #44ddaa',
@@ -487,27 +499,38 @@ function App() {
 
             {/* Radius slider */}
             <div
-              style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, marginTop: 4 }}
+              style={{
+                display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, marginTop: 4,
+                position: 'relative', zIndex: 2000, pointerEvents: 'auto',
+              }}
               onClick={() => helpMode && showHelp('radius_slider')}
             >
-              <span style={{ color: '#2a6655', fontSize: 9, fontFamily: FONT }}>
-                {Math.round(clearSkyRadius)}mi
-              </span>
+              <span style={{ color: '#2a6655', fontSize: 9, fontFamily: FONT, letterSpacing: 0.5 }}>TRAVEL RADIUS:</span>
               <input
                 type="range"
                 min={0} max={100}
-                value={Math.round((Math.log(clearSkyRadius) - Math.log(10)) / (Math.log(400) - Math.log(10)) * 100)}
+                value={Math.round(Math.sqrt((clearSkyRadius - 10) / (400 - 10)) * 100)}
                 onChange={e => {
                   if (helpMode) return
                   const pct = parseFloat(e.target.value) / 100
-                  const miles = Math.round(Math.exp(Math.log(10) + pct * (Math.log(400) - Math.log(10))))
+                  const miles = Math.round(10 + pct * pct * (400 - 10))
                   setClearSkyRadius(miles)
                   clearTimeout(radiusDebounceRef.current)
-                  radiusDebounceRef.current = setTimeout(() => setRenderedRadius(miles), 200)
+                  radiusDebounceRef.current = setTimeout(() => {
+                    setRenderedRadius(miles)
+                    // Auto-zoom to fit circle when slider settles
+                    if (clearSkyAnchor && mapRef.current) {
+                      const R = miles / 69
+                      mapRef.current.fitBounds([
+                        [clearSkyAnchor.lat - R, clearSkyAnchor.lng - R * 1.4],
+                        [clearSkyAnchor.lat + R, clearSkyAnchor.lng + R * 1.4],
+                      ], { padding: [40, 40], animate: true, duration: 0.5 })
+                    }
+                  }, 200)
                 }}
-                style={{ width: 100, cursor: 'pointer', accentColor: '#44ddaa' }}
+                style={{ width: 110, cursor: 'pointer', accentColor: '#44ddaa', zIndex: 2000 }}
               />
-              <span style={{ color: '#2a6655', fontSize: 9, fontFamily: FONT }}>400mi</span>
+              <span style={{ color: '#2a6655', fontSize: 9, fontFamily: FONT }}>{Math.round(clearSkyRadius)}mi</span>
             </div>
 
             {/* No-anchor label */}
