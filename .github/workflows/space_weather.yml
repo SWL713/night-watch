@@ -49,7 +49,7 @@ jobs:
           git config user.name  "Night Watch Bot"
           git config user.email "actions@github.com"
           sleep $((RANDOM % 20 + 5))  # jitter to avoid concurrent amend conflicts
-          git add data/space_weather.json || true
+          git add data/space_weather.json data/sw_mag_7day.json data/sw_plasma_7day.json data/sw_epam.json || true
 
           git diff --staged --quiet && exit 0
 
