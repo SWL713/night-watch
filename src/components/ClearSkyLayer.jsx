@@ -186,61 +186,53 @@ export default function ClearSkyLayer({
     return () => { if (overlayRef.current) { mapInstance.removeLayer(overlayRef.current); overlayRef.current = null } }
   }, [geoImage, mapInstance])
 
-  // ── 3. Mask — SVG evenodd path: world rect with circle hole ─────────────
-  // This is the only reliable hard-boundary approach. Leaflet's SVG pane
-  // handles all projection math. No canvas compositing, no coordinate drift.
+  // ── 3. Mask — SVG in map container using containerPoints (no pane transform issues) ──
   useEffect(() => {
     if (!anchor) return
 
-    const svgPane = mapInstance.getPanes().overlayPane
+    const mapContainer = mapInstance.getContainer()
 
-    // Create SVG element once
     if (!maskRef.current) {
       const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg')
-      svg.style.cssText = 'position:absolute;top:0;left:0;width:100%;height:100%;pointer-events:none;z-index:203;overflow:visible;'
+      svg.style.cssText = 'position:absolute;top:0;left:0;width:100%;height:100%;pointer-events:none;z-index:400;overflow:hidden;'
       const path = document.createElementNS('http://www.w3.org/2000/svg', 'path')
       path.setAttribute('fill', 'rgba(6,8,15,0.78)')
       path.setAttribute('fill-rule', 'evenodd')
       svg.appendChild(path)
-      svgPane.appendChild(svg)
+      mapContainer.appendChild(svg)
       maskRef.current = { svg, path }
     }
 
     function updateMask() {
-      const { path } = maskRef.current
+      const size = mapInstance.getSize()
+      const { svg, path } = maskRef.current
 
-      // Convert anchor center and radius edge to layer points
-      const c  = mapInstance.latLngToLayerPoint([anchor.lat, anchor.lng])
-      const e  = mapInstance.latLngToLayerPoint([anchor.lat + milesToDeg(radiusMiles), anchor.lng])
+      svg.setAttribute('viewBox', `0 0 ${size.x} ${size.y}`)
+      svg.setAttribute('width', size.x)
+      svg.setAttribute('height', size.y)
+
+      // containerPoint stays stable — no pane transform involved
+      const c  = mapInstance.latLngToContainerPoint([anchor.lat, anchor.lng])
+      const e  = mapInstance.latLngToContainerPoint([anchor.lat + milesToDeg(radiusMiles), anchor.lng])
       const r  = Math.abs(e.y - c.y)
 
-      // Large world-covering rect (in layer coords)
-      const size = mapInstance.getSize()
-      const tl   = mapInstance.containerPointToLayerPoint([0, 0])
-      const pad  = 2000
-      const x    = tl.x - pad, y = tl.y - pad
-      const w    = size.x + pad * 2, h = size.y + pad * 2
-
-      // evenodd: rect covers world, circle subtracts → leaves circle clear
-      // SVG arc: two arcs to make a full circle path
+      // Rect covering full viewport + padding, circle hole punched out via evenodd
+      const pad = 100
       const d = [
-        `M ${x} ${y} h ${w} v ${h} h ${-w} Z`,
+        `M ${-pad} ${-pad} h ${size.x + pad * 2} v ${size.y + pad * 2} h ${-(size.x + pad * 2)} Z`,
         `M ${c.x + r} ${c.y}`,
         `A ${r} ${r} 0 1 0 ${c.x - r} ${c.y}`,
         `A ${r} ${r} 0 1 0 ${c.x + r} ${c.y} Z`,
       ].join(' ')
       path.setAttribute('d', d)
 
-      // Report circle bottom-center in container coords for label
-      const cc = mapInstance.latLngToContainerPoint([anchor.lat, anchor.lng])
-      const ec = mapInstance.latLngToContainerPoint([anchor.lat + milesToDeg(radiusMiles), anchor.lng])
-      onCircleBottom?.({ x: cc.x, y: cc.y + Math.abs(ec.y - cc.y) + 10 })
+      onCircleBottom?.({ x: c.x, y: c.y + r + 10 })
     }
 
     updateMask()
-    mapInstance.on('moveend zoomend resize move zoom', updateMask)
+    mapInstance.on('move zoom moveend zoomend resize', updateMask)
     return () => {
-      mapInstance.off('moveend zoomend resize move zoom', updateMask)
+      mapInstance.off('move zoom moveend zoomend resize', updateMask)
       if (maskRef.current) {
         maskRef.current.svg.remove()
         maskRef.current = null
