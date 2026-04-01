@@ -536,7 +536,7 @@ function App() {
                       }
                     }, 200)
                   }}
-                  style={{ width: 90, cursor: 'pointer', accentColor: '#44ddaa' }}
+                  style={{ width: 90, cursor: 'pointer' }}
                 />
                 <span style={{ color: '#2a6655', fontSize: 9, fontFamily: FONT, whiteSpace: 'nowrap' }}>
                   {Math.round(clearSkyRadius)}mi

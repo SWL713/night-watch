@@ -54,6 +54,19 @@ input[type="range"]::-webkit-slider-thumb {
   border-radius: 4px;
   cursor: pointer;
 }
+input[type="range"]::-moz-range-thumb {
+  width: 18px; height: 10px;
+  background: #44ddaa;
+  border-radius: 4px;
+  cursor: pointer;
+  border: none;
+}
+input[type="range"]::-ms-thumb {
+  width: 18px; height: 10px;
+  background: #44ddaa;
+  border-radius: 4px;
+  cursor: pointer;
+}
 
 /* Select styling */
 select {
