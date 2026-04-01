@@ -392,6 +392,8 @@ function App() {
               mode={heatmapMode}
               bortleGrid={bortleGrid}
               clearSkyMode={clearSkyMode}
+              clearSkyAnchor={clearSkyAnchor}
+              clearSkyRadius={clearSkyRadius}
               adminAuthed={adminAuthed}
               onAdminUpdate={adminUpdateSpot}
               onAdminDeleteSpot={adminDeleteSpot}
