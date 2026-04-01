@@ -186,15 +186,13 @@ export default function ClearSkyLayer({
     return () => { if (overlayRef.current) { mapInstance.removeLayer(overlayRef.current); overlayRef.current = null } }
   }, [geoImage, mapInstance])
 
-  // ── 3. Mask — SVG in overlayPane using layerPoints ───────────────────────
-  // Key insight: overlayPane moves via CSS transform during pan, so the SVG
-  // moves automatically with all other map content. Only recalculate on zoom/resize.
+  // ── 3. Mask — SVG in overlayPane, layerPoint coords, no CSS repositioning ──
   useEffect(() => {
     if (!anchor) return
 
     if (!maskRef.current) {
       const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg')
-      svg.style.cssText = 'position:absolute;top:0;left:0;pointer-events:none;z-index:203;overflow:visible;'
+      svg.style.cssText = 'position:absolute;top:0;left:0;width:0;height:0;pointer-events:none;z-index:203;overflow:visible;'
       const path = document.createElementNS('http://www.w3.org/2000/svg', 'path')
       path.setAttribute('fill', 'rgba(6,8,15,0.78)')
       path.setAttribute('fill-rule', 'evenodd')
@@ -204,28 +202,20 @@ export default function ClearSkyLayer({
     }
 
     function updateMask() {
-      const size = mapInstance.getSize()
-      const { svg, path } = maskRef.current
+      const { path } = maskRef.current
 
-      // layerPoint coords — same space as the overlayPane transform
+      // layerPoint of anchor center
       const c = mapInstance.latLngToLayerPoint([anchor.lat, anchor.lng])
 
-      // Radius: use Leaflet's exact formula (meters → degrees → layer pixels)
-      const latDeg = (radiusMiles * 1609.34 / 40075017) * 360
+      // Radius: convert miles→meters→degrees lat→layerPoint delta
+      const latDeg = (radiusMiles * 1609.34) / 111320
       const e = mapInstance.latLngToLayerPoint([anchor.lat + latDeg, anchor.lng])
       const r = Math.abs(e.y - c.y)
 
-      // SVG must cover viewport regardless of pan offset
-      // Use a huge rect to guarantee full coverage
-      const pad = 4000
-      svg.setAttribute('viewBox', `${c.x - pad} ${c.y - pad} ${pad * 2} ${pad * 2}`)
-      svg.setAttribute('width',  pad * 2)
-      svg.setAttribute('height', pad * 2)
-      svg.style.left = (c.x - pad) + 'px'
-      svg.style.top  = (c.y - pad) + 'px'
-
+      // Huge rect in layerPoint space — always covers viewport regardless of pan
+      const BIG = 50000
       const d = [
-        `M ${c.x - pad} ${c.y - pad} h ${pad * 2} v ${pad * 2} h ${-pad * 2} Z`,
+        `M ${-BIG} ${-BIG} h ${BIG * 2} v ${BIG * 2} h ${-BIG * 2} Z`,
         `M ${c.x + r} ${c.y}`,
         `A ${r} ${r} 0 1 0 ${c.x - r} ${c.y}`,
         `A ${r} ${r} 0 1 0 ${c.x + r} ${c.y} Z`,
@@ -234,18 +224,16 @@ export default function ClearSkyLayer({
 
       // Report circle bottom in container coords for label
       const cc = mapInstance.latLngToContainerPoint([anchor.lat, anchor.lng])
-      onCircleBottom?.({ x: cc.x, y: cc.y + r + 10 })
+      const ec = mapInstance.latLngToContainerPoint([anchor.lat + latDeg, anchor.lng])
+      const rContainer = Math.abs(ec.y - cc.y)
+      onCircleBottom?.({ x: cc.x, y: cc.y + rContainer + 10 })
     }
 
     updateMask()
-    // Only need zoom/resize — pan is handled automatically by pane transform
     mapInstance.on('zoomend zoom resize', updateMask)
     return () => {
       mapInstance.off('zoomend zoom resize', updateMask)
-      if (maskRef.current) {
-        maskRef.current.svg.remove()
-        maskRef.current = null
-      }
+      if (maskRef.current) { maskRef.current.svg.remove(); maskRef.current = null }
       onCircleBottom?.(null)
     }
   }, [anchor, radiusMiles, mapInstance])  // eslint-disable-line
