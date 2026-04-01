@@ -180,32 +180,51 @@ export default function ClearSkyLayer({
     return () => { if (overlayRef.current) { mapInstance.removeLayer(overlayRef.current); overlayRef.current = null } }
   }, [geoImage, mapInstance])
 
-  // ── 3. Mask — redraws on every map move using LIVE radiusMiles ────────────
+  // ── 3. Mask — fixed position div on body, immune to Leaflet pane transforms ──
   useEffect(() => {
     if (!anchor) return
 
+    // Get map container DOM element for bounding rect
+    const mapContainer = mapInstance.getContainer()
+
     function drawMask() {
-      const size = mapInstance.getSize()
+      const rect = mapContainer.getBoundingClientRect()
       const dpr  = Math.min(window.devicePixelRatio || 1, 1.5)
-      const W = Math.round(size.x * dpr), H = Math.round(size.y * dpr)
+      const W = Math.round(rect.width * dpr)
+      const H = Math.round(rect.height * dpr)
+
       if (!maskRef.current) {
         const c = document.createElement('canvas')
-        c.style.cssText = 'position:absolute;pointer-events:none;z-index:202;'
-        mapInstance.getPanes().overlayPane.appendChild(c)
+        c.style.cssText = `
+          position:fixed;pointer-events:none;z-index:400;
+          left:${rect.left}px;top:${rect.top}px;
+          width:${rect.width}px;height:${rect.height}px;
+        `
+        document.body.appendChild(c)
         maskRef.current = c
       }
+
       const canvas = maskRef.current
-      canvas.width = W; canvas.height = H
-      canvas.style.width = size.x + 'px'; canvas.style.height = size.y + 'px'
-      L.DomUtil.setPosition(canvas, mapInstance.containerPointToLayerPoint([0, 0]))
+      // Update position in case map container moved
+      canvas.style.left  = rect.left + 'px'
+      canvas.style.top   = rect.top  + 'px'
+      canvas.style.width  = rect.width  + 'px'
+      canvas.style.height = rect.height + 'px'
+      canvas.width  = W
+      canvas.height = H
+
       const ctx = canvas.getContext('2d')
       ctx.clearRect(0, 0, W, H)
       ctx.fillStyle = 'rgba(6,8,15,0.72)'
       ctx.fillRect(0, 0, W, H)
-      const center    = mapInstance.latLngToContainerPoint([anchor.lat, anchor.lng])
-      const edgePt    = mapInstance.latLngToContainerPoint([anchor.lat + milesToDeg(radiusMiles), anchor.lng])
-      const radiusPx  = Math.abs(edgePt.y - center.y) * dpr
-      const cx = center.x * dpr, cy = center.y * dpr
+
+      // Convert anchor and edge point to container pixels
+      const center = mapInstance.latLngToContainerPoint([anchor.lat, anchor.lng])
+      const edgePt = mapInstance.latLngToContainerPoint([anchor.lat + milesToDeg(radiusMiles), anchor.lng])
+      const radiusPx = Math.abs(edgePt.y - center.y) * dpr
+      const cx = center.x * dpr
+      const cy = center.y * dpr
+
       ctx.globalCompositeOperation = 'destination-out'
       ctx.beginPath()
       ctx.arc(cx, cy, radiusPx, 0, Math.PI * 2)
@@ -213,14 +232,16 @@ export default function ClearSkyLayer({
       ctx.fill()
       ctx.globalCompositeOperation = 'source-over'
 
-      // Report circle bottom-center screen position for "best in selection" label
-      onCircleBottom?.({ x: center.x, y: center.y + Math.abs(edgePt.y - center.y) + 8 })
+      // Report circle bottom-center in container coords for label positioning
+      onCircleBottom?.({ x: center.x, y: center.y + Math.abs(edgePt.y - center.y) + 10 })
     }
 
     drawMask()
     mapInstance.on('moveend zoomend resize move', drawMask)
+    window.addEventListener('resize', drawMask)
     return () => {
       mapInstance.off('moveend zoomend resize move', drawMask)
+      window.removeEventListener('resize', drawMask)
       if (maskRef.current) { maskRef.current.remove(); maskRef.current = null }
       onCircleBottom?.(null)
     }
@@ -236,6 +257,20 @@ export default function ClearSkyLayer({
     }).addTo(mapInstance)
     return () => { if (circleRef.current) { mapInstance.removeLayer(circleRef.current); circleRef.current = null } }
   }, [anchor, radiusMiles, mapInstance])
+
+  // ── 5. Long Shot dashed orange inner border ───────────────────────────────
+  const lsCircleRef = useRef(null)
+  useEffect(() => {
+    if (lsCircleRef.current) { mapInstance.removeLayer(lsCircleRef.current); lsCircleRef.current = null }
+    if (!anchor || !geoImage?.longShot) return
+    lsCircleRef.current = L.circle([anchor.lat, anchor.lng], {
+      radius: (radiusMiles - 1) * 1609.34,
+      color: 'rgba(255,140,0,0.7)', weight: 1,
+      fill: false, opacity: 0.7, interactive: false,
+      dashArray: '4 8',
+    }).addTo(mapInstance)
+    return () => { if (lsCircleRef.current) { mapInstance.removeLayer(lsCircleRef.current); lsCircleRef.current = null } }
+  }, [anchor, radiusMiles, geoImage?.longShot, mapInstance])
 
   return null
 }
