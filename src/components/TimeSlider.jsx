@@ -20,12 +20,27 @@ export default function TimeSlider({ value, onChange }) {
       userSelect: 'none',
       paddingBottom: 'env(safe-area-inset-bottom, 0px)',
     }}>
-      {/* Single row: ◀ label slider ▶ */}
+      {/* Header row — compact */}
+      <div style={{
+        display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+        padding: '3px 12px 2px',
+      }}>
+        <span style={{ color: '#334455', fontSize: 8, letterSpacing: 1 }}>
+          FORECAST TIME
+        </span>
+        <span style={{
+          color: value === 0 ? '#ffffff' : '#44ddaa',
+          fontSize: 11, fontWeight: 'bold', letterSpacing: 1,
+        }}>
+          {value === 0 ? '▶ NOW' : `+${value}h  →  ${label(value)} EDT`}
+        </span>
+      </div>
+
+      {/* Slider row: ◀ range ▶ — compact height */}
       <div style={{
         display: 'flex', alignItems: 'center',
-        padding: '4px 8px', gap: 8,
+        padding: '0 8px 2px', gap: 6,
       }}>
-        {/* Back button */}
         <button
           onPointerDown={e => { e.preventDefault(); onChange(Math.max(0, value - 1)) }}
           style={{
@@ -39,44 +54,28 @@ export default function TimeSlider({ value, onChange }) {
           }}
         >◀</button>
 
-        {/* Label */}
-        <span style={{
-          color: value === 0 ? '#ffffff' : '#44ddaa',
-          fontSize: 11, fontWeight: 'bold', letterSpacing: 1,
-          flexShrink: 0, minWidth: 100,
-        }}>
-          {value === 0 ? '▶ NOW' : `+${value}h → ${label(value)}`}
-        </span>
-
-        {/* Slider track */}
         <div style={{ flex: 1, position: 'relative', height: 36, display: 'flex', alignItems: 'center' }}>
           <div style={{
             position: 'absolute', left: 0, right: 0, height: 6,
-            background: '#0a0e18', borderRadius: 3,
-            border: '1px solid #1a2035',
+            background: '#0a0e18', borderRadius: 3, border: '1px solid #1a2035',
           }} />
           <div style={{
             position: 'absolute', left: 0,
             width: `${(value / 8) * 100}%`,
-            height: 6, background: '#44ddaa33',
-            borderRadius: 3,
+            height: 6, background: '#44ddaa33', borderRadius: 3,
           }} />
           <input
-            type="range"
-            min="0" max="8" step="1"
-            value={value}
+            type="range" min="0" max="8" step="1" value={value}
             onChange={e => onChange(parseInt(e.target.value))}
             style={{
               position: 'relative', width: '100%',
               appearance: 'none', WebkitAppearance: 'none',
-              background: 'transparent',
-              height: 36, cursor: 'pointer', margin: 0,
-              touchAction: 'manipulation',
+              background: 'transparent', height: 36,
+              cursor: 'pointer', margin: 0, touchAction: 'manipulation',
             }}
           />
         </div>
 
-        {/* Forward button */}
         <button
           onPointerDown={e => { e.preventDefault(); onChange(Math.min(8, value + 1)) }}
           style={{
@@ -91,10 +90,32 @@ export default function TimeSlider({ value, onChange }) {
         >▶</button>
       </div>
 
+      {/* Hour tap buttons — compact */}
+      <div style={{ display: 'flex', padding: '0 8px 6px', gap: 3 }}>
+        {Array.from({ length: 9 }, (_, i) => (
+          <button
+            key={i}
+            onPointerDown={e => { e.preventDefault(); onChange(i) }}
+            style={{
+              flex: 1, height: 26,
+              background: i === value ? '#0d1a2a' : 'transparent',
+              border: i === value ? '1px solid #44ddaa' : '1px solid #1a2035',
+              borderRadius: 3,
+              color: i === value ? '#44ddaa' : '#2a3a4a',
+              fontSize: i === value ? 8 : 7,
+              fontFamily: FONT, fontWeight: i === value ? 'bold' : 'normal',
+              cursor: 'pointer', touchAction: 'manipulation', transition: 'all 0.1s',
+            }}
+          >
+            {i === 0 ? 'NOW' : `+${i}h`}
+          </button>
+        ))}
+      </div>
+
       <style>{`
         input[type=range]::-webkit-slider-thumb {
           -webkit-appearance: none;
-          width: 22px; height: 22px;
+          width: 24px; height: 24px;
           border-radius: 50%;
           background: #44ddaa;
           border: 3px solid #06080f;
@@ -102,7 +123,7 @@ export default function TimeSlider({ value, onChange }) {
           cursor: grab;
         }
         input[type=range]::-moz-range-thumb {
-          width: 22px; height: 22px;
+          width: 24px; height: 24px;
           border-radius: 50%;
           background: #44ddaa;
           border: 3px solid #06080f;
@@ -112,9 +133,7 @@ export default function TimeSlider({ value, onChange }) {
         input[type=range]::-webkit-slider-runnable-track {
           background: transparent; height: 6px;
         }
-        input[type=range]:active::-webkit-slider-thumb {
-          cursor: grabbing;
-        }
+        input[type=range]:active::-webkit-slider-thumb { cursor: grabbing; }
       `}</style>
     </div>
   )
