@@ -23,6 +23,9 @@ log = logging.getLogger(__name__)
 
 OUTPUT_PATH       = os.path.join(os.path.dirname(__file__), '..', 'data', 'space_weather.json')
 CLOUD_OUTPUT_PATH = os.path.join(os.path.dirname(__file__), '..', 'data', 'cloud_cover.json')
+SW_MAG_PATH       = os.path.join(os.path.dirname(__file__), '..', 'data', 'sw_mag_7day.json')
+SW_PLASMA_PATH    = os.path.join(os.path.dirname(__file__), '..', 'data', 'sw_plasma_7day.json')
+SW_EPAM_PATH      = os.path.join(os.path.dirname(__file__), '..', 'data', 'sw_epam.json')
 
 # ── Data source URLs ─────────────────────────────────────────────────────────
 DSCOVR_MAG_URL    = 'https://services.swpc.noaa.gov/json/rtsw/rtsw_mag_1m.json'
@@ -35,6 +38,9 @@ ENLIL_BASE        = 'https://nomads.ncep.noaa.gov/pub/data/nccf/com/wsa_enlil/pr
 ENLIL_JSON_URL    = 'https://services.swpc.noaa.gov/json/enlil_time_series.json'
 KP_1M_URL         = 'https://services.swpc.noaa.gov/json/planetary_k_index_1m.json'
 KP_FORECAST_URL   = 'https://services.swpc.noaa.gov/products/noaa-planetary-k-index-forecast.json'
+SW_MAG_7DAY_URL   = 'https://services.swpc.noaa.gov/products/solar-wind/mag-7-day.json'
+SW_PLASMA_7DAY_URL= 'https://services.swpc.noaa.gov/products/solar-wind/plasma-7-day.json'
+ACE_EPAM_URL      = 'https://services.swpc.noaa.gov/json/ace/ace_epam_1m.json'
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -708,6 +714,273 @@ def build_plasma_timeline(l1_data):
     return points
 
 
+# ── Space Weather History (7-day) ─────────────────────────────────────────────
+
+def _purge_old(rows, time_key='time', cutoff_days=8):
+    """Remove rows older than cutoff_days. rows is list of lists or dicts."""
+    cutoff = datetime.now(timezone.utc) - timedelta(days=cutoff_days)
+    out = []
+    for r in rows:
+        t_str = r[time_key] if isinstance(r, dict) else r[0]
+        if not t_str or t_str == 'null':
+            continue
+        try:
+            dt = datetime.fromisoformat(str(t_str).replace('Z', '+00:00'))
+            if dt.tzinfo is None:
+                dt = dt.replace(tzinfo=timezone.utc)
+            if dt >= cutoff:
+                out.append(r)
+        except Exception:
+            pass
+    return out
+
+
+def fetch_sw_mag_7day():
+    """
+    Fetch 7-day IMF/mag data from NOAA SWPC.
+    Endpoint: solar-wind/mag-7-day.json
+    Format:   first row = column headers, rest = data rows (all strings)
+    Columns:  time_tag, bx_gsm, by_gsm, bz_gsm, lon_gsm, lat_gsm, bt
+
+    Stores compact column-array format in data/sw_mag_7day.json.
+    Phi is derived: atan2(By, Bx) normalised to 0-360°.
+    Parker spiral angle derived from speed in sw_plasma_7day (stored separately,
+    frontend computes it from latest speed value).
+    8-day purge applied on every write.
+    """
+    data = safe_get(SW_MAG_7DAY_URL)
+    if not data or len(data) < 2:
+        log.warning('sw_mag_7day: fetch failed or empty')
+        return False
+
+    # First row is headers
+    headers = [h.lower().strip() for h in data[0]]
+    ti  = next((i for i, h in enumerate(headers) if 'time' in h), 0)
+    bxi = next((i for i, h in enumerate(headers) if 'bx' in h), None)
+    byi = next((i for i, h in enumerate(headers) if 'by' in h), None)
+    bzi = next((i for i, h in enumerate(headers) if 'bz' in h), None)
+    bti = next((i for i, h in enumerate(headers) if h == 'bt'), None)
+
+    rows = []
+    for row in data[1:]:
+        try:
+            t = str(row[ti]).replace('Z', '+00:00')
+            # Parse each field, filter NOAA fill values (-999.9, -9999.9)
+            def fv(idx):
+                if idx is None: return None
+                v = row[idx]
+                if v is None: return None
+                try:
+                    f = float(v)
+                    return None if abs(f) > 900 else round(f, 2)
+                except Exception:
+                    return None
+
+            bx, by, bz, bt = fv(bxi), fv(byi), fv(bzi), fv(bti)
+
+            # Phi: atan2(By, Bx) → 0-360°
+            phi = None
+            if bx is not None and by is not None:
+                phi = round(math.degrees(math.atan2(by, bx)) % 360, 1)
+
+            rows.append([t, bx, by, bz, bt, phi])
+        except Exception:
+            continue
+
+    rows = _purge_old(rows, time_key=0, cutoff_days=8)
+    log.info(f'sw_mag_7day: {len(rows)} rows after purge')
+
+    output = {
+        'fetched_at': datetime.now(timezone.utc).isoformat(),
+        'columns': ['time', 'bx', 'by', 'bz', 'bt', 'phi'],
+        'data': rows,
+    }
+    os.makedirs(os.path.dirname(SW_MAG_PATH), exist_ok=True)
+    with open(SW_MAG_PATH, 'w') as f:
+        json.dump(output, f, separators=(',', ':'))
+    log.info(f'sw_mag_7day.json written: {len(rows)} points')
+    return True
+
+
+def fetch_sw_plasma_7day():
+    """
+    Fetch 7-day plasma data from NOAA SWPC.
+    Endpoint: solar-wind/plasma-7-day.json
+    Format:   first row = column headers, rest = data rows
+    Columns:  time_tag, density, speed, temperature
+
+    Stores compact column-array format in data/sw_plasma_7day.json.
+    8-day purge applied on every write.
+    """
+    data = safe_get(SW_PLASMA_7DAY_URL)
+    if not data or len(data) < 2:
+        log.warning('sw_plasma_7day: fetch failed or empty')
+        return False
+
+    headers = [h.lower().strip() for h in data[0]]
+    ti   = next((i for i, h in enumerate(headers) if 'time' in h), 0)
+    di   = next((i for i, h in enumerate(headers) if 'density' in h), None)
+    si   = next((i for i, h in enumerate(headers) if 'speed' in h), None)
+    tmpi = next((i for i, h in enumerate(headers) if 'temp' in h), None)
+
+    rows = []
+    for row in data[1:]:
+        try:
+            t = str(row[ti]).replace('Z', '+00:00')
+
+            def fv(idx, lo=None, hi=None):
+                if idx is None: return None
+                v = row[idx]
+                if v is None: return None
+                try:
+                    f = float(v)
+                    if abs(f) > 9e5: return None  # NOAA fill values
+                    if lo is not None and f < lo: return None
+                    if hi is not None and f > hi: return None
+                    return round(f, 2)
+                except Exception:
+                    return None
+
+            density = fv(di, lo=0.01, hi=500)
+            speed   = fv(si, lo=100,  hi=4000)
+            temp    = fv(tmpi, lo=1000, hi=1e8)
+
+            rows.append([t, density, speed, temp])
+        except Exception:
+            continue
+
+    rows = _purge_old(rows, time_key=0, cutoff_days=8)
+    log.info(f'sw_plasma_7day: {len(rows)} rows after purge')
+
+    output = {
+        'fetched_at': datetime.now(timezone.utc).isoformat(),
+        'columns': ['time', 'density', 'speed', 'temperature'],
+        'data': rows,
+    }
+    os.makedirs(os.path.dirname(SW_PLASMA_PATH), exist_ok=True)
+    with open(SW_PLASMA_PATH, 'w') as f:
+        json.dump(output, f, separators=(',', ':'))
+    log.info(f'sw_plasma_7day.json written: {len(rows)} points')
+    return True
+
+
+def fetch_epam():
+    """
+    Fetch ACE EPAM energetic particle data.
+    Endpoint: json/ace/ace_epam_1m.json
+    Returns 1-minute averaged electron and proton flux by energy channel.
+
+    Electron channels (DE/E cm⁻² s⁻¹ sr⁻¹ MeV⁻¹):
+      e38:  38-53 keV    (DE1)
+      e175: 175-315 keV  (DE4)
+
+    Proton channels (LEMS120, cm⁻² s⁻¹ sr⁻¹ MeV⁻¹):
+      p47:   47-68 keV
+      p68:   68-115 keV
+      p115:  115-195 keV
+      p310:  310-580 keV
+      p795:  795-1193 keV
+      p1060: 1060-1900 keV
+
+    Fill value: -1.00e+05 (NOAA convention — filter these out).
+    Stores compact column-array format in data/sw_epam.json.
+    """
+    data = safe_get(ACE_EPAM_URL)
+    if not data:
+        log.warning('EPAM: fetch failed')
+        return False
+
+    # EPAM returns list of dicts
+    # Field names vary slightly — probe common ones
+    ELECTRON_FIELDS = ['e38-53', 'e38', 'de1', 'DE1', 'E1']
+    ELECTRON2_FIELDS = ['e175-315', 'e175', 'de4', 'DE4', 'E4']
+    PROTON_FIELDS = {
+        'p47':   ['p47-68',  'p47',  'P1', 'lems120_47-68'],
+        'p68':   ['p68-115', 'p68',  'P2'],
+        'p115':  ['p115-195','p115', 'P3'],
+        'p310':  ['p310-580','p310', 'P5'],
+        'p795':  ['p795-1193','p795','P6'],
+        'p1060': ['p1060-1900','p1060','P7'],
+    }
+
+    def probe_key(rec, candidates):
+        for c in candidates:
+            if c in rec:
+                return c
+        return None
+
+    if not data:
+        return False
+
+    first = data[0] if isinstance(data[0], dict) else None
+    if first is None:
+        log.warning('EPAM: unexpected format')
+        return False
+
+    e1_key  = probe_key(first, ELECTRON_FIELDS)
+    e4_key  = probe_key(first, ELECTRON2_FIELDS)
+    p_keys  = {k: probe_key(first, v) for k, v in PROTON_FIELDS.items()}
+
+    log.info(f'EPAM keys found: e1={e1_key} e4={e4_key} protons={p_keys}')
+
+    FILL = -1e5
+    rows = []
+    for rec in data:
+        try:
+            t = str(rec.get('time_tag', '')).replace('Z', '+00:00')
+            if not t:
+                continue
+
+            def fv(key):
+                if not key or key not in rec: return None
+                v = rec[key]
+                try:
+                    f = float(v)
+                    return None if f <= FILL * 0.9 or f < 0 else round(f, 4)
+                except Exception:
+                    return None
+
+            e38  = fv(e1_key)
+            e175 = fv(e4_key)
+            p47  = fv(p_keys.get('p47'))
+            p68  = fv(p_keys.get('p68'))
+            p115 = fv(p_keys.get('p115'))
+            p310 = fv(p_keys.get('p310'))
+            p795 = fv(p_keys.get('p795'))
+            p1060= fv(p_keys.get('p1060'))
+
+            rows.append([t, e38, e175, p47, p68, p115, p310, p795, p1060])
+        except Exception:
+            continue
+
+    # EPAM data is ~24h so purge at 2 days to keep it lean
+    rows = _purge_old(rows, time_key=0, cutoff_days=2)
+    log.info(f'EPAM: {len(rows)} rows after purge')
+
+    output = {
+        'fetched_at': datetime.now(timezone.utc).isoformat(),
+        'columns': ['time', 'e38', 'e175', 'p47', 'p68', 'p115', 'p310', 'p795', 'p1060'],
+        'units': {
+            'electrons': 'cm⁻² s⁻¹ sr⁻¹ MeV⁻¹',
+            'protons':   'cm⁻² s⁻¹ sr⁻¹ MeV⁻¹',
+            'e38':  '38-53 keV electrons',
+            'e175': '175-315 keV electrons',
+            'p47':  '47-68 keV protons',
+            'p68':  '68-115 keV protons',
+            'p115': '115-195 keV protons',
+            'p310': '310-580 keV protons',
+            'p795': '795-1193 keV protons',
+            'p1060':'1060-1900 keV protons',
+        },
+        'data': rows,
+    }
+    os.makedirs(os.path.dirname(SW_EPAM_PATH), exist_ok=True)
+    with open(SW_EPAM_PATH, 'w') as f:
+        json.dump(output, f, separators=(',', ':'))
+    log.info(f'sw_epam.json written: {len(rows)} points')
+    return True
+
+
 # ── Main ──────────────────────────────────────────────────────────────────────
 
 def main():
@@ -859,6 +1132,11 @@ def main():
 
     log.info(f'space_weather.json written: state={state} intensity={intensity_label} '
              f'bz={bz_now:.1f} quality={quality_label}')
+
+    # Fetch 7-day history and EPAM for Space Weather tab
+    fetch_sw_mag_7day()
+    fetch_sw_plasma_7day()
+    fetch_epam()
 
 
 
@@ -1281,6 +1559,11 @@ def main_with_clouds():
     with open(OUTPUT_PATH, 'w') as f:
         json.dump(sw_output, f, indent=2)
     log.info(f'space_weather.json written: {state} {intensity_label} bz={bz_now:.1f}')
+
+    # Fetch 7-day history and EPAM for Space Weather tab
+    fetch_sw_mag_7day()
+    fetch_sw_plasma_7day()
+    fetch_epam()
 
     # Cloud cover — HRRR primary (3km, no rate limits, no seams)
     # Falls back to Open-Meteo if HRRR fails or covers < 80% of grid
