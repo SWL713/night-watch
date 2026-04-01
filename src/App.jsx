@@ -49,15 +49,8 @@ const FONT = 'DejaVu Sans Mono, Consolas, monospace'
 // Admin passphrase — change this to your own admin password
 const ADMIN_PHRASE = 'nwadmin2026'
 
-// Moves Leaflet attribution from bottom-right to bottom-left
+// Keeps Leaflet attribution at bottom-right (default) — styled via CSS
 function AttributionMover() {
-  const map = useMap()
-  useEffect(() => {
-    const ctrl = map.attributionControl
-    if (ctrl) {
-      ctrl.setPosition('bottomleft')
-    }
-  }, [map])
   return null
 }
 
@@ -198,33 +191,6 @@ function App() {
         onHelpTap={showHelp}
         activeTab={activeTab}
       />
-
-      {/* Developer attribution bar — always visible, sits below top panel */}
-      <div style={{
-        background: '#06080f', borderBottom: '1px solid #0d1525',
-        padding: '2px 12px',
-        display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-        fontFamily: FONT, flexShrink: 0,
-      }}>
-        <span style={{ color: '#4a6a88', fontSize: 8, letterSpacing: 0.5 }}>
-          Developed by Scott W. LeFevre — 2026
-        </span>
-        <div
-          onClick={() => helpMode && showHelp('sw_cl_timestamps')}
-          style={{ display: 'flex', gap: 8, alignItems: 'center', cursor: helpMode ? 'pointer' : 'default' }}
-        >
-          <span style={{ color: sw.last_updated ? '#334455' : '#1e2a3a', fontSize: 8 }}>
-            {sw.last_updated ? `SW: ${new Date(sw.last_updated).toUTCString().slice(17,22)} UTC` : 'SW: —'}
-          </span>
-          {(() => {
-            const cu = cloudData?.lastUpdated
-            if (!cu) return null
-            const ageMin = Math.round((Date.now() - new Date(cu)) / 60000)
-            const color = ageMin > 180 ? '#ff5544' : ageMin > 90 ? '#ffaa33' : '#334455'
-            return <span style={{ color, fontSize: 8 }}>{`CL: ${new Date(cu).toUTCString().slice(17,22)} UTC`}</span>
-          })()}
-        </div>
-      </div>
 
       {/* Content area — map or tab placeholder */}
       {activeTab !== 'map' && (
@@ -881,7 +847,7 @@ function App() {
         )}
 
         {/* Recenter button — flies to user location */}
-        <div style={{ position: 'absolute', bottom: 10, right: 44, zIndex: 1000 }}>
+        <div style={{ position: 'absolute', bottom: 26, right: 44, zIndex: 1000 }}>
           <button
             onClick={() => {
               if (helpMode) { showHelp('recenter'); return }
@@ -905,7 +871,7 @@ function App() {
         </div>
 
         {/* ? Help button — bottom right above attribution */}
-        <div style={{ position: 'absolute', bottom: 10, right: 10, zIndex: 1000 }}>
+        <div style={{ position: 'absolute', bottom: 26, right: 10, zIndex: 1000 }}>
           <button
             onClick={toggleHelp}
             title="Help"
@@ -1103,6 +1069,33 @@ function App() {
             </div>
           )}
         </div>{/* end action bar */}
+
+      {/* Developer attribution bar — always visible, below action bar */}
+      <div style={{
+        background: '#06080f', borderTop: '1px solid #0d1525',
+        padding: '2px 12px',
+        display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+        fontFamily: FONT, flexShrink: 0,
+      }}>
+        <span style={{ color: '#4a6a88', fontSize: 8, letterSpacing: 0.5 }}>
+          Developed by Scott W. LeFevre — 2026
+        </span>
+        <div
+          onClick={() => helpMode && showHelp('sw_cl_timestamps')}
+          style={{ display: 'flex', gap: 8, alignItems: 'center', cursor: helpMode ? 'pointer' : 'default' }}
+        >
+          <span style={{ color: sw.last_updated ? '#334455' : '#1e2a3a', fontSize: 8 }}>
+            {sw.last_updated ? `SW: ${new Date(sw.last_updated).toUTCString().slice(17,22)} UTC` : 'SW: —'}
+          </span>
+          {(() => {
+            const cu = cloudData?.lastUpdated
+            if (!cu) return null
+            const ageMin = Math.round((Date.now() - new Date(cu)) / 60000)
+            const color = ageMin > 180 ? '#ff5544' : ageMin > 90 ? '#ffaa33' : '#334455'
+            return <span style={{ color, fontSize: 8 }}>{`CL: ${new Date(cu).toUTCString().slice(17,22)} UTC`}</span>
+          })()}
+        </div>
+      </div>
 
       {/* Time slider — map tab only */}
       {activeTab === 'map' && (
