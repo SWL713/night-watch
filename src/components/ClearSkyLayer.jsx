@@ -1,18 +1,3 @@
-// ClearSkyLayer — radius-based clear sky scoring centered on an anchor point.
-//
-// ARCHITECTURE: Only imports react, react-leaflet, leaflet. No cross-component imports.
-//
-// Props:
-//   cloudData        — HRRR cloud data
-//   getAvgCloudAt    — bilinear interpolation fn
-//   windowHours      — 4 or 8
-//   anchor           — { lat, lng } scoring center
-//   radiusMiles      — live radius (updates circle/mask in real time)
-//   renderedRadius   — debounced radius (triggers canvas re-render)
-//   onLongShot       — callback(bool)
-//   onBestInCircle   — callback(pctClear)
-//   onCircleBottom   — callback({x, y}) screen position of circle bottom-center
-
 import { useEffect, useRef, useMemo } from 'react'
 import { useMap } from 'react-leaflet'
 import L from 'leaflet'
@@ -39,17 +24,17 @@ export default function ClearSkyLayer({
   const maskRef     = useRef(null)
   const circleRef   = useRef(null)
 
-  // ── 1. Scoring canvas — re-renders only on renderedRadius / anchor / cloudData change ──
+  // ── 1. Scoring canvas ────────────────────────────────────────────────────
   const geoImage = useMemo(() => {
     if (!cloudData?.points || !anchor) return null
     const keys = Object.keys(cloudData.points)
     if (!keys.length) return null
 
     const lats    = keys.map(k => parseFloat(k.split(',')[0]))
-    const lons     = keys.map(k => parseFloat(k.split(',')[1]))
-    const minLat   = Math.min(...lats), maxLat = Math.max(...lats)
-    const minLon   = Math.min(...lons), maxLon = Math.max(...lons)
-    const spacing  = cloudData.spacing || 0.1
+    const lons    = keys.map(k => parseFloat(k.split(',')[1]))
+    const minLat  = Math.min(...lats), maxLat = Math.max(...lats)
+    const minLon  = Math.min(...lons), maxLon = Math.max(...lons)
+    const spacing = cloudData.spacing || 0.1
     const radiusDeg = milesToDeg(renderedRadius)
 
     const now    = Date.now()
@@ -84,9 +69,6 @@ export default function ClearSkyLayer({
     const p20 = meds[Math.floor(meds.length * 0.20)] ?? 100
     const p40 = meds[Math.floor(meds.length * 0.40)] ?? 100
     const p60 = Math.min(meds[Math.floor(meds.length * 0.60)] ?? 100, 55)
-    const p05 = meds[Math.floor(meds.length * 0.05)] ?? 100
-    const qualCount = meds.filter(m => m <= 45).length
-    // Long Shot only when even the best available spot is heavily clouded (>55% cloud = <45% clear)
     const globalLongShot = meds[0] > 55
     const bestClear = Math.round(Math.max(0, 100 - (meds[0] ?? 100)))
 
@@ -120,7 +102,6 @@ export default function ClearSkyLayer({
     ctx.clearRect(0, 0, CANVAS_W, CANVAS_H)
     const imageData = ctx.createImageData(CANVAS_W, CANVAS_H)
     const d = imageData.data
-    const lsPixels = globalLongShot ? new Uint8Array(CANVAS_W * CANVAS_H) : null
     const latSpan = maxLat - minLat
     const lonSpan = maxLon - minLon
 
@@ -139,7 +120,6 @@ export default function ClearSkyLayer({
           Math.min(lat - minLat, maxLat - lat, lon - minLon, maxLon - lon) / FADE
         )), 0.4)
         const idx = (py * CANVAS_W + px) * 4
-
         if (cf <= p60) {
           const cfBINS = [
             { maxCf: p20, alpha: 153, nextAlpha: 95 },
@@ -160,19 +140,10 @@ export default function ClearSkyLayer({
           if (aAlpha > 2) {
             d[idx]=0; d[idx+1]=210; d[idx+2]=160; d[idx+3]=Math.round(aAlpha * edgeFade)
           }
-        } else if (globalLongShot && cf <= p05 + AA * 100) {
-          const t = Math.max(0, Math.min(1, (p05 + AA * 100 - cf) / (2 * AA * 100)))
-          const s = t * t * (3 - 2 * t)
-          const alpha = Math.round(40 * s * edgeFade)
-          if (alpha > 0) {
-            d[idx]=150; d[idx+1]=210; d[idx+2]=120; d[idx+3]=alpha
-            if (lsPixels) lsPixels[py * CANVAS_W + px] = 1
-          }
         }
       }
     }
     ctx.putImageData(imageData, 0, 0)
-
     return { dataUrl: canvas.toDataURL('image/png'), bounds: { minLat, maxLat, minLon, maxLon }, longShot: globalLongShot }
   }, [cloudData, windowHours, anchor, renderedRadius])  // eslint-disable-line
 
@@ -186,10 +157,26 @@ export default function ClearSkyLayer({
     return () => { if (overlayRef.current) { mapInstance.removeLayer(overlayRef.current); overlayRef.current = null } }
   }, [geoImage, mapInstance])
 
-  // ── 3. Mask — SVG in map container, replicates L.circle _project exactly ──
+  // ── 3. Circle — created BEFORE mask so mask can read _point/_radius ──────
+  useEffect(() => {
+    if (circleRef.current) { mapInstance.removeLayer(circleRef.current); circleRef.current = null }
+    if (!anchor) return
+    const isLongShot = geoImage?.longShot ?? false
+    circleRef.current = L.circle([anchor.lat, anchor.lng], {
+      radius: radiusMiles * 1609.34,
+      color:    isLongShot ? 'rgba(255,140,0,0.85)' : '#44ddaa',
+      weight:   isLongShot ? 1.5 : 2,
+      dashArray: isLongShot ? '6 8' : null,
+      fill: false, opacity: 0.9, interactive: false,
+    }).addTo(mapInstance)
+    const el = circleRef.current.getElement?.()
+    if (el) el.style.zIndex = 500
+    return () => { if (circleRef.current) { mapInstance.removeLayer(circleRef.current); circleRef.current = null } }
+  }, [anchor, radiusMiles, geoImage?.longShot, mapInstance])
+
+  // ── 4. Mask — reads _point/_radius/_radiusY from live circle, no guessing ─
   useEffect(() => {
     if (!anchor) return
-
     const container = mapInstance.getContainer()
 
     if (!maskRef.current) {
@@ -204,85 +191,44 @@ export default function ClearSkyLayer({
     }
 
     function updateMask() {
+      if (!circleRef.current?._point) return
       const size = mapInstance.getSize()
       const { svg, path } = maskRef.current
       svg.setAttribute('width', size.x)
       svg.setAttribute('height', size.y)
       svg.setAttribute('viewBox', `0 0 ${size.x} ${size.y}`)
 
-      // Replicate Leaflet's exact L.circle _project formula (leaflet-src.js line 8417)
-      const EARTH_R = 6371008.8
-      const mRadius = radiusMiles * 1609.34
-      const lat = anchor.lat, lng = anchor.lng
-      const d = Math.PI / 180
-      const latR = (mRadius / EARTH_R) / d
+      // Read exact values Leaflet SVG renderer uses (leaflet-src.js _updateCircle line 13176)
+      const lp = circleRef.current._point
+      const r  = Math.max(Math.round(circleRef.current._radius), 1)
+      const r2 = Math.max(Math.round(circleRef.current._radiusY), 1) || r
 
-      const top    = mapInstance.project([lat + latR, lng])
-      const bottom = mapInstance.project([lat - latR, lng])
-      const p      = { x: (top.x + bottom.x) / 2, y: (top.y + bottom.y) / 2 }
-      const lat2   = mapInstance.unproject(p).lat
+      // layerPoint → containerPoint (leaflet-src.js layerPointToContainerPoint line 4158)
+      const cp = mapInstance.layerPointToContainerPoint(lp)
+      const cx = cp.x, cy = cp.y
 
-      let lngR = Math.acos(
-        (Math.cos(latR * d) - Math.sin(lat * d) * Math.sin(lat2 * d)) /
-        (Math.cos(lat * d) * Math.cos(lat2 * d))
-      ) / d
-      if (isNaN(lngR) || lngR === 0) lngR = latR / Math.cos(d * lat)
-
-      // r = same formula Leaflet uses for this._radius
-      const rProj = p.x - mapInstance.project([lat2, lng - lngR]).x
-      const rY    = p.y - top.y
-
-      // Convert projected midpoint p to container coords
-      const origin  = mapInstance.getPixelOrigin()
-      const pane    = mapInstance.getPanes().mapPane
-      const panePos = L.DomUtil.getPosition(pane) || { x: 0, y: 0 }
-      const cx = p.x - origin.x + panePos.x
-      const cy = p.y - origin.y + panePos.y
-      // Use average of x/y radius for a good visual match
-      const r = (rProj + rY) / 2
-
-      // Outer rect + 64-point polygon hole
+      // Outer rect + polygon circle hole (evenodd rule punches the hole)
       const rect = `M 0 0 h ${size.x} v ${size.y} h ${-size.x} Z`
-      const N = 64
+      const N = 128
       const pts = []
       for (let i = 0; i < N; i++) {
         const a = (2 * Math.PI * i) / N
-        pts.push(`${cx + rProj * Math.cos(a)},${cy + rY * Math.sin(a)}`)
+        pts.push(`${cx + r * Math.cos(a)},${cy + r2 * Math.sin(a)}`)
       }
-      const circle = `M ${pts.join(' L ')} Z`
-      path.setAttribute('d', `${rect} ${circle}`)
-
-      onCircleBottom?.({ x: cx, y: cy + rY + 10 })
+      path.setAttribute('d', `${rect} M ${pts.join(' L ')} Z`)
+      onCircleBottom?.({ x: cx, y: cy + r2 + 10 })
     }
 
-    updateMask()
-    mapInstance.on('move zoom moveend zoomend resize', updateMask)
+    function scheduleUpdate() { requestAnimationFrame(updateMask) }
+
+    scheduleUpdate()
+    mapInstance.on('move zoom moveend zoomend resize', scheduleUpdate)
     return () => {
-      mapInstance.off('move zoom moveend zoomend resize', updateMask)
+      mapInstance.off('move zoom moveend zoomend resize', scheduleUpdate)
       if (maskRef.current) { maskRef.current.svg.remove(); maskRef.current = null }
       onCircleBottom?.(null)
     }
-  }, [anchor, radiusMiles, mapInstance])  // eslint-disable-line
-
-  // ── 4. Circle boundary — teal solid normally, dashed orange on Long Shot ──
-  useEffect(() => {
-    if (circleRef.current) { mapInstance.removeLayer(circleRef.current); circleRef.current = null }
-    if (!anchor) return
-    const isLongShot = geoImage?.longShot ?? false
-    circleRef.current = L.circle([anchor.lat, anchor.lng], {
-      radius: radiusMiles * 1609.34,
-      color:    isLongShot ? 'rgba(255,140,0,0.85)' : '#44ddaa',
-      weight:   isLongShot ? 1.5 : 2,
-      dashArray: isLongShot ? '6 8' : null,
-      fill: false,
-      opacity: 0.9,
-      interactive: false,
-    }).addTo(mapInstance)
-    // Ensure circle renders above the mask
-    const el = circleRef.current.getElement?.()
-    if (el) el.style.zIndex = 500
-    return () => { if (circleRef.current) { mapInstance.removeLayer(circleRef.current); circleRef.current = null } }
-  }, [anchor, radiusMiles, geoImage?.longShot, mapInstance])
+  }, [anchor, radiusMiles, geoImage?.longShot, mapInstance])  // eslint-disable-line
 
   return null
 }
