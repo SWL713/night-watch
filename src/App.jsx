@@ -1,5 +1,5 @@
 import { useState, useCallback, useEffect, useRef } from 'react'
-import { MapContainer, TileLayer, useMapEvents, useMap, Rectangle, Tooltip } from 'react-leaflet'
+import { MapContainer, TileLayer, useMapEvents, useMap, Rectangle, Tooltip, Marker } from 'react-leaflet'
 import 'leaflet/dist/leaflet.css'
 
 import Auth from './components/Auth.jsx'
@@ -92,6 +92,12 @@ function App() {
 
 
   const [longShot, setLongShot] = useState(false)
+  const [clearSkyAnchor, setClearSkyAnchor] = useState(null)   // { lat, lng } — GPS or manual
+  const [manualAnchor, setManualAnchor]     = useState(null)   // { lat, lng } — only when manually placed
+  const [clearSkyRadius, setClearSkyRadius] = useState(40)     // miles, resets each session
+  const [bestInCircle, setBestInCircle]     = useState(null)   // % clear of best spot in radius
+  const radiusDebounceRef = useRef(null)
+  const [renderedRadius, setRenderedRadius] = useState(40)     // debounced value fed to ClearSkyLayer
   const [userLocation, setUserLocation] = useState(null)
   const mapRef = useRef(null)
   const hasFlownToLocation = useRef(false)
@@ -104,6 +110,17 @@ function App() {
   }
   function closeHelp() { setHelpEntry(null) }
   function toggleHelp() { setHelpMode(m => { if (m) setHelpEntry(null); return !m }) }
+
+  // Clear sky anchor = manual anchor if set, otherwise GPS location
+  useEffect(() => {
+    if (manualAnchor) {
+      setClearSkyAnchor(manualAnchor)
+    } else if (userLocation) {
+      setClearSkyAnchor({ lat: userLocation.lat, lng: userLocation.lng })
+    } else {
+      setClearSkyAnchor(null)
+    }
+  }, [manualAnchor, userLocation])
 
   const moonData = getMoonData()
   const [bortleGrid, setBortleGrid] = useState(null)
@@ -210,8 +227,16 @@ function App() {
             }}
           />
 
+          {/* Long press to place manual anchor in clear sky mode */}
+          <LongPressHandler
+            active={clearSkyMode}
+            onLongPress={(lat, lng) => setManualAnchor({ lat, lng })}
+          />
 
-
+          {/* Manual anchor marker — teal anchor emoji, only when manual anchor is set */}
+          {clearSkyMode && manualAnchor && (
+            <AnchorMarker position={manualAnchor} />
+          )}
 
 
           <MapSearch
@@ -351,8 +376,16 @@ function App() {
             />
           )}
 
-          {clearSkyMode && cloudData && (
-            <ClearSkyLayer cloudData={cloudData} getAvgCloudAt={getAvgCloudAt} windowHours={clearSkyWindow} onLongShot={setLongShot} />
+          {clearSkyMode && cloudData && clearSkyAnchor && (
+            <ClearSkyLayer
+              cloudData={cloudData}
+              getAvgCloudAt={getAvgCloudAt}
+              windowHours={clearSkyWindow}
+              anchor={clearSkyAnchor}
+              radiusMiles={renderedRadius}
+              onLongShot={setLongShot}
+              onBestInCircle={setBestInCircle}
+            />
           )}
 
           {/* Camera markers */}
@@ -428,6 +461,8 @@ function App() {
             }}>
               CLEAR SKY FINDER MODE
             </div>
+
+            {/* 4H / 8H window toggle */}
             <div style={{
               display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
               marginTop: 3,
@@ -436,7 +471,7 @@ function App() {
               {[4, 8].map(h => (
                 <button
                   key={h}
-                  onClick={() => setClearSkyWindow(h)}
+                  onClick={() => helpMode ? showHelp('clear_sky_finder') : setClearSkyWindow(h)}
                   style={{
                     padding: '3px 12px',
                     background: clearSkyWindow === h ? 'rgba(68,221,170,0.2)' : 'transparent',
@@ -449,6 +484,54 @@ function App() {
                 >{h}H</button>
               ))}
             </div>
+
+            {/* Radius slider */}
+            <div
+              style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, marginTop: 4 }}
+              onClick={() => helpMode && showHelp('radius_slider')}
+            >
+              <span style={{ color: '#2a6655', fontSize: 9, fontFamily: FONT }}>
+                {Math.round(clearSkyRadius)}mi
+              </span>
+              <input
+                type="range"
+                min={0} max={100}
+                value={Math.round((Math.log(clearSkyRadius) - Math.log(10)) / (Math.log(400) - Math.log(10)) * 100)}
+                onChange={e => {
+                  if (helpMode) return
+                  const pct = parseFloat(e.target.value) / 100
+                  const miles = Math.round(Math.exp(Math.log(10) + pct * (Math.log(400) - Math.log(10))))
+                  setClearSkyRadius(miles)
+                  clearTimeout(radiusDebounceRef.current)
+                  radiusDebounceRef.current = setTimeout(() => setRenderedRadius(miles), 200)
+                }}
+                style={{ width: 100, cursor: 'pointer', accentColor: '#44ddaa' }}
+              />
+              <span style={{ color: '#2a6655', fontSize: 9, fontFamily: FONT }}>400mi</span>
+            </div>
+
+            {/* No-anchor label */}
+            {!clearSkyAnchor && (
+              <div style={{ color: '#ff8c00', fontSize: 9, fontFamily: FONT, letterSpacing: 1, marginTop: 3 }}>
+                LONG PRESS MAP TO SET ANCHOR
+              </div>
+            )}
+
+            {/* Manual anchor active — show X to clear */}
+            {manualAnchor && (
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, marginTop: 3 }}>
+                <span style={{ color: '#44ddaa', fontSize: 9, fontFamily: FONT }}>⚓ MANUAL ANCHOR</span>
+                <button
+                  onClick={() => { setManualAnchor(null); setBestInCircle(null) }}
+                  style={{
+                    background: 'none', border: '1px solid #445566',
+                    color: '#445566', fontSize: 9, fontFamily: FONT,
+                    cursor: 'pointer', borderRadius: 2, padding: '1px 6px',
+                  }}
+                >✕</button>
+              </div>
+            )}
+
             {longShot && (
               <div style={{ color: '#ff8c00', fontSize: 8, fontFamily: FONT, letterSpacing: 1, marginTop: 2 }}>
                 ⚠️ LONG SHOT · HEAVILY CLOUDED REGION
@@ -621,6 +704,22 @@ function App() {
             boxShadow: '0 2px 12px rgba(0,0,0,0.7)',
           }}>
             📷 TAP YOUR SHOOTING LOCATION ON THE MAP
+          </div>
+        )}
+
+        {/* Best in selection readout — plain teal text, bottom right, clear sky mode only */}
+        {clearSkyMode && bestInCircle !== null && (
+          <div
+            onClick={() => helpMode && showHelp('best_in_selection')}
+            style={{
+              position: 'absolute', bottom: 84, right: 80,
+              zIndex: 1000, pointerEvents: helpMode ? 'auto' : 'none',
+              color: '#44ddaa', fontSize: 9, fontFamily: FONT,
+              letterSpacing: 0.5, cursor: helpMode ? 'pointer' : 'default',
+              whiteSpace: 'nowrap',
+            }}
+          >
+            best in selection: {bestInCircle}% clear
           </div>
         )}
 
@@ -954,6 +1053,46 @@ function MapClickHandler({ active, onMapClick }) {
       if (!active) return  // only fire when pin mode is active
       onMapClick(e.latlng.lat, e.latlng.lng)
     },
+  })
+  return null
+}
+
+// Teal anchor emoji marker for manually placed clear sky anchor
+function AnchorMarker({ position }) {
+  const icon = L.divIcon({
+    className: '',
+    iconSize: [28, 28],
+    iconAnchor: [14, 14],
+    html: `<div style="
+      width:28px;height:28px;
+      background:#06080f;
+      border:1.5px solid #44ddaa;
+      border-radius:4px;
+      display:flex;align-items:center;justify-content:center;
+      font-size:16px;
+      box-shadow:0 2px 8px rgba(0,0,0,0.6);
+    ">⚓</div>`,
+  })
+  return <Marker position={[position.lat, position.lng]} icon={icon} interactive={false} />
+}
+
+// Long press handler for manual anchor placement in clear sky mode
+function LongPressHandler({ active, onLongPress }) {
+  const timerRef = useRef(null)
+  useMapEvents({
+    mousedown(e) {
+      if (!active) return
+      timerRef.current = setTimeout(() => onLongPress(e.latlng.lat, e.latlng.lng), 600)
+    },
+    mouseup()   { clearTimeout(timerRef.current) },
+    mousemove() { clearTimeout(timerRef.current) },
+    touchstart(e) {
+      if (!active) return
+      const latlng = e.latlng
+      timerRef.current = setTimeout(() => onLongPress(latlng.lat, latlng.lng), 600)
+    },
+    touchend()  { clearTimeout(timerRef.current) },
+    touchmove() { clearTimeout(timerRef.current) },
   })
   return null
 }
