@@ -83,6 +83,11 @@ export default function TimelineBar({ spaceWeather, moonData, selectedHour, onHo
     ctx.scale(dpr, dpr)
     const cW = rect.width, cH = rect.height
 
+    // Hard clip — nothing can render outside canvas bounds
+    ctx.beginPath()
+    ctx.rect(0, 0, cW, cH)
+    ctx.clip()
+
     ctx.clearRect(0, 0, cW, cH)
 
     const now    = new Date()
@@ -515,7 +520,7 @@ export default function TimelineBar({ spaceWeather, moonData, selectedHour, onHo
   }
 
   return (
-    <div style={{ background: '#04060d' }}>
+    <div style={{ background: '#04060d', overflow: 'hidden' }}>
       <canvas
         ref={canvasRef}
         onClick={helpMode ? () => onHelpTap?.('timeline') : handleClick}
