@@ -83,7 +83,7 @@ export default function ClearSkyLayer({
     const meds = insideKeys.map(k => pointStats[k]?.med).filter(v => v != null).sort((a, b) => a - b)
     const p20 = meds[Math.floor(meds.length * 0.20)] ?? 100
     const p40 = meds[Math.floor(meds.length * 0.40)] ?? 100
-    const p60 = Math.min(meds[Math.floor(meds.length * 0.60)] ?? 100, 45)
+    const p60 = Math.min(meds[Math.floor(meds.length * 0.60)] ?? 100, 55)
     const p05 = meds[Math.floor(meds.length * 0.05)] ?? 100
     const qualCount = meds.filter(m => m <= 45).length
     // Long Shot only when even the best available spot is heavily clouded (>55% cloud = <45% clear)
