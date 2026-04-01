@@ -314,7 +314,7 @@ function App() {
                         mapRef.current.fitBounds([
                           [anchor.lat - R, anchor.lng - R * 1.5],
                           [anchor.lat + R, anchor.lng + R * 1.5],
-                        ], { padding: [80, 80], animate: true, duration: 0.8 })
+                        ], { paddingTopLeft: [120, 80], paddingBottomRight: [80, 120], animate: true, duration: 0.8 })
                       }
                     }
                     setBestInCircle(null)
@@ -523,11 +523,10 @@ function App() {
                       setRenderedRadius(miles)
                       if (clearSkyAnchor && mapRef.current) {
                         const R = miles / 69
-                        // Use fitBounds so circle fits with padding — anchor stays centered
                         mapRef.current.fitBounds([
                           [clearSkyAnchor.lat - R, clearSkyAnchor.lng - R * 1.5],
                           [clearSkyAnchor.lat + R, clearSkyAnchor.lng + R * 1.5],
-                        ], { padding: [80, 80], animate: true, duration: 0.5 })
+                        ], { paddingTopLeft: [120, 80], paddingBottomRight: [80, 120], animate: true, duration: 0.5 })
                       }
                     }, 200)
                   }}
