@@ -523,11 +523,11 @@ export default function TimelineBar({ spaceWeather, moonData, selectedHour, onHo
   }
 
   return (
-    <div style={{ background: '#04060d', overflow: 'hidden' }}>
+    <div style={{ background: '#04060d', overflow: 'hidden', display: 'block' }}>
       <canvas
         ref={canvasRef}
         onClick={helpMode ? () => onHelpTap?.('timeline') : handleClick}
-        style={{ width: '100%', height: 90, display: 'block', cursor: helpMode ? 'pointer' : 'pointer' }}
+        style={{ width: '100%', height: 90, display: 'block', overflow: 'hidden', cursor: helpMode ? 'pointer' : 'pointer' }}
       />
       <div onClick={() => helpMode && onHelpTap?.('legend_strip')} style={{ cursor: helpMode ? 'pointer' : 'default' }}>
         <LegendStrip />

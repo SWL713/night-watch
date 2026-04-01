@@ -166,7 +166,7 @@ export default function TimelinePanel({ spaceWeather, selectedHour, onHourSelect
   return (
     <div style={{
       background:'#06080f', borderBottom:'1px solid #1a2035',
-      fontFamily:FONT, color:'#ccd', flexShrink:0,
+      fontFamily:FONT, color:'#ccd', flexShrink:0, overflow:'hidden',
     }}>
       <div style={{ display:'flex', height:88 }}>
 

@@ -48,6 +48,12 @@ html, body, #root {
   color: #3a5a6a !important;
 }
 
+/* Hard clip canvas to its own boundary — prevents drawing escaping into adjacent elements */
+canvas {
+  overflow: hidden;
+  display: block;
+}
+
 /* Scrollbar styling */
 ::-webkit-scrollbar { width: 4px; height: 4px; }
 ::-webkit-scrollbar-track { background: #06080f; }
