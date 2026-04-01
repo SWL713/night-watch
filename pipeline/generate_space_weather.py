@@ -926,7 +926,7 @@ def fetch_epam():
         log.warning(f'EPAM: no electron keys found. Available keys: {list(first.keys())}')
 
     FILL = -1e5
-    rows = []
+    new_rows = []
     for rec in data:
         try:
             t = str(rec.get('time_tag', '')).replace('Z', '+00:00')
@@ -951,13 +951,32 @@ def fetch_epam():
             p795 = fv(p_keys.get('p795'))
             p1060= fv(p_keys.get('p1060'))
 
-            rows.append([t, e38, e175, p47, p68, p115, p310, p795, p1060])
+            new_rows.append([t, e38, e175, p47, p68, p115, p310, p795, p1060])
         except Exception:
             continue
 
-    # EPAM data is ~24h so purge at 2 days to keep it lean
-    rows = _purge_old(rows, time_key=0, cutoff_days=2)
-    log.info(f'EPAM: {len(rows)} rows after purge')
+    log.info(f'EPAM: {len(new_rows)} fresh rows from NOAA')
+
+    # Merge with existing cached data so history accumulates across runs.
+    # NOAA only serves ~24h; without merging we lose everything older.
+    cached_rows = []
+    try:
+        with open(SW_EPAM_PATH) as f:
+            existing = json.load(f)
+        cached_rows = existing.get('data', [])
+        log.info(f'EPAM: {len(cached_rows)} rows loaded from cache')
+    except Exception:
+        log.info('EPAM: no existing cache (first run)')
+
+    # Merge: new rows take precedence for same timestamp (dedup by first column)
+    merged = {row[0]: row for row in cached_rows}
+    for row in new_rows:
+        merged[row[0]] = row
+    rows = sorted(merged.values(), key=lambda r: r[0])
+
+    # Purge at 8 days to match mag/plasma retention
+    rows = _purge_old(rows, time_key=0, cutoff_days=8)
+    log.info(f'EPAM: {len(rows)} rows after merge+purge (7-day accumulation)')
 
     output = {
         'fetched_at': datetime.now(timezone.utc).isoformat(),
