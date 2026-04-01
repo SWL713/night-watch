@@ -186,53 +186,62 @@ export default function ClearSkyLayer({
     return () => { if (overlayRef.current) { mapInstance.removeLayer(overlayRef.current); overlayRef.current = null } }
   }, [geoImage, mapInstance])
 
-  // ── 3. Mask — SVG in overlayPane, layerPoint coords, no CSS repositioning ──
+  // ── 3. Mask — SVG in map container, containerPoints, polygon circle ───────
+  // containerPoints are always stable relative to the viewport.
+  // Polygon avoids all SVG arc direction/winding ambiguity.
+  // Update on every map event — lightweight since it's just updating a path string.
   useEffect(() => {
     if (!anchor) return
 
+    const container = mapInstance.getContainer()
+
     if (!maskRef.current) {
       const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg')
-      svg.style.cssText = 'position:absolute;top:0;left:0;width:0;height:0;pointer-events:none;z-index:203;overflow:visible;'
+      svg.style.cssText = 'position:absolute;top:0;left:0;width:100%;height:100%;pointer-events:none;z-index:400;'
       const path = document.createElementNS('http://www.w3.org/2000/svg', 'path')
       path.setAttribute('fill', 'rgba(6,8,15,0.78)')
       path.setAttribute('fill-rule', 'evenodd')
       svg.appendChild(path)
-      mapInstance.getPanes().overlayPane.appendChild(svg)
+      container.appendChild(svg)
       maskRef.current = { svg, path }
     }
 
     function updateMask() {
-      const { path } = maskRef.current
+      const size = mapInstance.getSize()
+      const { svg, path } = maskRef.current
 
-      // layerPoint of anchor center
-      const c = mapInstance.latLngToLayerPoint([anchor.lat, anchor.lng])
+      svg.setAttribute('width', size.x)
+      svg.setAttribute('height', size.y)
+      svg.setAttribute('viewBox', `0 0 ${size.x} ${size.y}`)
 
-      // Radius: convert miles→meters→degrees lat→layerPoint delta
-      const latDeg = (radiusMiles * 1609.34) / 111320
-      const e = mapInstance.latLngToLayerPoint([anchor.lat + latDeg, anchor.lng])
-      const r = Math.abs(e.y - c.y)
+      const c  = mapInstance.latLngToContainerPoint([anchor.lat, anchor.lng])
+      // Match L.circle radius exactly: project lat+latR, take midpoint, compute pixel delta
+      const latR = (radiusMiles * 1609.34) / 6371008.8 * (180 / Math.PI)
+      const top  = mapInstance.latLngToContainerPoint([anchor.lat + latR, anchor.lng])
+      const bot  = mapInstance.latLngToContainerPoint([anchor.lat - latR, anchor.lng])
+      const cy   = (top.y + bot.y) / 2  // Mercator midpoint
+      const r    = Math.abs(bot.y - cy)
 
-      // Huge rect in layerPoint space — always covers viewport regardless of pan
-      const BIG = 50000
-      const d = [
-        `M ${-BIG} ${-BIG} h ${BIG * 2} v ${BIG * 2} h ${-BIG * 2} Z`,
-        `M ${c.x + r} ${c.y}`,
-        `A ${r} ${r} 0 1 0 ${c.x - r} ${c.y}`,
-        `A ${r} ${r} 0 1 0 ${c.x + r} ${c.y} Z`,
-      ].join(' ')
-      path.setAttribute('d', d)
+      // Outer rect
+      const rect = `M 0 0 h ${size.x} v ${size.y} h ${-size.x} Z`
 
-      // Report circle bottom in container coords for label
-      const cc = mapInstance.latLngToContainerPoint([anchor.lat, anchor.lng])
-      const ec = mapInstance.latLngToContainerPoint([anchor.lat + latDeg, anchor.lng])
-      const rContainer = Math.abs(ec.y - cc.y)
-      onCircleBottom?.({ x: cc.x, y: cc.y + rContainer + 10 })
+      // Circle as 64-point polygon — no arc direction issues
+      const N = 64
+      const pts = []
+      for (let i = 0; i < N; i++) {
+        const a = (2 * Math.PI * i) / N
+        pts.push(`${c.x + r * Math.cos(a)},${cy + r * Math.sin(a)}`)
+      }
+      const circle = `M ${pts.join(' L ')} Z`
+
+      path.setAttribute('d', `${rect} ${circle}`)
+      onCircleBottom?.({ x: c.x, y: cy + r + 10 })
     }
 
     updateMask()
-    mapInstance.on('zoomend zoom resize', updateMask)
+    mapInstance.on('move zoom moveend zoomend resize', updateMask)
     return () => {
-      mapInstance.off('zoomend zoom resize', updateMask)
+      mapInstance.off('move zoom moveend zoomend resize', updateMask)
       if (maskRef.current) { maskRef.current.svg.remove(); maskRef.current = null }
       onCircleBottom?.(null)
     }
