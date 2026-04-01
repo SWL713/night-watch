@@ -20,26 +20,10 @@ export default function TimeSlider({ value, onChange }) {
       userSelect: 'none',
       paddingBottom: 'env(safe-area-inset-bottom, 0px)',
     }}>
-      {/* Header row */}
-      <div style={{
-        display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-        padding: '6px 16px 4px',
-      }}>
-        <span style={{ color: '#334455', fontSize: 9, letterSpacing: 1 }}>
-          FORECAST TIME
-        </span>
-        <span style={{
-          color: value === 0 ? '#ffffff' : '#44ddaa',
-          fontSize: 12, fontWeight: 'bold', letterSpacing: 1,
-        }}>
-          {value === 0 ? '▶ NOW' : `+${value}h  →  ${label(value)} EDT`}
-        </span>
-      </div>
-
-      {/* Main slider row: ◀ buttons + range + ▶ */}
+      {/* Single row: ◀ label slider ▶ */}
       <div style={{
         display: 'flex', alignItems: 'center',
-        padding: '0 8px 4px', gap: 8,
+        padding: '4px 8px', gap: 8,
       }}>
         {/* Back button */}
         <button
@@ -48,29 +32,35 @@ export default function TimeSlider({ value, onChange }) {
             background: value > 0 ? '#0d1a2a' : '#060810',
             border: `1px solid ${value > 0 ? '#2a3a5a' : '#1a2035'}`,
             color: value > 0 ? '#7799bb' : '#1e2a3a',
-            width: 44, height: 44, borderRadius: 4,
-            fontSize: 18, cursor: value > 0 ? 'pointer' : 'default',
+            width: 36, height: 36, borderRadius: 4,
+            fontSize: 16, cursor: value > 0 ? 'pointer' : 'default',
             flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center',
             touchAction: 'manipulation',
           }}
         >◀</button>
 
-        {/* Slider track area */}
-        <div style={{ flex: 1, position: 'relative', height: 44, display: 'flex', alignItems: 'center' }}>
-          {/* Custom track background */}
+        {/* Label */}
+        <span style={{
+          color: value === 0 ? '#ffffff' : '#44ddaa',
+          fontSize: 11, fontWeight: 'bold', letterSpacing: 1,
+          flexShrink: 0, minWidth: 100,
+        }}>
+          {value === 0 ? '▶ NOW' : `+${value}h → ${label(value)}`}
+        </span>
+
+        {/* Slider track */}
+        <div style={{ flex: 1, position: 'relative', height: 36, display: 'flex', alignItems: 'center' }}>
           <div style={{
-            position: 'absolute', left: 0, right: 0, height: 8,
-            background: '#0a0e18', borderRadius: 4,
+            position: 'absolute', left: 0, right: 0, height: 6,
+            background: '#0a0e18', borderRadius: 3,
             border: '1px solid #1a2035',
           }} />
-          {/* Filled portion */}
           <div style={{
             position: 'absolute', left: 0,
             width: `${(value / 8) * 100}%`,
-            height: 8, background: '#44ddaa33',
-            borderRadius: 4,
+            height: 6, background: '#44ddaa33',
+            borderRadius: 3,
           }} />
-
           <input
             type="range"
             min="0" max="8" step="1"
@@ -80,7 +70,7 @@ export default function TimeSlider({ value, onChange }) {
               position: 'relative', width: '100%',
               appearance: 'none', WebkitAppearance: 'none',
               background: 'transparent',
-              height: 44, cursor: 'pointer', margin: 0,
+              height: 36, cursor: 'pointer', margin: 0,
               touchAction: 'manipulation',
             }}
           />
@@ -93,45 +83,18 @@ export default function TimeSlider({ value, onChange }) {
             background: value < 8 ? '#0d1a2a' : '#060810',
             border: `1px solid ${value < 8 ? '#2a3a5a' : '#1a2035'}`,
             color: value < 8 ? '#7799bb' : '#1e2a3a',
-            width: 44, height: 44, borderRadius: 4,
-            fontSize: 18, cursor: value < 8 ? 'pointer' : 'default',
+            width: 36, height: 36, borderRadius: 4,
+            fontSize: 16, cursor: value < 8 ? 'pointer' : 'default',
             flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center',
             touchAction: 'manipulation',
           }}
         >▶</button>
       </div>
 
-      {/* Hour tap buttons — big touch targets */}
-      <div style={{
-        display: 'flex', padding: '0 8px 8px', gap: 3,
-      }}>
-        {Array.from({ length: 9 }, (_, i) => (
-          <button
-            key={i}
-            onPointerDown={e => { e.preventDefault(); onChange(i) }}
-            style={{
-              flex: 1, height: 32,
-              background: i === value ? '#0d1a2a' : 'transparent',
-              border: i === value ? '1px solid #44ddaa' : '1px solid #1a2035',
-              borderRadius: 3,
-              color: i === value ? '#44ddaa' : '#2a3a4a',
-              fontSize: i === value ? 9 : 8,
-              fontFamily: FONT, fontWeight: i === value ? 'bold' : 'normal',
-              cursor: 'pointer',
-              touchAction: 'manipulation',
-              transition: 'all 0.1s',
-            }}
-          >
-            {i === 0 ? 'NOW' : `+${i}h`}
-          </button>
-        ))}
-      </div>
-
-      {/* Inline range slider thumb CSS */}
       <style>{`
         input[type=range]::-webkit-slider-thumb {
           -webkit-appearance: none;
-          width: 28px; height: 28px;
+          width: 22px; height: 22px;
           border-radius: 50%;
           background: #44ddaa;
           border: 3px solid #06080f;
@@ -139,7 +102,7 @@ export default function TimeSlider({ value, onChange }) {
           cursor: grab;
         }
         input[type=range]::-moz-range-thumb {
-          width: 28px; height: 28px;
+          width: 22px; height: 22px;
           border-radius: 50%;
           background: #44ddaa;
           border: 3px solid #06080f;
@@ -147,7 +110,7 @@ export default function TimeSlider({ value, onChange }) {
           cursor: grab;
         }
         input[type=range]::-webkit-slider-runnable-track {
-          background: transparent; height: 8px;
+          background: transparent; height: 6px;
         }
         input[type=range]:active::-webkit-slider-thumb {
           cursor: grabbing;

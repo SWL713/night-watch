@@ -2,19 +2,35 @@ import { useState, useEffect } from 'react'
 import { PASSPHRASE } from '../config.js'
 
 const STORAGE_KEY = 'nw_auth'
+const ADMIN_KEY   = 'nw_admin'
+const ADMIN_PHRASE = 'nwadmin2026'
 const FONT = 'DejaVu Sans Mono, Consolas, monospace'
 
 export function useAuth() {
   const [authed, setAuthed] = useState(false)
+  const [isAdmin, setIsAdmin] = useState(false)
 
   useEffect(() => {
     const stored = localStorage.getItem(STORAGE_KEY)
-    if (stored === PASSPHRASE) setAuthed(true)
+    if (stored === PASSPHRASE || stored === ADMIN_PHRASE) {
+      setAuthed(true)
+      setIsAdmin(localStorage.getItem(ADMIN_KEY) === '1')
+    }
   }, [])
 
   function login(phrase) {
-    if (phrase.trim().toLowerCase() === PASSPHRASE.toLowerCase()) {
+    const p = phrase.trim()
+    if (p === ADMIN_PHRASE) {
+      localStorage.setItem(STORAGE_KEY, ADMIN_PHRASE)
+      localStorage.setItem(ADMIN_KEY, '1')
+      setIsAdmin(true)
+      setAuthed(true)
+      return true
+    }
+    if (p.toLowerCase() === PASSPHRASE.toLowerCase()) {
       localStorage.setItem(STORAGE_KEY, PASSPHRASE)
+      localStorage.removeItem(ADMIN_KEY)
+      setIsAdmin(false)
       setAuthed(true)
       return true
     }
@@ -23,38 +39,48 @@ export function useAuth() {
 
   function logout() {
     localStorage.removeItem(STORAGE_KEY)
+    localStorage.removeItem(ADMIN_KEY)
     setAuthed(false)
+    setIsAdmin(false)
   }
 
-  return { authed, login, logout }
+  return { authed, isAdmin, login, logout }
 }
 
 export default function Auth({ onAuth }) {
   const [phrase, setPhrase] = useState('')
   const [error, setError] = useState(false)
   const [showGuidelines, setShowGuidelines] = useState(false)
+  const [adminMode, setAdminMode] = useState(false)
 
   function handleSubmit(e) {
     e.preventDefault()
-    if (phrase.trim().toLowerCase() === PASSPHRASE.toLowerCase()) {
+    const p = phrase.trim()
+    if (p === ADMIN_PHRASE) {
+      localStorage.setItem(STORAGE_KEY, ADMIN_PHRASE)
+      localStorage.setItem(ADMIN_KEY, '1')
+      onAuth(true)
+      return
+    }
+    if (p.toLowerCase() === PASSPHRASE.toLowerCase()) {
       localStorage.setItem(STORAGE_KEY, PASSPHRASE)
-      // Show guidelines first if not seen this session
+      localStorage.removeItem(ADMIN_KEY)
       if (!sessionStorage.getItem('nw_guidelines_seen')) {
         setShowGuidelines(true)
       } else {
-        onAuth()
+        onAuth(false)
       }
-    } else {
-      setError(true)
-      setPhrase('')
-      setTimeout(() => setError(false), 2000)
+      return
     }
+    setError(true)
+    setPhrase('')
+    setTimeout(() => setError(false), 2000)
   }
 
   function acknowledgeGuidelines() {
     sessionStorage.setItem('nw_guidelines_seen', '1')
     setShowGuidelines(false)
-    onAuth()
+    onAuth(false)
   }
 
   // Guidelines screen — full overlay, must acknowledge to proceed

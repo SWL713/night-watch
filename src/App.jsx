@@ -64,11 +64,11 @@ function MapFlyToHandler() {
 
 export default function AppWrapper() {
   const [authed, setAuthed] = useState(() => {
-    // Check localStorage immediately on first render
-    return localStorage.getItem('nw_auth') === PASSPHRASE
+    const stored = localStorage.getItem('nw_auth')
+    return stored === PASSPHRASE || stored === 'nwadmin2026'
   })
 
-  if (!authed) return <Auth onAuth={() => setAuthed(true)} />
+  if (!authed) return <Auth onAuth={(isAdmin) => setAuthed(true)} />
   return <App />
 }
 
@@ -77,8 +77,7 @@ function App() {
   const [layers, setLayers] = useState(initLayers())
   const [modal, setModal] = useState(null) // null | 'submitSpot' | 'submitPhoto' | 'admin'
   const [selectedSpotForPhoto, setSelectedSpotForPhoto] = useState(null)
-  const [adminInput, setAdminInput] = useState('')
-  const [adminAuthed, setAdminAuthed] = useState(false)
+  const [adminAuthed] = useState(() => localStorage.getItem('nw_admin') === '1')
 
   const { data: sw } = useSpaceWeather()
   const { spots } = useSpots()
@@ -159,15 +158,6 @@ function App() {
     setSelectedSpotForPhoto(spot)
     setModal('submitPhoto')
   }, [])
-
-  function handleAdminLogin(e) {
-    e.preventDefault()
-    if (adminInput.trim() === ADMIN_PHRASE) {
-      setAdminAuthed(true)
-      setModal('admin')
-    }
-    setAdminInput('')
-  }
 
   const heatmapActive = layers.clouds || layers.bortle
 
@@ -948,7 +938,7 @@ function App() {
                 alignItems: 'center', justifyContent: 'center', gap: 1,
               }}
             >
-              <span style={{ fontSize: 13 }}>🌌</span>
+              <span style={{ fontSize: 13 }}>🚨</span>
               <span>{sightingPinMode ? <>CLICK<br/>MAP</> : <>REPORT<br/>AURORA</>}</span>
             </button>
 
@@ -967,7 +957,7 @@ function App() {
               }}
             >
               <span style={{ fontSize: 13 }}>📍</span>
-              <span>{pinMode ? <>CLICK<br/>MAP</> : <>+ PLACE<br/>PIN</>}</span>
+              <span>{pinMode ? <>CLICK<br/>MAP</> : <>PLACE<br/>PIN</>}</span>
             </button>
           </div>
 
@@ -988,39 +978,7 @@ function App() {
               </>
             )}
 
-            {/* Admin — input + GO stacked vertically to save lateral space */}
-            {!adminAuthed && (
-              <div style={{ position: 'relative', overflow: 'visible' }}>
-                {queueCount > 0 && (
-                  <div style={{
-                    position: 'absolute', top: -8, right: -8, zIndex: 9999,
-                    background: '#cc4400', borderRadius: '50%',
-                    width: 16, height: 16, fontSize: 8, fontFamily: FONT,
-                    display: 'flex', alignItems: 'center', justifyContent: 'center',
-                    color: '#fff', fontWeight: 'bold', pointerEvents: 'none',
-                    boxShadow: '0 1px 4px rgba(0,0,0,0.8)',
-                  }}>{queueCount > 9 ? '9+' : queueCount}</div>
-                )}
-                <form onSubmit={handleAdminLogin} style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-                  <input
-                    type="password"
-                    value={adminInput}
-                    onChange={e => setAdminInput(e.target.value)}
-                    placeholder="admin..."
-                    style={{
-                      background: '#0a0e18', border: '1px solid #1a2035',
-                      color: '#445566', padding: '2px 8px', fontSize: 9,
-                      fontFamily: FONT, width: 80, outline: 'none', borderRadius: 2,
-                    }}
-                  />
-                  <button type="submit" style={{
-                    background: '#060810', border: '1px solid #1a2035',
-                    color: '#334455', padding: '2px 0', fontSize: 9, width: 80,
-                    fontFamily: FONT, cursor: 'pointer', borderRadius: 2, textAlign: 'center',
-                  }}>GO</button>
-                </form>
-              </div>
-            )}
+            {/* Admin QUEUE button — only when admin authed */}
             {adminAuthed && (
               <div style={{ position: 'relative', overflow: 'visible' }}>
                 {queueCount > 0 && (
@@ -1033,30 +991,17 @@ function App() {
                     boxShadow: '0 1px 4px rgba(0,0,0,0.8)',
                   }}>{queueCount > 9 ? '9+' : queueCount}</div>
                 )}
-                <ActionBtn onClick={() => setModal('admin')} highlight>QUEUE</ActionBtn>
+                <button
+                  onClick={() => setModal('admin')}
+                  style={{
+                    background: '#1a0000', border: '1px solid #cc2200',
+                    color: '#ff4422', padding: '3px 10px', fontSize: 9,
+                    fontFamily: FONT, cursor: 'pointer', letterSpacing: 1,
+                    borderRadius: 2,
+                  }}
+                >ADMIN</button>
               </div>
             )}
-          </div>
-
-          <div
-            onClick={() => helpMode && showHelp('sw_cl_timestamps')}
-            style={{ display: 'flex', gap: 8, alignItems: 'center', paddingRight: 10, cursor: helpMode ? 'pointer' : 'default' }}
-          >
-            <div style={{ color: '#2a3f55', fontSize: 8, letterSpacing: 0.5, fontFamily: FONT }}>
-              SWL713
-            </div>
-            <div style={{ color: sw.last_updated ? '#334455' : '#1e2a3a', fontSize: 9 }}>
-              {sw.last_updated
-                ? `SW: ${new Date(sw.last_updated).toUTCString().slice(17,22)} UTC`
-                : 'SW: —'}
-            </div>
-            {(() => {
-              const cu = cloudData?.lastUpdated
-              if (!cu) return null
-              const ageMin = Math.round((Date.now() - new Date(cu)) / 60000)
-              const color = ageMin > 180 ? '#ff5544' : ageMin > 90 ? '#ffaa33' : '#334455'
-              return <div style={{ color, fontSize: 9 }}>{`CL: ${new Date(cu).toUTCString().slice(17,22)} UTC`}</div>
-            })()}
           </div>
         </div>
       </div>
@@ -1065,11 +1010,27 @@ function App() {
       <div style={{
         background: '#06080f', borderTop: '1px solid #0d1525',
         padding: '2px 12px',
-        color: '#4a6a88', fontSize: 8, letterSpacing: 0.5, fontFamily: FONT,
-        textAlign: 'right',
-        flexShrink: 0,
+        display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+        fontFamily: FONT, flexShrink: 0,
       }}>
-        Developed by Scott W. LeFevre — 2026
+        <span style={{ color: '#4a6a88', fontSize: 8, letterSpacing: 0.5 }}>
+          Developed by Scott W. LeFevre — 2026
+        </span>
+        <div
+          onClick={() => helpMode && showHelp('sw_cl_timestamps')}
+          style={{ display: 'flex', gap: 8, alignItems: 'center', cursor: helpMode ? 'pointer' : 'default' }}
+        >
+          <span style={{ color: sw.last_updated ? '#334455' : '#1e2a3a', fontSize: 8 }}>
+            {sw.last_updated ? `SW: ${new Date(sw.last_updated).toUTCString().slice(17,22)} UTC` : 'SW: —'}
+          </span>
+          {(() => {
+            const cu = cloudData?.lastUpdated
+            if (!cu) return null
+            const ageMin = Math.round((Date.now() - new Date(cu)) / 60000)
+            const color = ageMin > 180 ? '#ff5544' : ageMin > 90 ? '#ffaa33' : '#334455'
+            return <span style={{ color, fontSize: 8 }}>{`CL: ${new Date(cu).toUTCString().slice(17,22)} UTC`}</span>
+          })()}
+        </div>
       </div>
 
       {/* Time slider */}
