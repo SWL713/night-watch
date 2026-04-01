@@ -67,7 +67,7 @@ export const HELP_CONTENT = {
     text: 'Your scoring anchor — the center point of the radius search. Defaults to your GPS location when available. Long press anywhere on the map to place a manual anchor and explore from a different origin. Tap X to clear the manual anchor and return to your GPS location.',
   },
   best_in_selection: {
-    title: 'Best In Selection',
+    title: 'Best In Radius',
     text: 'Shows the clearest point inside your current radius as a percentage of clear sky. Updates when the radius changes or cloud data refreshes.',
   },
   time_slider: {
