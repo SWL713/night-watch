@@ -190,17 +190,52 @@ function PlotCanvas({ data, series, yMin, yMax, logScale, timeRange, crosshairTi
     const [tMin, tMax] = timeRange
     const spanMs = tMax - tMin
 
+    // Auto-scale: compute yMin/yMax from visible data when null is passed
+    let effectiveYMin = yMin
+    let effectiveYMax = yMax
+    if (yMin == null || yMax == null) {
+      const visData = data.filter(p => p.time.getTime() >= tMin && p.time.getTime() <= tMax)
+      let allVals = []
+      for (const s of series) {
+        if (!s || !s.key) continue
+        const vals = visData.map(p => p[s.key]).filter(v =>
+          v !== null && v !== undefined && !isNaN(v) && (logScale ? v > 0 : true)
+        )
+        allVals = allVals.concat(vals)
+      }
+      if (allVals.length >= 2) {
+        const dataMin = Math.min(...allVals)
+        const dataMax = Math.max(...allVals)
+        if (logScale) {
+          effectiveYMin = yMin ?? dataMin * 0.5
+          effectiveYMax = yMax ?? dataMax * 2
+        } else {
+          const span = dataMax - dataMin || Math.abs(dataMax) || 1
+          const pad = span * 0.12
+          effectiveYMin = yMin ?? dataMin - pad
+          effectiveYMax = yMax ?? dataMax + pad
+          // Always include zero if data spans near zero
+          if (effectiveYMin > 0 && dataMin >= 0) effectiveYMin = 0
+        }
+      } else {
+        effectiveYMin = yMin ?? (logScale ? 1e-2 : -10)
+        effectiveYMax = yMax ?? (logScale ? 1e4  :  10)
+      }
+    }
+    const resolvedYMin = effectiveYMin
+    const resolvedYMax = effectiveYMax
+
     function tx(t) { return PAD_L + ((t - tMin) / spanMs) * pW }
     function vy(v) {
       if (v === null || v === undefined || isNaN(v)) return null
       let y
       if (logScale) {
         if (v <= 0) return null
-        const logMin = Math.log10(Math.max(yMin, 1e-10))
-        const logMax = Math.log10(Math.max(yMax, 1e-9))
+        const logMin = Math.log10(Math.max(resolvedYMin, 1e-10))
+        const logMax = Math.log10(Math.max(resolvedYMax, 1e-9))
         y = PAD_T + pH - ((Math.log10(v) - logMin) / (logMax - logMin)) * pH
       } else {
-        y = PAD_T + pH - ((v - yMin) / (yMax - yMin)) * pH
+        y = PAD_T + pH - ((v - resolvedYMin) / (resolvedYMax - resolvedYMin)) * pH
       }
       // Clamp to plot area so no dot ever escapes the canvas
       return Math.max(PAD_T, Math.min(PAD_T + pH, y))
@@ -237,7 +272,7 @@ function PlotCanvas({ data, series, yMin, yMax, logScale, timeRange, crosshairTi
     }
 
     // Zero line
-    if (!logScale && yMin < 0 && yMax > 0) {
+    if (!logScale && resolvedYMin < 0 && resolvedYMax > 0) {
       const y0 = vy(0)
       ctx.strokeStyle = C.zero; ctx.lineWidth = 1
       ctx.beginPath(); ctx.moveTo(PAD_L, y0); ctx.lineTo(W - PAD_R, y0); ctx.stroke()
@@ -412,7 +447,7 @@ function PlotCanvas({ data, series, yMin, yMax, logScale, timeRange, crosshairTi
     // Y-axis labels
     if (showLabels) {
       ctx.fillStyle = C.text; ctx.font = `7px ${FONT}`
-      const steps = logScale ? [yMin, Math.sqrt(yMin * yMax), yMax] : [yMax, (yMin + yMax) / 2, yMin]
+      const steps = logScale ? [resolvedYMin, Math.sqrt(resolvedYMin * resolvedYMax), resolvedYMax] : [resolvedYMax, (resolvedYMin + resolvedYMax) / 2, resolvedYMin]
       for (const v of steps) {
         const y = vy(v)
         if (y === null) continue
@@ -524,6 +559,7 @@ function usePersist(key, def) {
 export default function SpaceWeatherPanel({ mag, plasma, epam, stereo, goes, spaceWeather }) {
   const [subTab,      setSubTab]      = usePersist('subTab',      'l1')
   const [presetMs,    setPresetMs]    = usePersist('presetMs',    24 * 3600000)
+  const [goesPresetMs,setGoesPresetMs]= usePersist('goesPresetMs', 3 * 86400000)
   const [zoomRange,   setZoomRange]   = usePersist('zoomRange',   null)
   const [crosshairT,  setCrosshairT]  = useState(null)
 
@@ -562,10 +598,11 @@ export default function SpaceWeatherPanel({ mag, plasma, epam, stereo, goes, spa
   const [showAnnots,  setShowAnnots]  = usePersist('showAnnots',  false)
 
   const now = Date.now()
+  const activePresetMs = subTab === 'goes' ? goesPresetMs : presetMs
   const timeRange = useMemo(() => {
     if (zoomRange) return zoomRange
-    return [now - presetMs, now]
-  }, [presetMs, zoomRange, now])
+    return [now - activePresetMs, now]
+  }, [activePresetMs, zoomRange, now])
 
   const annotations = useMemo(() => detectAnnotations(mag, plasma), [mag, plasma])
 
@@ -645,11 +682,14 @@ export default function SpaceWeatherPanel({ mag, plasma, epam, stereo, goes, spa
       <div style={{ display: 'flex', gap: 3, padding: '3px 8px', borderBottom: `1px solid ${C.border}`, alignItems: 'center', flexShrink: 0 }}>
         <span style={{ color: C.textDim, fontSize: 8, letterSpacing: 1, marginRight: 4 }}>RANGE</span>
         {PRESETS.map(p => (
-          <button key={p.label} onClick={() => { setPresetMs(p.ms); setZoomRange(null) }} style={{
+          <button key={p.label} onClick={() => {
+            if (subTab === 'goes') setGoesPresetMs(p.ms); else setPresetMs(p.ms)
+            setZoomRange(null)
+          }} style={{
             padding: '1px 7px', fontSize: 8, fontFamily: FONT, letterSpacing: 0.5,
-            background: !zoomRange && presetMs === p.ms ? '#0d1a2a' : 'transparent',
-            border: `1px solid ${!zoomRange && presetMs === p.ms ? '#44ddaa' : '#1a2a3a'}`,
-            color: !zoomRange && presetMs === p.ms ? '#44ddaa' : '#2a4a5a',
+            background: !zoomRange && activePresetMs === p.ms ? '#0d1a2a' : 'transparent',
+            border: `1px solid ${!zoomRange && activePresetMs === p.ms ? '#44ddaa' : '#1a2a3a'}`,
+            color: !zoomRange && activePresetMs === p.ms ? '#44ddaa' : '#2a4a5a',
             cursor: 'pointer', borderRadius: 2,
           }}>{p.label}</button>
         ))}
@@ -854,7 +894,7 @@ export default function SpaceWeatherPanel({ mag, plasma, epam, stereo, goes, spa
                         colorFn: v => v < 0 ? C.bz_neg : C.bz_pos },
                       { key: 'bt_tot', color: C.bt, width: 1.0, dash: [3, 2] },
                     ]}
-                    yMin={-20} yMax={20}
+                    yMin={null} yMax={null}
                     {...commonProps} annotations={[]}
                   />
                 : <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
@@ -877,7 +917,7 @@ export default function SpaceWeatherPanel({ mag, plasma, epam, stereo, goes, spa
                   { key: 'speed',   color: C.speed,   width: 1.3 },
                   { key: 'density', color: C.density, width: 1.3 },
                 ]}
-                yMin={200} yMax={900}
+                yMin={null} yMax={null}
                 {...commonProps} annotations={[]}
               />
             </div>
@@ -913,7 +953,7 @@ export default function SpaceWeatherPanel({ mag, plasma, epam, stereo, goes, spa
                       showGoesEast && { key: 'e_hp', color: '#ee5577', width: 1.4 },
                       showGoesWest && { key: 'w_hp', color: '#4488ff', width: 1.2 },
                     ].filter(Boolean)}
-                    yMin={-200} yMax={200}
+                    yMin={null} yMax={null}
                     {...commonProps} annotations={[]}
                   />
                 : <div style={{ flex:1, display:'flex', alignItems:'center', justifyContent:'center' }}>
@@ -937,7 +977,7 @@ export default function SpaceWeatherPanel({ mag, plasma, epam, stereo, goes, spa
                   showGoesEast && { key: 'e_he', color: '#ff8899', width: 1.3 },
                   showGoesWest && { key: 'w_he', color: '#44aaff', width: 1.1 },
                 ].filter(Boolean)}
-                yMin={-200} yMax={200}
+                yMin={null} yMax={null}
                 {...commonProps} annotations={[]}
               />
             </div>
@@ -957,7 +997,7 @@ export default function SpaceWeatherPanel({ mag, plasma, epam, stereo, goes, spa
                   showGoesEast && { key: 'e_hn', color: '#ff4466', width: 1.2 },
                   showGoesWest && { key: 'w_hn', color: '#66aaff', width: 1.0 },
                 ].filter(Boolean)}
-                yMin={-200} yMax={200}
+                yMin={null} yMax={null}
                 {...commonProps} annotations={[]}
               />
             </div>
