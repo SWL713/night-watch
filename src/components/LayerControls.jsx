@@ -2,7 +2,7 @@ const FONT = 'DejaVu Sans Mono, Consolas, monospace'
 
 const LAYER_DEFS = [
   { key: 'clouds',    label: 'Cloud Cover',   helpKey: 'layer_clouds' },
-  { key: 'bortle',    label: 'Sky Brightness', helpKey: 'layer_bortle' },
+  { key: 'bortle',    label: 'Light Pollution', helpKey: 'layer_bortle' },
   { key: 'ovation',   label: 'Ovation Model', helpKey: 'layer_ovation' },
   { key: 'pins',      label: 'Locations',     helpKey: 'layer_pins' },
   { key: 'cameras',   label: 'Live Cams',     helpKey: 'layer_cameras',  accent: '#44aaff' },
@@ -32,9 +32,9 @@ export default function LayerControls({ layers, onToggle, helpMode, onHelpTap })
                 background: active ? (accent ? '#1a0d00' : '#0d1a2a') : '#060810',
                 border: `1px solid ${helpMode ? '#44ddaa44' : active ? (accent || '#44ddaa') : '#1a2a3a'}`,
                 color: active ? (accent || '#44ddaa') : '#334455',
-                padding: '5px 10px', fontSize: 10,
-                fontFamily: FONT, cursor: 'pointer', letterSpacing: 1,
-                borderRadius: 2, textAlign: 'left', minWidth: 110,
+                padding: '5px 7px', fontSize: 10,
+                fontFamily: FONT, cursor: 'pointer', letterSpacing: 0.5,
+                borderRadius: 2, textAlign: 'left', minWidth: 100,
                 transition: 'all 0.15s', width: '100%',
               }}
             >
