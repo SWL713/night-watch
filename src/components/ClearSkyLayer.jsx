@@ -186,60 +186,65 @@ export default function ClearSkyLayer({
     return () => { if (overlayRef.current) { mapInstance.removeLayer(overlayRef.current); overlayRef.current = null } }
   }, [geoImage, mapInstance])
 
-  // ── 3. Mask — overlayPane canvas using layerPoint coordinates ────────────
+  // ── 3. Mask — SVG evenodd path: world rect with circle hole ─────────────
+  // This is the only reliable hard-boundary approach. Leaflet's SVG pane
+  // handles all projection math. No canvas compositing, no coordinate drift.
   useEffect(() => {
     if (!anchor) return
 
-    function drawMask() {
-      const size = mapInstance.getSize()
+    const svgPane = mapInstance.getPanes().overlayPane
 
-      if (!maskRef.current) {
-        const c = document.createElement('canvas')
-        c.style.cssText = 'position:absolute;top:0;left:0;pointer-events:none;z-index:202;'
-        mapInstance.getPanes().overlayPane.appendChild(c)
-        maskRef.current = c
-      }
-
-      const canvas = maskRef.current
-      canvas.width  = size.x
-      canvas.height = size.y
-      canvas.style.width  = size.x + 'px'
-      canvas.style.height = size.y + 'px'
-
-      // Keep canvas aligned with the pane's transform offset
-      const topLeft = mapInstance.containerPointToLayerPoint([0, 0])
-      L.DomUtil.setPosition(canvas, topLeft)
-
-      const ctx = canvas.getContext('2d')
-      ctx.clearRect(0, 0, size.x, size.y)
-      ctx.fillStyle = 'rgba(6,8,15,0.72)'
-      ctx.fillRect(0, 0, size.x, size.y)
-
-      // Use layerPoint so coordinates match the pane transform exactly
-      const centerLayer = mapInstance.latLngToLayerPoint([anchor.lat, anchor.lng])
-      const edgeLayer   = mapInstance.latLngToLayerPoint([anchor.lat + milesToDeg(radiusMiles), anchor.lng])
-      const radiusPx    = Math.abs(edgeLayer.y - centerLayer.y)
-      const cx = centerLayer.x - topLeft.x
-      const cy = centerLayer.y - topLeft.y
-
-      ctx.globalCompositeOperation = 'destination-out'
-      ctx.beginPath()
-      ctx.arc(cx, cy, radiusPx, 0, Math.PI * 2)
-      ctx.fillStyle = 'rgba(0,0,0,1)'
-      ctx.fill()
-      ctx.globalCompositeOperation = 'source-over'
-
-      // Report circle bottom-center in container coords for label
-      const centerContainer = mapInstance.latLngToContainerPoint([anchor.lat, anchor.lng])
-      const edgeContainer   = mapInstance.latLngToContainerPoint([anchor.lat + milesToDeg(radiusMiles), anchor.lng])
-      onCircleBottom?.({ x: centerContainer.x, y: centerContainer.y + Math.abs(edgeContainer.y - centerContainer.y) + 10 })
+    // Create SVG element once
+    if (!maskRef.current) {
+      const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg')
+      svg.style.cssText = 'position:absolute;top:0;left:0;width:100%;height:100%;pointer-events:none;z-index:203;overflow:visible;'
+      const path = document.createElementNS('http://www.w3.org/2000/svg', 'path')
+      path.setAttribute('fill', 'rgba(6,8,15,0.78)')
+      path.setAttribute('fill-rule', 'evenodd')
+      svg.appendChild(path)
+      svgPane.appendChild(svg)
+      maskRef.current = { svg, path }
     }
 
-    drawMask()
-    mapInstance.on('moveend zoomend resize move', drawMask)
+    function updateMask() {
+      const { path } = maskRef.current
+
+      // Convert anchor center and radius edge to layer points
+      const c  = mapInstance.latLngToLayerPoint([anchor.lat, anchor.lng])
+      const e  = mapInstance.latLngToLayerPoint([anchor.lat + milesToDeg(radiusMiles), anchor.lng])
+      const r  = Math.abs(e.y - c.y)
+
+      // Large world-covering rect (in layer coords)
+      const size = mapInstance.getSize()
+      const tl   = mapInstance.containerPointToLayerPoint([0, 0])
+      const pad  = 2000
+      const x    = tl.x - pad, y = tl.y - pad
+      const w    = size.x + pad * 2, h = size.y + pad * 2
+
+      // evenodd: rect covers world, circle subtracts → leaves circle clear
+      // SVG arc: two arcs to make a full circle path
+      const d = [
+        `M ${x} ${y} h ${w} v ${h} h ${-w} Z`,
+        `M ${c.x + r} ${c.y}`,
+        `A ${r} ${r} 0 1 0 ${c.x - r} ${c.y}`,
+        `A ${r} ${r} 0 1 0 ${c.x + r} ${c.y} Z`,
+      ].join(' ')
+      path.setAttribute('d', d)
+
+      // Report circle bottom-center in container coords for label
+      const cc = mapInstance.latLngToContainerPoint([anchor.lat, anchor.lng])
+      const ec = mapInstance.latLngToContainerPoint([anchor.lat + milesToDeg(radiusMiles), anchor.lng])
+      onCircleBottom?.({ x: cc.x, y: cc.y + Math.abs(ec.y - cc.y) + 10 })
+    }
+
+    updateMask()
+    mapInstance.on('moveend zoomend resize move zoom', updateMask)
     return () => {
-      mapInstance.off('moveend zoomend resize move', drawMask)
-      if (maskRef.current) { maskRef.current.remove(); maskRef.current = null }
+      mapInstance.off('moveend zoomend resize move zoom', updateMask)
+      if (maskRef.current) {
+        maskRef.current.svg.remove()
+        maskRef.current = null
+      }
       onCircleBottom?.(null)
     }
   }, [anchor, radiusMiles, mapInstance])  // eslint-disable-line
