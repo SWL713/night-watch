@@ -163,23 +163,27 @@ function detectAnnotations(mag, plasma) {
 
 // ── Single plot canvas ────────────────────────────────────────────────────────
 function PlotCanvas({ data, series, yMin, yMax, logScale, timeRange, crosshairTime, onCrosshair,
-                      annotations, phiMode, speedKms, showParker, showSector, height = 80,
-                      yLabel, nowTime }) {
+                      annotations, phiMode, speedKms, showParker, showSector,
+                      showLabels, yLabel, nowTime }) {
   const canvasRef = useRef(null)
   const dpr = window.devicePixelRatio || 1
 
-  useEffect(() => {
+  const draw = useCallback(() => {
     const canvas = canvasRef.current
     if (!canvas || !data || data.length === 0) return
     const W = canvas.clientWidth
-    const H = height
+    const H = canvas.clientHeight
+    if (W === 0 || H === 0) return
     canvas.width  = W * dpr
     canvas.height = H * dpr
     const ctx = canvas.getContext('2d')
     ctx.scale(dpr, dpr)
     ctx.beginPath(); ctx.rect(0, 0, W, H); ctx.clip()
 
-    const PAD_L = 36, PAD_R = 6, PAD_T = 6, PAD_B = 18
+    const PAD_L = showLabels ? 36 : 8
+    const PAD_R = 6
+    const PAD_T = 4
+    const PAD_B = showLabels ? 18 : 4
     const pW = W - PAD_L - PAD_R
     const pH = H - PAD_T - PAD_B
 
@@ -300,35 +304,43 @@ function PlotCanvas({ data, series, yMin, yMax, logScale, timeRange, crosshairTi
           ctx.beginPath(); ctx.arc(x, y, 1.5, 0, Math.PI * 2); ctx.fill()
         }
       } else {
-        // Line with gap detection
+        // Line with gap detection and optional per-point color function
         ctx.lineWidth = s.width || 1.2
         ctx.setLineDash(s.dash || [])
-        ctx.beginPath()
         let drawing = false
         let prevT = null
+        let curColor = null
+        ctx.beginPath()
+
         for (const pt of pts) {
           const x = tx(pt.time.getTime())
-          let v = pt[s.key]
-          // Bz color split: use gradient segments
+          const v = pt[s.key]
           const y = vy(v)
           if (y === null) { drawing = false; continue }
+
+          // Gap detection
           if (prevT && (pt.time.getTime() - prevT) > GAP_THRESHOLD_MS) {
             ctx.stroke(); ctx.beginPath(); drawing = false
           }
-          // For Bz: color by sign per segment
-          if (s.key === 'bz' && s.colorFn) {
-            if (drawing) {
-              ctx.strokeStyle = s.colorFn(v)
-              ctx.stroke(); ctx.beginPath()
-              ctx.moveTo(x, y); drawing = true
-            } else {
-              ctx.strokeStyle = s.colorFn(v)
-              ctx.moveTo(x, y); drawing = true
-            }
+
+          const color = s.colorFn ? s.colorFn(v) : s.color
+
+          if (!drawing) {
+            ctx.strokeStyle = color
+            ctx.beginPath()
+            ctx.moveTo(x, y)
+            drawing = true
+            curColor = color
+          } else if (color !== curColor) {
+            // Color changed — stroke current segment, start new one from prev point
+            ctx.lineTo(x, y)
+            ctx.stroke()
+            ctx.strokeStyle = color
+            ctx.beginPath()
+            ctx.moveTo(x, y)
+            curColor = color
           } else {
-            ctx.strokeStyle = s.color
-            if (!drawing) { ctx.moveTo(x, y); drawing = true }
-            else ctx.lineTo(x, y)
+            ctx.lineTo(x, y)
           }
           prevT = pt.time.getTime()
         }
@@ -377,40 +389,54 @@ function PlotCanvas({ data, series, yMin, yMax, logScale, timeRange, crosshairTi
     }
 
     // Y-axis labels
-    ctx.fillStyle = C.text; ctx.font = `7px ${FONT}`
-    const steps = logScale ? [yMin, Math.sqrt(yMin * yMax), yMax] : [yMax, (yMin + yMax) / 2, yMin]
-    for (const v of steps) {
-      const y = vy(v)
-      if (y === null) continue
-      const label = logScale ? v.toExponential(0) : Math.abs(v) >= 1000 ? (v/1000).toFixed(0)+'k' : v.toFixed(v % 1 === 0 ? 0 : 1)
-      ctx.fillText(label, 1, y + 3)
-    }
-    if (yLabel) {
-      ctx.save(); ctx.translate(9, PAD_T + pH / 2); ctx.rotate(-Math.PI / 2)
+    if (showLabels) {
       ctx.fillStyle = C.text; ctx.font = `7px ${FONT}`
-      ctx.textAlign = 'center'; ctx.fillText(yLabel, 0, 0)
-      ctx.restore()
+      const steps = logScale ? [yMin, Math.sqrt(yMin * yMax), yMax] : [yMax, (yMin + yMax) / 2, yMin]
+      for (const v of steps) {
+        const y = vy(v)
+        if (y === null) continue
+        const label = logScale ? v.toExponential(0) : Math.abs(v) >= 1000 ? (v/1000).toFixed(0)+'k' : v.toFixed(v % 1 === 0 ? 0 : 1)
+        ctx.fillText(label, 1, y + 3)
+      }
+      if (yLabel) {
+        ctx.save(); ctx.translate(9, PAD_T + pH / 2); ctx.rotate(-Math.PI / 2)
+        ctx.fillStyle = C.text; ctx.font = `7px ${FONT}`
+        ctx.textAlign = 'center'; ctx.fillText(yLabel, 0, 0)
+        ctx.restore()
+      }
     }
 
     // X-axis time labels
-    ctx.fillStyle = C.text; ctx.font = `7px ${FONT}`; ctx.textAlign = 'center'
-    const spanH = spanMs / 3600000
-    const tickInterval = spanH <= 2 ? 30 : spanH <= 12 ? 60 : spanH <= 48 ? 360 : 1440  // minutes
-    const tickMs = tickInterval * 60000
-    const firstTick = Math.ceil(tMin / tickMs) * tickMs
-    for (let t = firstTick; t <= tMax; t += tickMs) {
-      const x = tx(t)
-      const d = new Date(t)
-      const label = spanH <= 24
-        ? d.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false, timeZone: 'UTC' })
-        : d.toLocaleDateString('en-US', { month: 'numeric', day: 'numeric', timeZone: 'UTC' })
-      ctx.fillText(label, x, H - 3)
-      ctx.strokeStyle = C.grid; ctx.lineWidth = 0.5
-      ctx.beginPath(); ctx.moveTo(x, PAD_T + pH); ctx.lineTo(x, PAD_T + pH + 3); ctx.stroke()
+    if (showLabels) {
+      ctx.fillStyle = C.text; ctx.font = `7px ${FONT}`; ctx.textAlign = 'center'
+      const spanH = spanMs / 3600000
+      const tickInterval = spanH <= 2 ? 30 : spanH <= 12 ? 60 : spanH <= 48 ? 360 : 1440
+      const tickMs = tickInterval * 60000
+      const firstTick = Math.ceil(tMin / tickMs) * tickMs
+      for (let t = firstTick; t <= tMax; t += tickMs) {
+        const x = tx(t)
+        const d = new Date(t)
+        const label = spanH <= 24
+          ? d.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false, timeZone: 'UTC' })
+          : d.toLocaleDateString('en-US', { month: 'numeric', day: 'numeric', timeZone: 'UTC' })
+        ctx.fillText(label, x, H - 3)
+        ctx.strokeStyle = C.grid; ctx.lineWidth = 0.5
+        ctx.beginPath(); ctx.moveTo(x, PAD_T + pH); ctx.lineTo(x, PAD_T + pH + 3); ctx.stroke()
+      }
     }
 
   }, [data, series, yMin, yMax, logScale, timeRange, crosshairTime, annotations,
-      phiMode, speedKms, showParker, showSector, height, nowTime])
+      phiMode, speedKms, showParker, showSector, showLabels, nowTime])
+
+  useEffect(() => { draw() }, [draw])
+
+  useEffect(() => {
+    const canvas = canvasRef.current
+    if (!canvas) return
+    const ro = new ResizeObserver(() => draw())
+    ro.observe(canvas)
+    return () => ro.disconnect()
+  }, [draw])
 
   function handlePointer(e) {
     if (!onCrosshair) return
@@ -431,7 +457,7 @@ function PlotCanvas({ data, series, yMin, yMax, logScale, timeRange, crosshairTi
       onPointerMove={handlePointer}
       onPointerLeave={() => onCrosshair && onCrosshair(null)}
       onPointerDown={handlePointer}
-      style={{ width: '100%', height, display: 'block', cursor: 'crosshair', overflow: 'hidden' }}
+      style={{ width: '100%', height: '100%', display: 'block', cursor: 'crosshair', overflow: 'hidden' }}
     />
   )
 }
@@ -468,11 +494,14 @@ export default function SpaceWeatherPanel({ mag, plasma, epam, spaceWeather }) {
   const [showParker,  setShowParker]  = useState(true)
   const [showSpeed,   setShowSpeed]   = useState(true)
   const [showDensity, setShowDensity] = useState(true)
-  const [showTemp,    setShowTemp]    = useState(false)
+  const [showTemp,    setShowTemp]    = useState(true)
 
   // Plot visibility toggles — EPAM
   const [showElec,    setShowElec]    = useState(true)
   const [showProt,    setShowProt]    = useState(true)
+
+  // Label toggle (off by default — clean mobile view)
+  const [showLabels,  setShowLabels]  = useState(false)
 
   const now = Date.now()
   const timeRange = useMemo(() => {
@@ -508,9 +537,9 @@ export default function SpaceWeatherPanel({ mag, plasma, epam, spaceWeather }) {
     return [0, Math.max(20, Math.max(...vals) * 1.1)]
   }, [plasma])
 
-  const commonProps = { timeRange, crosshairTime: crosshairT, onCrosshair: setCrosshairT, annotations, nowTime: now, speedKms }
+  const commonProps = { timeRange, crosshairTime: crosshairT, onCrosshair: setCrosshairT, annotations, nowTime: now, speedKms, showLabels }
 
-  const plotH = 80  // height per plot in px
+  // plot height now handled by flex:1 on container
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: '100%', background: C.bg, fontFamily: FONT, overflow: 'hidden' }}>
@@ -552,15 +581,15 @@ export default function SpaceWeatherPanel({ mag, plasma, epam, spaceWeather }) {
         )}
       </div>
 
-      {/* Scrollable plot area */}
-      <div style={{ flex: 1, overflowY: 'auto', overflowX: 'hidden' }}>
+      {/* Plot area — flex column, each plot gets equal share of space */}
+      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
 
         {subTab === 'l1' && (<>
 
           {/* Bxyz + Bt */}
           {showBxyz && (
-            <div style={{ borderBottom: `1px solid ${C.border}` }}>
-              <div style={{ display: 'flex', gap: 3, padding: '3px 8px 2px', alignItems: 'center' }}>
+            <div style={{ borderBottom: `1px solid ${C.border}`, flex: 1, display: 'flex', flexDirection: 'column', minHeight: 0 }}>
+              <div style={{ display: 'flex', gap: 3, padding: '3px 8px 2px', alignItems: 'center', flexShrink: 0 }}>
                 <span style={{ color: C.textDim, fontSize: 7, letterSpacing: 1, flex: 1 }}>MAGNETIC FIELD (nT)</span>
                 <Toggle label="Bx" active={showBx} color={C.bx} onClick={() => setShowBx(v => !v)} />
                 <Toggle label="By" active={showBy} color={C.by} onClick={() => setShowBy(v => !v)} />
@@ -577,15 +606,15 @@ export default function SpaceWeatherPanel({ mag, plasma, epam, spaceWeather }) {
                     colorFn: v => v < 0 ? C.bz_neg : C.bz_pos },
                 ].filter(Boolean)}
                 yMin={bzRange[0]} yMax={bzRange[1]}
-                height={plotH} {...commonProps}
+                {...commonProps}
               />
             </div>
           )}
 
           {/* Phi */}
           {showPhi && (
-            <div style={{ borderBottom: `1px solid ${C.border}` }}>
-              <div style={{ display: 'flex', gap: 3, padding: '3px 8px 2px', alignItems: 'center' }}>
+            <div style={{ borderBottom: `1px solid ${C.border}`, flex: 1, display: 'flex', flexDirection: 'column', minHeight: 0 }}>
+              <div style={{ display: 'flex', gap: 3, padding: '3px 8px 2px', alignItems: 'center', flexShrink: 0 }}>
                 <span style={{ color: C.textDim, fontSize: 7, letterSpacing: 1, flex: 1 }}>IMF PHI GSM (°)</span>
                 <Toggle label="SECTOR" active={showSector} color="#ff5566" onClick={() => setShowSector(v => !v)} />
                 <Toggle label="PARKER" active={showParker} color={C.parker} onClick={() => setShowParker(v => !v)} />
@@ -597,64 +626,65 @@ export default function SpaceWeatherPanel({ mag, plasma, epam, spaceWeather }) {
                 phiMode={true}
                 showSector={showSector}
                 showParker={showParker}
-                height={plotH} {...commonProps}
+                {...commonProps}
               />
             </div>
           )}
 
           {/* Speed */}
           {showSpeed && (
-            <div style={{ borderBottom: `1px solid ${C.border}` }}>
-              <div style={{ padding: '3px 8px 2px' }}>
+            <div style={{ borderBottom: `1px solid ${C.border}`, flex: 1, display: 'flex', flexDirection: 'column', minHeight: 0 }}>
+              <div style={{ padding: '3px 8px 2px', flexShrink: 0 }}>
                 <span style={{ color: C.textDim, fontSize: 7, letterSpacing: 1 }}>SOLAR WIND SPEED (km/s)</span>
               </div>
               <PlotCanvas
                 data={plasma || []}
                 series={[{ key: 'speed', color: C.speed, width: 1.3 }]}
                 yMin={speedRange[0]} yMax={speedRange[1]}
-                height={plotH} {...commonProps}
+                {...commonProps}
               />
             </div>
           )}
 
           {/* Density */}
           {showDensity && (
-            <div style={{ borderBottom: `1px solid ${C.border}` }}>
-              <div style={{ padding: '3px 8px 2px' }}>
+            <div style={{ borderBottom: `1px solid ${C.border}`, flex: 1, display: 'flex', flexDirection: 'column', minHeight: 0 }}>
+              <div style={{ padding: '3px 8px 2px', flexShrink: 0 }}>
                 <span style={{ color: C.textDim, fontSize: 7, letterSpacing: 1 }}>PROTON DENSITY (n/cc)</span>
               </div>
               <PlotCanvas
                 data={plasma || []}
                 series={[{ key: 'density', color: C.density, width: 1.3 }]}
                 yMin={densityRange[0]} yMax={densityRange[1]}
-                height={plotH} {...commonProps}
+                {...commonProps}
               />
             </div>
           )}
 
           {/* Temperature */}
           {showTemp && (
-            <div style={{ borderBottom: `1px solid ${C.border}` }}>
-              <div style={{ padding: '3px 8px 2px' }}>
+            <div style={{ borderBottom: `1px solid ${C.border}`, flex: 1, display: 'flex', flexDirection: 'column', minHeight: 0 }}>
+              <div style={{ padding: '3px 8px 2px', flexShrink: 0 }}>
                 <span style={{ color: C.textDim, fontSize: 7, letterSpacing: 1 }}>TEMPERATURE (K)</span>
               </div>
               <PlotCanvas
                 data={plasma || []}
                 series={[{ key: 'temperature', color: C.temp, width: 1.3 }]}
                 yMin={1e4} yMax={1e6} logScale={true}
-                height={plotH} {...commonProps}
+                {...commonProps}
               />
             </div>
           )}
 
           {/* Plot toggle row */}
-          <div style={{ display: 'flex', gap: 3, padding: '6px 8px', borderTop: `1px solid ${C.border}`, flexWrap: 'wrap' }}>
+          <div style={{ display: 'flex', gap: 3, padding: '6px 8px', borderTop: `1px solid ${C.border}`, flexWrap: 'wrap', flexShrink: 0 }}>
             <span style={{ color: C.textDim, fontSize: 7, letterSpacing: 1, width: '100%', marginBottom: 2 }}>SHOW PLOTS</span>
             <Toggle label="B FIELD" active={showBxyz} onClick={() => setShowBxyz(v => !v)} />
             <Toggle label="PHI"     active={showPhi}  onClick={() => setShowPhi(v => !v)} />
             <Toggle label="SPEED"   active={showSpeed} onClick={() => setShowSpeed(v => !v)} />
             <Toggle label="DENSITY" active={showDensity} onClick={() => setShowDensity(v => !v)} />
             <Toggle label="TEMP"    active={showTemp}  onClick={() => setShowTemp(v => !v)} />
+            <Toggle label="LABELS"  active={showLabels} onClick={() => setShowLabels(v => !v)} />
           </div>
 
         </>)}
@@ -662,14 +692,14 @@ export default function SpaceWeatherPanel({ mag, plasma, epam, spaceWeather }) {
         {subTab === 'epam' && (<>
 
           {/* EPAM banner */}
-          <div style={{ padding: '4px 10px', borderBottom: `1px solid ${C.border}`, color: '#2a4a5a', fontSize: 8, letterSpacing: 0.5 }}>
+          <div style={{ padding: '4px 10px', borderBottom: `1px solid ${C.border}`, color: '#2a4a5a', fontSize: 8, letterSpacing: 0.5, flexShrink: 0 }}>
             ACE EPAM · Energetic Particle Data · ~2 days · 5-min averaged
             {(!epam || epam.length === 0) && <span style={{ color: '#ff5544', marginLeft: 8 }}>NO DATA</span>}
           </div>
 
           {/* Electrons */}
           {showElec && epam && epam.length > 0 && (
-            <div style={{ borderBottom: `1px solid ${C.border}` }}>
+            <div style={{ borderBottom: `1px solid ${C.border}`, flex: 1, display: 'flex', flexDirection: 'column', minHeight: 0 }}>
               <div style={{ padding: '3px 8px 2px', display: 'flex', gap: 3, alignItems: 'center' }}>
                 <span style={{ color: C.textDim, fontSize: 7, letterSpacing: 1, flex: 1 }}>ELECTRONS (cm⁻² s⁻¹ sr⁻¹ MeV⁻¹)</span>
                 <span style={{ color: C.e38,  fontSize: 7 }}>■ 38–53 keV</span>
@@ -682,14 +712,14 @@ export default function SpaceWeatherPanel({ mag, plasma, epam, spaceWeather }) {
                   { key: 'e175', color: C.e175, width: 1.3 },
                 ]}
                 yMin={1e1} yMax={1e6} logScale={true}
-                height={plotH + 20} {...commonProps} annotations={[]}
+                {...commonProps} annotations={[]}
               />
             </div>
           )}
 
           {/* Protons */}
           {showProt && epam && epam.length > 0 && (
-            <div style={{ borderBottom: `1px solid ${C.border}` }}>
+            <div style={{ borderBottom: `1px solid ${C.border}`, flex: 1, display: 'flex', flexDirection: 'column', minHeight: 0 }}>
               <div style={{ padding: '3px 8px 2px', display: 'flex', gap: 3, alignItems: 'center', flexWrap: 'wrap' }}>
                 <span style={{ color: C.textDim, fontSize: 7, letterSpacing: 1, width: '100%' }}>PROTONS (cm⁻² s⁻¹ sr⁻¹ MeV⁻¹)</span>
                 {[['p47','47–68'],['p68','68–115'],['p115','115–195'],['p310','310–580'],['p795','795–1193'],['p1060','1060–1900']].map(([k,l]) => (
@@ -707,16 +737,20 @@ export default function SpaceWeatherPanel({ mag, plasma, epam, spaceWeather }) {
                   { key: 'p1060', color: C.p1060, width: 1.3 },
                 ]}
                 yMin={1e1} yMax={1e6} logScale={true}
-                height={plotH + 20} {...commonProps} annotations={[]}
+                {...commonProps} annotations={[]}
               />
             </div>
           )}
 
           {/* EPAM toggles */}
-          <div style={{ display: 'flex', gap: 3, padding: '6px 8px', borderTop: `1px solid ${C.border}` }}>
+          <div style={{ display: 'flex', gap: 3, padding: '6px 8px', borderTop: `1px solid ${C.border}`, flexWrap: 'wrap', flexShrink: 0 }}>
             <span style={{ color: C.textDim, fontSize: 7, letterSpacing: 1, width: '100%', marginBottom: 2 }}>SHOW PLOTS</span>
             <Toggle label="ELECTRONS" active={showElec} color={C.e38}  onClick={() => setShowElec(v => !v)} />
             <Toggle label="PROTONS"   active={showProt} color={C.p310} onClick={() => setShowProt(v => !v)} />
+            <Toggle label="LABELS"    active={showLabels} onClick={() => setShowLabels(v => !v)} />
+            <span style={{ color: '#1a2a3a', fontSize: 7, letterSpacing: 0.5, width: '100%', marginTop: 4 }}>
+              STEREO-A UPSTREAM PREVIEW — COMING SOON
+            </span>
           </div>
 
         </>)}
