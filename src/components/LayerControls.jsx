@@ -12,7 +12,7 @@ const LAYER_DEFS = [
 export default function LayerControls({ layers, onToggle, helpMode, onHelpTap }) {
   return (
     <div style={{
-      position: 'absolute', bottom: 58, left: 10, zIndex: 1000,
+      position: 'absolute', bottom: 10, left: 10, zIndex: 1000,
       display: 'flex', flexDirection: 'column', gap: 4,
     }}>
       <div style={{ color: '#223344', fontSize: 8, letterSpacing: 1, paddingLeft: 2, marginBottom: 1 }}>

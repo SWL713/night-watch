@@ -839,7 +839,7 @@ function App() {
         )}
 
         {/* Recenter button — flies to user location */}
-        <div style={{ position: 'absolute', bottom: 76, right: 44, zIndex: 1000 }}>
+        <div style={{ position: 'absolute', bottom: 10, right: 44, zIndex: 1000 }}>
           <button
             onClick={() => {
               if (helpMode) { showHelp('recenter'); return }
@@ -863,7 +863,7 @@ function App() {
         </div>
 
         {/* ? Help button — bottom right above attribution */}
-        <div style={{ position: 'absolute', bottom: 76, right: 10, zIndex: 1000 }}>
+        <div style={{ position: 'absolute', bottom: 10, right: 10, zIndex: 1000 }}>
           <button
             onClick={toggleHelp}
             title="Help"
@@ -903,7 +903,7 @@ function App() {
 
         {/* NASA attribution — bottom right overlay */}
         <div style={{
-          position: 'absolute', bottom: 58, right: 48,
+          position: 'absolute', bottom: 10, right: 48,
           color: 'rgba(40,70,100,0.55)', fontSize: 8, letterSpacing: 0.5,
           fontFamily: FONT, zIndex: 900, pointerEvents: 'none',
         }}>
@@ -924,7 +924,7 @@ function App() {
         {/* Cloud loading indicator */}
         {(cloudLoading || phase === 'fallback') && (
           <div style={{
-            position: 'absolute', bottom: 76, left: '50%', transform: 'translateX(-50%)',
+            position: 'absolute', bottom: 10, left: '50%', transform: 'translateX(-50%)',
             background: '#070b16', border: '1px solid #1a2035', borderRadius: 2,
             padding: '4px 12px', fontSize: 9, zIndex: 1000,
             fontFamily: FONT, letterSpacing: 1,
@@ -934,15 +934,15 @@ function App() {
             {phase === 'fallback' && `PIPELINE UNAVAILABLE — FETCHING DIRECT ${progress}%`}
           </div>
         )}
+      </div>{/* end map-wrapper */}
 
-        {/* Bottom action bar */}
-        <div style={{
-          position: 'absolute', bottom: 0, left: 0, right: 0,
-          background: '#06080f', borderTop: '1px solid #1a2035',
-          display: 'flex', alignItems: 'stretch',
-          padding: '4px 4px', height: 52, zIndex: 2000, overflow: 'visible',
-          gap: 3,
-        }}>
+      {/* Bottom action bar — flex child of outer column, persists across all tabs */}
+      <div style={{
+        background: '#06080f', borderTop: '1px solid #1a2035',
+        display: 'flex', alignItems: 'stretch', flexShrink: 0,
+        padding: '4px 4px', height: 52, zIndex: 2000, overflow: 'visible',
+        gap: 3,
+      }}>
 
           {/* Slot 1 — fixed 114px: Report+Pin on map, MAP button on other tabs */}
           <div style={{ width: 114, flexShrink: 0, display: 'flex', gap: 3 }}>
@@ -1072,8 +1072,7 @@ function App() {
               }}>✕</button>
             </div>
           )}
-        </div>
-      </div>
+        </div>{/* end action bar */}
 
       {/* Developer attribution — between action bar and time slider */}
       <div style={{
