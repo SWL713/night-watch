@@ -168,6 +168,48 @@ function PlotCanvas({ data, series, yMin, yMax, logScale, timeRange, crosshairTi
   const canvasRef = useRef(null)
   const dpr = window.devicePixelRatio || 1
 
+  // ── Autoscale: reactive useMemo so Y range updates on every timeRange change ──
+  const [resolvedYMin, resolvedYMax] = useMemo(() => {
+    if (yMin != null && yMax != null) return [yMin, yMax]
+
+    const [tMin, tMax] = timeRange
+    const visData = (data || []).filter(p => {
+      const t = p.time instanceof Date ? p.time.getTime() : Number(p.time)
+      return t >= tMin && t <= tMax
+    })
+
+    let allVals = []
+    for (const s of (series || [])) {
+      if (!s || !s.key) continue
+      visData.forEach(p => {
+        const v = p[s.key]
+        if (v != null && !isNaN(v) && isFinite(v) && (logScale ? v > 0 : true))
+          allVals.push(v)
+      })
+    }
+
+    if (allVals.length < 2) {
+      return [yMin ?? (logScale ? 1e-2 : -10), yMax ?? (logScale ? 1e4 : 10)]
+    }
+
+    const dataMin = Math.min(...allVals)
+    const dataMax = Math.max(...allVals)
+
+    if (logScale) {
+      return [yMin ?? dataMin * 0.5, yMax ?? dataMax * 2]
+    } else if (symmetric) {
+      const absMax = Math.max(Math.abs(dataMin), Math.abs(dataMax), 1) * 1.15
+      return [yMin ?? -absMax, yMax ?? absMax]
+    } else {
+      const span = Math.max(dataMax - dataMin, Math.abs(dataMax) * 0.01, 0.1)
+      const pad  = span * 0.12
+      let effMin = yMin ?? dataMin - pad
+      let effMax = yMax ?? dataMax + pad
+      if (effMin > 0 && dataMin >= 0) effMin = 0
+      return [effMin, effMax]
+    }
+  }, [data, series, yMin, yMax, logScale, symmetric, timeRange])
+
   const draw = useCallback(() => {
     const canvas = canvasRef.current
     if (!canvas || !data || data.length === 0) return
@@ -189,46 +231,6 @@ function PlotCanvas({ data, series, yMin, yMax, logScale, timeRange, crosshairTi
 
     const [tMin, tMax] = timeRange
     const spanMs = tMax - tMin
-
-    // Auto-scale: compute yMin/yMax from visible data when null is passed
-    let effectiveYMin = yMin
-    let effectiveYMax = yMax
-    if (yMin == null || yMax == null) {
-      const visData = data.filter(p => p.time.getTime() >= tMin && p.time.getTime() <= tMax)
-      let allVals = []
-      for (const s of series) {
-        if (!s || !s.key) continue
-        const vals = visData.map(p => p[s.key]).filter(v =>
-          v !== null && v !== undefined && !isNaN(v) && (logScale ? v > 0 : true)
-        )
-        allVals = allVals.concat(vals)
-      }
-      if (allVals.length >= 2) {
-        const dataMin = Math.min(...allVals)
-        const dataMax = Math.max(...allVals)
-        if (logScale) {
-          effectiveYMin = yMin ?? dataMin * 0.5
-          effectiveYMax = yMax ?? dataMax * 2
-        } else if (symmetric) {
-          // Symmetric around zero — for Bz/Bx/By type plots
-          const absMax = Math.max(Math.abs(dataMin), Math.abs(dataMax), 2) * 1.15
-          effectiveYMin = yMin ?? -absMax
-          effectiveYMax = yMax ??  absMax
-        } else {
-          const span = dataMax - dataMin || Math.abs(dataMax) || 1
-          const pad = span * 0.12
-          effectiveYMin = yMin ?? dataMin - pad
-          effectiveYMax = yMax ?? dataMax + pad
-          // Always include zero if data is all-positive
-          if (effectiveYMin > 0 && dataMin >= 0) effectiveYMin = 0
-        }
-      } else {
-        effectiveYMin = yMin ?? (logScale ? 1e-2 : -10)
-        effectiveYMax = yMax ?? (logScale ? 1e4  :  10)
-      }
-    }
-    const resolvedYMin = effectiveYMin
-    const resolvedYMax = effectiveYMax
 
     function tx(t) { return PAD_L + ((t - tMin) / spanMs) * pW }
     function vy(v) {
@@ -487,7 +489,8 @@ function PlotCanvas({ data, series, yMin, yMax, logScale, timeRange, crosshairTi
     }
 
   }, [data, series, yMin, yMax, logScale, timeRange, crosshairTime, annotations,
-      phiMode, speedKms, showParker, showSector, showLabels, nowTime, thresholds, symmetric])
+      phiMode, speedKms, showParker, showSector, showLabels, nowTime, thresholds, symmetric,
+      resolvedYMin, resolvedYMax])
 
   useEffect(() => { draw() }, [draw])
 
