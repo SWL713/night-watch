@@ -205,7 +205,6 @@ function PlotCanvas({ data, series, yMin, yMax, logScale, timeRange, crosshairTi
       const pad  = span * 0.12
       let effMin = yMin ?? dataMin - pad
       let effMax = yMax ?? dataMax + pad
-      if (effMin > 0 && dataMin >= 0) effMin = 0
       return [effMin, effMax]
     }
   }, [data, series, yMin, yMax, logScale, symmetric, timeRange])
