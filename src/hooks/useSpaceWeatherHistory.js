@@ -8,7 +8,7 @@
  *   sw_mag_7day.json     columns: [time, bx, by, bz, bt, phi]
  *   sw_plasma_7day.json  columns: [time, density, speed, temperature]
  *   sw_epam.json         columns: [time, e38, e175, p47, p68, p115, p310, p795, p1060]
- *   sw_stereo_a.json     columns: [time, bz, bt, bx, by, speed, density]
+ *   sw_stereo_a.json     columns: [time, bn, bt_tot, br, bt_tan, speed, density]  RTN coords
  *   sw_goes_mag.json     columns: [time, e_hp, e_he, e_hn, e_ht, w_hp, w_he, w_hn, w_ht]
  */
 
@@ -108,7 +108,7 @@ export function useSpaceWeatherHistory(active) {
         if (magRaw)    store('mag',    magRaw,    ['bx','by','bz','bt','phi'],                              setMag)
         if (plasmaRaw) store('plasma', plasmaRaw, ['density','speed','temperature'],                        setPlasma)
         if (epamRaw)   store('epam',   epamRaw,   ['e38','e175','p47','p68','p115','p310','p795','p1060'],   setEpam)
-        store('stereo', stereoRaw, ['bz','bt','bx','by','speed','density'],                                 setStereo)
+        store('stereo', stereoRaw, ['bn','bt_tot','br','bt_tan','speed','density'],                         setStereo)
         store('goes',   goesRaw,   ['e_hp','e_he','e_hn','e_ht','w_hp','w_he','w_hn','w_ht'],               setGoes)
 
       } catch (err) {

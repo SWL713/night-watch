@@ -840,7 +840,7 @@ export default function SpaceWeatherPanel({ mag, plasma, epam, stereo, goes, spa
           {showStereo && (
             <div style={{ borderBottom: `1px solid ${C.border}`, flex: 1, display: 'flex', flexDirection: 'column', minHeight: 0 }}>
               <div style={{ padding: '3px 8px 2px', flexShrink: 0 }}>
-                <span style={{ color: C.textDim, fontSize: 7, letterSpacing: 1 }}>STEREO-A UPSTREAM · Bz</span>
+                <span style={{ color: C.textDim, fontSize: 7, letterSpacing: 1 }}>STEREO-A UPSTREAM · Bn (RTN ecliptic-north)</span>
                 {stereo && stereo.length > 0
                   ? <span style={{ color: '#2a4a5a', fontSize: 6, marginLeft: 8 }}>{stereo.length} PTS</span>
                   : <span style={{ color: '#ff5544', fontSize: 6, marginLeft: 8 }}>NO DATA YET — ACCUMULATING</span>
@@ -850,9 +850,9 @@ export default function SpaceWeatherPanel({ mag, plasma, epam, stereo, goes, spa
                 ? <PlotCanvas
                     data={stereo}
                     series={[
-                      { key: 'bz', color: C.bz_pos, width: 1.6,
+                      { key: 'bn', color: C.bz_pos, width: 1.6,
                         colorFn: v => v < 0 ? C.bz_neg : C.bz_pos },
-                      { key: 'bt', color: C.bt, width: 1.0, dash: [3, 2] },
+                      { key: 'bt_tot', color: C.bt, width: 1.0, dash: [3, 2] },
                     ]}
                     yMin={-20} yMax={20}
                     {...commonProps} annotations={[]}
