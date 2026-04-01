@@ -56,7 +56,7 @@ export const HELP_CONTENT = {
   },
   clear_sky_finder: {
     title: 'Clear Sky Finder',
-    text: 'Scores and ranks locations by cloud cover within your selected radius — showing your best options relative to each other tonight. Your anchor point defaults to your GPS location or can be set manually with a long press on the map. Adjust the radius slider to explore near or far. BEST, GOOD, and FAIR zones update based on your selected 4H or 8H window. On heavily clouded nights Long Shot highlights the least-bad options available.',
+    text: 'Scores and ranks cloud cover within your selected radius — showing your best options relative to each other tonight. Your anchor point defaults to your GPS location. Long press anywhere on the map to place a manual anchor and explore from a different origin. Tap X to clear the anchor.\n\nAdjust the travel radius slider to expand or contract your search area. The circle updates in real time and the map zooms to fit. Zones are ranked relative to each other within your radius using the selected 4H or 8H forecast window — BEST is the clearest 20% of points, GOOD the next 20%, and FAIR the next 20%.\n\nOn heavily clouded nights when no good option exists, LONG SHOT mode activates — the circle turns orange and highlights the least-bad spots available.\n\nThe best in radius readout below the circle shows the absolute clearness of your best available spot — green means 60% or more clear, yellow means 40–59% clear, and red means below 40% clear.',
   },
   radius_slider: {
     title: 'Radius Slider',
