@@ -102,9 +102,9 @@ select {
   color: #6688aa !important;
 }
 
-/* Push Leaflet bottom controls above the action bar */
+/* Leaflet bottom controls sit at absolute bottom of map */
 .leaflet-bottom {
-  bottom: 58px !important;
+  bottom: 0 !important;
 }
 
 /* Remove focus outline on all buttons — prevents blue ring on mobile tap */
