@@ -176,15 +176,16 @@ function App() {
         : 'none',
 
     }}>
-      {/* Timeline panel — map tab only */}
-      {activeTab === 'map' && <TimelinePanel
+      {/* Timeline panel — top row always visible, chart only on map tab */}
+      <TimelinePanel
         spaceWeather={sw}
         selectedHour={selectedHour}
         onHourSelect={setSelectedHour}
         moonData={moonData}
         helpMode={helpMode}
         onHelpTap={showHelp}
-      />}
+        activeTab={activeTab}
+      />
 
       {/* Content area — map or tab placeholder */}
       {activeTab !== 'map' && (

@@ -105,7 +105,7 @@ function bzToIntensity(bz) {
   return 'Calm'
 }
 
-export default function TimelinePanel({ spaceWeather, selectedHour, onHourSelect, moonData, helpMode, onHelpTap }) {
+export default function TimelinePanel({ spaceWeather, selectedHour, onHourSelect, moonData, helpMode, onHelpTap, activeTab }) {
   const now = new Date()
 
   const { state, bz_now, intensity_label, aurora_quality, aurora_quality_color,
@@ -257,7 +257,7 @@ export default function TimelinePanel({ spaceWeather, selectedHour, onHourSelect
         </div>
       </div>
 
-      <TimelineBar
+      {activeTab === 'map' && <TimelineBar
         spaceWeather={spaceWeather}
         moonData={moonData}
         selectedHour={selectedHour}
@@ -266,7 +266,7 @@ export default function TimelinePanel({ spaceWeather, selectedHour, onHourSelect
         plasmaTrace={plasmaTrace}
         helpMode={helpMode}
         onHelpTap={onHelpTap}
-      />
+      />}
     </div>
   )
 }
