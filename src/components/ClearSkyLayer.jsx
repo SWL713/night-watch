@@ -186,20 +186,20 @@ export default function ClearSkyLayer({
     return () => { if (overlayRef.current) { mapInstance.removeLayer(overlayRef.current); overlayRef.current = null } }
   }, [geoImage, mapInstance])
 
-  // ── 3. Mask — SVG in map container using containerPoints (no pane transform issues) ──
+  // ── 3. Mask — SVG in overlayPane using layerPoints ───────────────────────
+  // Key insight: overlayPane moves via CSS transform during pan, so the SVG
+  // moves automatically with all other map content. Only recalculate on zoom/resize.
   useEffect(() => {
     if (!anchor) return
 
-    const mapContainer = mapInstance.getContainer()
-
     if (!maskRef.current) {
       const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg')
-      svg.style.cssText = 'position:absolute;top:0;left:0;width:100%;height:100%;pointer-events:none;z-index:400;overflow:hidden;'
+      svg.style.cssText = 'position:absolute;top:0;left:0;pointer-events:none;z-index:203;overflow:visible;'
       const path = document.createElementNS('http://www.w3.org/2000/svg', 'path')
       path.setAttribute('fill', 'rgba(6,8,15,0.78)')
       path.setAttribute('fill-rule', 'evenodd')
       svg.appendChild(path)
-      mapContainer.appendChild(svg)
+      mapInstance.getPanes().overlayPane.appendChild(svg)
       maskRef.current = { svg, path }
     }
 
@@ -207,36 +207,41 @@ export default function ClearSkyLayer({
       const size = mapInstance.getSize()
       const { svg, path } = maskRef.current
 
-      svg.setAttribute('viewBox', `0 0 ${size.x} ${size.y}`)
-      svg.setAttribute('width', size.x)
-      svg.setAttribute('height', size.y)
+      // layerPoint coords — same space as the overlayPane transform
+      const c = mapInstance.latLngToLayerPoint([anchor.lat, anchor.lng])
 
-      // Use same Mercator formula Leaflet uses for L.circle radius → pixels
-      // This guarantees mask circle matches the teal/orange boundary circle exactly
-      const zoom = mapInstance.getZoom()
-      const metersPerPixel = 40075016.686 *
-        Math.abs(Math.cos(anchor.lat * Math.PI / 180)) /
-        Math.pow(2, zoom + 8)
-      const r = (radiusMiles * 1609.34) / metersPerPixel
+      // Radius: use Leaflet's exact formula (meters → degrees → layer pixels)
+      const latDeg = (radiusMiles * 1609.34 / 40075017) * 360
+      const e = mapInstance.latLngToLayerPoint([anchor.lat + latDeg, anchor.lng])
+      const r = Math.abs(e.y - c.y)
 
-      const c = mapInstance.latLngToContainerPoint([anchor.lat, anchor.lng])
+      // SVG must cover viewport regardless of pan offset
+      // Use a huge rect to guarantee full coverage
+      const pad = 4000
+      svg.setAttribute('viewBox', `${c.x - pad} ${c.y - pad} ${pad * 2} ${pad * 2}`)
+      svg.setAttribute('width',  pad * 2)
+      svg.setAttribute('height', pad * 2)
+      svg.style.left = (c.x - pad) + 'px'
+      svg.style.top  = (c.y - pad) + 'px'
 
-      const pad = 100
       const d = [
-        `M ${-pad} ${-pad} h ${size.x + pad * 2} v ${size.y + pad * 2} h ${-(size.x + pad * 2)} Z`,
+        `M ${c.x - pad} ${c.y - pad} h ${pad * 2} v ${pad * 2} h ${-pad * 2} Z`,
         `M ${c.x + r} ${c.y}`,
         `A ${r} ${r} 0 1 0 ${c.x - r} ${c.y}`,
         `A ${r} ${r} 0 1 0 ${c.x + r} ${c.y} Z`,
       ].join(' ')
       path.setAttribute('d', d)
 
-      onCircleBottom?.({ x: c.x, y: c.y + r + 10 })
+      // Report circle bottom in container coords for label
+      const cc = mapInstance.latLngToContainerPoint([anchor.lat, anchor.lng])
+      onCircleBottom?.({ x: cc.x, y: cc.y + r + 10 })
     }
 
     updateMask()
-    mapInstance.on('move zoom moveend zoomend resize', updateMask)
+    // Only need zoom/resize — pan is handled automatically by pane transform
+    mapInstance.on('zoomend zoom resize', updateMask)
     return () => {
-      mapInstance.off('move zoom moveend zoomend resize', updateMask)
+      mapInstance.off('zoomend zoom resize', updateMask)
       if (maskRef.current) {
         maskRef.current.svg.remove()
         maskRef.current = null
