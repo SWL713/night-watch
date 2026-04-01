@@ -74,6 +74,7 @@ export default function AppWrapper() {
 
 function App() {
   const [selectedHour, setSelectedHour] = useState(0)
+  const [activeTab, setActiveTab] = useState('map')
   const [layers, setLayers] = useState(initLayers())
   const [modal, setModal] = useState(null) // null | 'submitSpot' | 'submitPhoto' | 'admin'
   const [selectedSpotForPhoto, setSelectedSpotForPhoto] = useState(null)
@@ -185,8 +186,28 @@ function App() {
         onHelpTap={showHelp}
       />
 
+      {/* Content area — map or tab placeholder */}
+      {activeTab !== 'map' && (
+        <div style={{
+          flex: 1, background: '#000', display: 'flex',
+          alignItems: 'center', justifyContent: 'center',
+        }}>
+          <div style={{
+            border: '1px solid #44ddaa', padding: '24px 32px',
+            fontFamily: FONT, color: '#44ddaa', fontSize: 11,
+            letterSpacing: 2, textAlign: 'center', borderRadius: 2,
+          }}>
+            {activeTab === 'spaceweather' && 'SPACE WEATHER'}
+            {activeTab === 'substorm'    && 'SUBSTORM TIMING'}
+            {activeTab === 'cme'         && 'CME DASHBOARD'}
+            <br/><br/>
+            THIS FEATURE IS COMING SOON
+          </div>
+        </div>
+      )}
+
       {/* Map */}
-      <div id="map-wrapper" style={{ flex: 1, position: 'relative' }}>
+      <div id="map-wrapper" style={{ flex: 1, position: 'relative', display: activeTab === 'map' ? 'block' : 'none' }}>
         <MapContainer
           center={[MAP_BOUNDS.center[0], MAP_BOUNDS.center[1]]}
           zoom={MAP_BOUNDS.zoom}
@@ -918,91 +939,139 @@ function App() {
         <div style={{
           position: 'absolute', bottom: 0, left: 0, right: 0,
           background: '#06080f', borderTop: '1px solid #1a2035',
-          display: 'flex', alignItems: 'center',
-          padding: '0 0', height: 52, zIndex: 2000, overflow: 'visible',
+          display: 'flex', alignItems: 'stretch',
+          padding: '4px 4px', height: 52, zIndex: 2000, overflow: 'visible',
+          gap: 3,
         }}>
-          {/* Action buttons — span same width as layer controls (110px total) */}
-          <div style={{ display: 'flex', gap: 4, alignItems: 'stretch',
-            paddingLeft: 10, height: '100%', paddingTop: 4, paddingBottom: 4 }}>
-            {/* Report Aurora */}
-            <button
-              onClick={() => helpMode ? showHelp('report_aurora') : (() => { setSightingPinMode(false); setSightingPendingCoords(null); setModal('reportAurora') })()}
-              style={{
-                width: 53, flexShrink: 0, padding: 0,
-                background: sightingPinMode ? '#1a0a00' : '#1a0505',
-                border: `1px solid ${sightingPinMode ? '#ff8800' : '#cc2222'}`,
-                color: sightingPinMode ? '#ff8800' : '#ff4444',
-                fontSize: 8, fontFamily: FONT, letterSpacing: 1,
-                cursor: 'pointer', borderRadius: 2, lineHeight: 1.4,
-                display: 'flex', flexDirection: 'column',
-                alignItems: 'center', justifyContent: 'center', gap: 1,
-              }}
-            >
-              <span style={{ fontSize: 13 }}>🚨</span>
-              <span>{sightingPinMode ? <>CLICK<br/>MAP</> : <>REPORT<br/>AURORA</>}</span>
-            </button>
 
-            {/* Place pin */}
-            <button
-              onClick={() => helpMode ? showHelp('place_pin') : (() => { setPinMode(m => !m); setPendingPin(null) })()}
-              style={{
-                width: 53, flexShrink: 0, padding: 0,
-                background: pinMode ? '#0d2a1a' : '#071a2a',
-                border: `1px solid ${pinMode ? '#44ffcc' : '#00aacc'}`,
-                color: pinMode ? '#44ffcc' : '#00ccee',
-                fontSize: 8, fontFamily: FONT, letterSpacing: 1,
-                cursor: 'pointer', borderRadius: 2, lineHeight: 1.4,
-                display: 'flex', flexDirection: 'column',
-                alignItems: 'center', justifyContent: 'center', gap: 1,
-              }}
-            >
-              <span style={{ fontSize: 13 }}>📍</span>
-              <span>{pinMode ? <>CLICK<br/>MAP</> : <>PLACE<br/>PIN</>}</span>
-            </button>
+          {/* Slot 1 — fixed 114px: Report+Pin on map, MAP button on other tabs */}
+          <div style={{ width: 114, flexShrink: 0, display: 'flex', gap: 3 }}>
+            {activeTab === 'map' ? (<>
+              {/* Report Aurora */}
+              <button
+                onClick={() => helpMode ? showHelp('report_aurora') : (() => { setSightingPinMode(false); setSightingPendingCoords(null); setModal('reportAurora') })()}
+                style={{
+                  flex: 1, padding: 0,
+                  background: sightingPinMode ? '#1a0a00' : '#1a0505',
+                  border: `1px solid ${sightingPinMode ? '#ff8800' : '#cc2222'}`,
+                  color: sightingPinMode ? '#ff8800' : '#ff4444',
+                  fontSize: 9, fontFamily: FONT, letterSpacing: 0.5,
+                  cursor: 'pointer', borderRadius: 2, lineHeight: 1.4,
+                  display: 'flex', flexDirection: 'column',
+                  alignItems: 'center', justifyContent: 'center',
+                }}
+              >
+                <span>🚨</span>
+                <span>{sightingPinMode ? <>CLICK<br/>MAP</> : <>REPORT<br/>AURORA</>}</span>
+              </button>
+
+              {/* Place Pin */}
+              <button
+                onClick={() => helpMode ? showHelp('place_pin') : (() => { setPinMode(m => !m); setPendingPin(null) })()}
+                style={{
+                  flex: 1, padding: 0,
+                  background: pinMode ? '#0d2a1a' : '#071a2a',
+                  border: `1px solid ${pinMode ? '#44ffcc' : '#00aacc'}`,
+                  color: pinMode ? '#44ffcc' : '#00ccee',
+                  fontSize: 9, fontFamily: FONT, letterSpacing: 0.5,
+                  cursor: 'pointer', borderRadius: 2, lineHeight: 1.4,
+                  display: 'flex', flexDirection: 'column',
+                  alignItems: 'center', justifyContent: 'center',
+                }}
+              >
+                <span>📍</span>
+                <span>{pinMode ? <>CLICK<br/>MAP</> : <>PLACE<br/>PIN</>}</span>
+              </button>
+            </>) : (
+              /* MAP button — fills entire slot 1 */
+              <button
+                onClick={() => setActiveTab('map')}
+                style={{
+                  flex: 1, padding: 0,
+                  background: '#071a2a',
+                  border: '1px solid #2a4a6a',
+                  color: '#4a8aaa',
+                  fontSize: 9, fontFamily: FONT, letterSpacing: 0.5,
+                  cursor: 'pointer', borderRadius: 2, lineHeight: 1.4,
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                }}
+              >
+                ← MAP
+              </button>
+            )}
           </div>
 
-          {/* Rest of bar */}
-          <div style={{ display: 'flex', flex: 1, alignItems: 'center',
-            gap: 8, padding: '0 10px', overflow: 'visible' }}>
-            {/* Pending pin coords */}
-            {pendingPin && !pinMode && (
-              <>
-                <span style={{ color: '#44ddaa', fontSize: 9, fontFamily: FONT }}>
-                  {pendingPin.lat.toFixed(4)}, {pendingPin.lon.toFixed(4)}
-                </span>
-                <ActionBtn highlight onClick={() => setModal('submitSpot')}>SUBMIT</ActionBtn>
-                <button onClick={() => setPendingPin(null)} style={{
-                  background: 'none', border: 'none', color: '#445566',
-                  fontSize: 12, cursor: 'pointer', padding: '0 2px',
-                }}>✕</button>
-              </>
-            )}
-
-            {/* Admin QUEUE button — only when admin authed */}
-            {adminAuthed && (
-              <div style={{ position: 'relative', overflow: 'visible' }}>
-                {queueCount > 0 && (
+          {/* Slots 2-4 — tab buttons, equal flex:1 */}
+          {[
+            { key: 'spaceweather', label: <>SPACE<br/>WEATHER</> },
+            { key: 'substorm',     label: <>SUBSTORM<br/>TIMING</> },
+            { key: 'cme',          label: <>CME<br/>DASHBOARD</> },
+          ].map(({ key, label }) => {
+            const isActive = activeTab === key
+            return (
+              <button
+                key={key}
+                onClick={() => setActiveTab(key)}
+                style={{
+                  flex: 1, padding: 0, position: 'relative',
+                  background: isActive ? '#0d1a2a' : '#060810',
+                  border: `1px solid ${isActive ? '#44ddaa' : '#1a2a3a'}`,
+                  color: isActive ? '#44ddaa' : '#2a4a5a',
+                  fontSize: 9, fontFamily: FONT, letterSpacing: 0.5,
+                  cursor: 'pointer', borderRadius: 2, lineHeight: 1.4,
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  transition: 'all 0.15s',
+                }}
+              >
+                {isActive && (
                   <div style={{
-                    position: 'absolute', top: -8, right: -8, zIndex: 9999,
-                    background: '#cc4400', borderRadius: '50%',
-                    width: 16, height: 16, fontSize: 8, fontFamily: FONT,
-                    display: 'flex', alignItems: 'center', justifyContent: 'center',
-                    color: '#fff', fontWeight: 'bold', pointerEvents: 'none',
-                    boxShadow: '0 1px 4px rgba(0,0,0,0.8)',
-                  }}>{queueCount > 9 ? '9+' : queueCount}</div>
+                    position: 'absolute', top: 0, left: 0, right: 0, height: 1,
+                    background: 'rgba(68,221,170,0.5)', borderRadius: '2px 2px 0 0',
+                  }} />
                 )}
-                <button
-                  onClick={() => setModal('admin')}
-                  style={{
-                    background: '#1a0000', border: '1px solid #cc2200',
-                    color: '#ff4422', padding: '3px 10px', fontSize: 9,
-                    fontFamily: FONT, cursor: 'pointer', letterSpacing: 1,
-                    borderRadius: 2,
-                  }}
-                >ADMIN</button>
-              </div>
-            )}
-          </div>
+                <span style={{ textAlign: 'center' }}>{label}</span>
+              </button>
+            )
+          })}
+
+          {/* Admin badge — overlays on top right of bar when authed */}
+          {adminAuthed && (
+            <div style={{ position: 'relative', display: 'flex', alignItems: 'center', paddingRight: 4 }}>
+              {queueCount > 0 && (
+                <div style={{
+                  position: 'absolute', top: -4, right: 0, zIndex: 9999,
+                  background: '#cc4400', borderRadius: '50%',
+                  width: 16, height: 16, fontSize: 8, fontFamily: FONT,
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  color: '#fff', fontWeight: 'bold', pointerEvents: 'none',
+                  boxShadow: '0 1px 4px rgba(0,0,0,0.8)',
+                }}>{queueCount > 9 ? '9+' : queueCount}</div>
+              )}
+              <button
+                onClick={() => setModal('admin')}
+                style={{
+                  background: '#1a0000', border: '1px solid #cc2200',
+                  color: '#ff4422', padding: '3px 8px', fontSize: 9,
+                  fontFamily: FONT, cursor: 'pointer', letterSpacing: 1,
+                  borderRadius: 2, height: 44,
+                }}
+              >ADMIN</button>
+            </div>
+          )}
+
+          {/* Pending pin coords — shown in map tab only */}
+          {activeTab === 'map' && pendingPin && !pinMode && (
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6, paddingRight: 6 }}>
+              <span style={{ color: '#44ddaa', fontSize: 9, fontFamily: FONT }}>
+                {pendingPin.lat.toFixed(4)}, {pendingPin.lon.toFixed(4)}
+              </span>
+              <ActionBtn highlight onClick={() => setModal('submitSpot')}>SUBMIT</ActionBtn>
+              <button onClick={() => setPendingPin(null)} style={{
+                background: 'none', border: 'none', color: '#445566',
+                fontSize: 12, cursor: 'pointer', padding: '0 2px',
+              }}>✕</button>
+            </div>
+          )}
         </div>
       </div>
 
