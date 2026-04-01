@@ -186,10 +186,7 @@ export default function ClearSkyLayer({
     return () => { if (overlayRef.current) { mapInstance.removeLayer(overlayRef.current); overlayRef.current = null } }
   }, [geoImage, mapInstance])
 
-  // ── 3. Mask — SVG in map container, containerPoints, polygon circle ───────
-  // containerPoints are always stable relative to the viewport.
-  // Polygon avoids all SVG arc direction/winding ambiguity.
-  // Update on every map event — lightweight since it's just updating a path string.
+  // ── 3. Mask — SVG in map container, replicates L.circle _project exactly ──
   useEffect(() => {
     if (!anchor) return
 
@@ -209,33 +206,53 @@ export default function ClearSkyLayer({
     function updateMask() {
       const size = mapInstance.getSize()
       const { svg, path } = maskRef.current
-
       svg.setAttribute('width', size.x)
       svg.setAttribute('height', size.y)
       svg.setAttribute('viewBox', `0 0 ${size.x} ${size.y}`)
 
-      const c  = mapInstance.latLngToContainerPoint([anchor.lat, anchor.lng])
-      // Match L.circle radius exactly: project lat+latR, take midpoint, compute pixel delta
-      const latR = (radiusMiles * 1609.34) / 6371008.8 * (180 / Math.PI)
-      const top  = mapInstance.latLngToContainerPoint([anchor.lat + latR, anchor.lng])
-      const bot  = mapInstance.latLngToContainerPoint([anchor.lat - latR, anchor.lng])
-      const cy   = (top.y + bot.y) / 2  // Mercator midpoint
-      const r    = Math.abs(bot.y - cy)
+      // Replicate Leaflet's exact L.circle _project formula (leaflet-src.js line 8417)
+      const EARTH_R = 6371008.8
+      const mRadius = radiusMiles * 1609.34
+      const lat = anchor.lat, lng = anchor.lng
+      const d = Math.PI / 180
+      const latR = (mRadius / EARTH_R) / d
 
-      // Outer rect
+      const top    = mapInstance.project([lat + latR, lng])
+      const bottom = mapInstance.project([lat - latR, lng])
+      const p      = { x: (top.x + bottom.x) / 2, y: (top.y + bottom.y) / 2 }
+      const lat2   = mapInstance.unproject(p).lat
+
+      let lngR = Math.acos(
+        (Math.cos(latR * d) - Math.sin(lat * d) * Math.sin(lat2 * d)) /
+        (Math.cos(lat * d) * Math.cos(lat2 * d))
+      ) / d
+      if (isNaN(lngR) || lngR === 0) lngR = latR / Math.cos(d * lat)
+
+      // r = same formula Leaflet uses for this._radius
+      const rProj = p.x - mapInstance.project([lat2, lng - lngR]).x
+      const rY    = p.y - top.y
+
+      // Convert projected midpoint p to container coords
+      const origin  = mapInstance.getPixelOrigin()
+      const pane    = mapInstance.getPanes().mapPane
+      const panePos = L.DomUtil.getPosition(pane) || { x: 0, y: 0 }
+      const cx = p.x - origin.x + panePos.x
+      const cy = p.y - origin.y + panePos.y
+      // Use average of x/y radius for a good visual match
+      const r = (rProj + rY) / 2
+
+      // Outer rect + 64-point polygon hole
       const rect = `M 0 0 h ${size.x} v ${size.y} h ${-size.x} Z`
-
-      // Circle as 64-point polygon — no arc direction issues
       const N = 64
       const pts = []
       for (let i = 0; i < N; i++) {
         const a = (2 * Math.PI * i) / N
-        pts.push(`${c.x + r * Math.cos(a)},${cy + r * Math.sin(a)}`)
+        pts.push(`${cx + rProj * Math.cos(a)},${cy + rY * Math.sin(a)}`)
       }
       const circle = `M ${pts.join(' L ')} Z`
-
       path.setAttribute('d', `${rect} ${circle}`)
-      onCircleBottom?.({ x: c.x, y: cy + r + 10 })
+
+      onCircleBottom?.({ x: cx, y: cy + rY + 10 })
     }
 
     updateMask()
@@ -261,6 +278,9 @@ export default function ClearSkyLayer({
       opacity: 0.9,
       interactive: false,
     }).addTo(mapInstance)
+    // Ensure circle renders above the mask
+    const el = circleRef.current.getElement?.()
+    if (el) el.style.zIndex = 500
     return () => { if (circleRef.current) { mapInstance.removeLayer(circleRef.current); circleRef.current = null } }
   }, [anchor, radiusMiles, geoImage?.longShot, mapInstance])
 
