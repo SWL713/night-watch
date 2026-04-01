@@ -95,7 +95,8 @@ function App() {
   const [clearSkyAnchor, setClearSkyAnchor] = useState(null)   // { lat, lng } — GPS or manual
   const [manualAnchor, setManualAnchor]     = useState(null)   // { lat, lng } — only when manually placed
   const [clearSkyRadius, setClearSkyRadius] = useState(40)     // miles, resets each session
-  const [bestInCircle, setBestInCircle]     = useState(null)   // % clear of best spot in radius
+  const [bestInCircle, setBestInCircle]     = useState(null)
+  const [circleBottomPos, setCircleBottomPos] = useState(null) // {x,y} screen px
   const radiusDebounceRef = useRef(null)
   const [renderedRadius, setRenderedRadius] = useState(40)     // debounced value fed to ClearSkyLayer
   const [userLocation, setUserLocation] = useState(null)
@@ -303,14 +304,11 @@ function App() {
                     if (userLocation) {
                       setClearSkyAnchor({ lat: userLocation.lat, lng: userLocation.lng })
                     }
-                    // Reset radius each session
-                    setClearSkyRadius(40)
-                    setRenderedRadius(40)
                     setBestInCircle(null)
                   } else {
-                    // Deactivating — clear manual anchor
                     setManualAnchor(null)
                     setBestInCircle(null)
+                    setCircleBottomPos(null)
                   }
                   return !m
                 })
@@ -394,9 +392,11 @@ function App() {
               getAvgCloudAt={getAvgCloudAt}
               windowHours={clearSkyWindow}
               anchor={clearSkyAnchor}
-              radiusMiles={renderedRadius}
+              radiusMiles={clearSkyRadius}
+              renderedRadius={renderedRadius}
               onLongShot={setLongShot}
               onBestInCircle={setBestInCircle}
+              onCircleBottom={setCircleBottomPos}
             />
           )}
 
@@ -460,106 +460,135 @@ function App() {
 
         {clearSkyMode && (
           <div style={{
-            position: 'absolute', top: 28, left: '50%', transform: 'translateX(-50%)',
+            position: 'absolute', top: 4, left: '50%', transform: 'translateX(-50%)',
             zIndex: 2000, textAlign: 'center',
             fontFamily: FONT,
           }}>
+            {/* Banner */}
             <div style={{
               background: 'rgba(7,11,22,0.92)', border: '1px solid #44ddaa',
-              borderRadius: 3, padding: '4px 14px',
+              borderRadius: 3, padding: '3px 12px',
               color: '#44ddaa', fontSize: 10, letterSpacing: 1.5,
               boxShadow: '0 2px 12px rgba(0,0,0,0.7)',
-              pointerEvents: 'none',
+              pointerEvents: 'none', whiteSpace: 'nowrap',
             }}>
               CLEAR SKY FINDER MODE
             </div>
 
-            {/* 4H / 8H window toggle */}
+            {/* 4H/8H + slider on same row */}
             <div style={{
               display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
-              marginTop: 3,
+              marginTop: 3, position: 'relative', zIndex: 2000, pointerEvents: 'auto',
             }}>
-              <span style={{ color: '#2a6655', fontSize: 9, fontFamily: FONT, letterSpacing: 0.5 }}>NEXT:</span>
               {[4, 8].map(h => (
-                <button
-                  key={h}
+                <button key={h}
                   onClick={() => helpMode ? showHelp('clear_sky_finder') : setClearSkyWindow(h)}
                   style={{
-                    padding: '3px 12px',
+                    padding: '2px 10px',
                     background: clearSkyWindow === h ? 'rgba(68,221,170,0.2)' : 'transparent',
                     border: `1px solid ${clearSkyWindow === h ? '#44ddaa' : 'rgba(68,221,170,0.3)'}`,
                     borderRadius: 3,
                     color: clearSkyWindow === h ? '#44ddaa' : 'rgba(68,221,170,0.4)',
-                    fontSize: 12, fontFamily: FONT, letterSpacing: 1,
-                    cursor: 'pointer',
+                    fontSize: 11, fontFamily: FONT, letterSpacing: 1, cursor: 'pointer',
                   }}
                 >{h}H</button>
               ))}
-            </div>
-
-            {/* Radius slider */}
-            <div
-              style={{
-                display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, marginTop: 4,
-                position: 'relative', zIndex: 2000, pointerEvents: 'auto',
-              }}
-              onClick={() => helpMode && showHelp('radius_slider')}
-            >
-              <span style={{ color: '#2a6655', fontSize: 9, fontFamily: FONT, letterSpacing: 0.5 }}>TRAVEL RADIUS:</span>
-              <input
-                type="range"
-                min={0} max={100}
-                value={Math.round(Math.sqrt((clearSkyRadius - 10) / (400 - 10)) * 100)}
-                onChange={e => {
-                  if (helpMode) return
-                  const pct = parseFloat(e.target.value) / 100
-                  const miles = Math.round(10 + pct * pct * (400 - 10))
-                  setClearSkyRadius(miles)
-                  clearTimeout(radiusDebounceRef.current)
-                  radiusDebounceRef.current = setTimeout(() => {
-                    setRenderedRadius(miles)
-                    // Auto-zoom to fit circle when slider settles
-                    if (clearSkyAnchor && mapRef.current) {
-                      const R = miles / 69
-                      mapRef.current.fitBounds([
-                        [clearSkyAnchor.lat - R, clearSkyAnchor.lng - R * 1.4],
-                        [clearSkyAnchor.lat + R, clearSkyAnchor.lng + R * 1.4],
-                      ], { padding: [40, 40], animate: true, duration: 0.5 })
-                    }
-                  }, 200)
-                }}
-                style={{ width: 110, cursor: 'pointer', accentColor: '#44ddaa', zIndex: 2000 }}
-              />
-              <span style={{ color: '#2a6655', fontSize: 9, fontFamily: FONT }}>{Math.round(clearSkyRadius)}mi</span>
-            </div>
-
-            {/* No-anchor label */}
-            {!clearSkyAnchor && (
-              <div style={{ color: '#ff8c00', fontSize: 9, fontFamily: FONT, letterSpacing: 1, marginTop: 3 }}>
-                LONG PRESS MAP TO SET ANCHOR
+              <div
+                style={{ display: 'flex', alignItems: 'center', gap: 4 }}
+                onClick={() => helpMode && showHelp('radius_slider')}
+              >
+                <input
+                  type="range" min={0} max={100}
+                  value={Math.round(Math.sqrt((clearSkyRadius - 10) / (400 - 10)) * 100)}
+                  onChange={e => {
+                    if (helpMode) return
+                    const pct = parseFloat(e.target.value) / 100
+                    const miles = Math.round(10 + pct * pct * (400 - 10))
+                    setClearSkyRadius(miles)
+                    clearTimeout(radiusDebounceRef.current)
+                    radiusDebounceRef.current = setTimeout(() => {
+                      setRenderedRadius(miles)
+                      if (clearSkyAnchor && mapRef.current) {
+                        const R = miles / 69
+                        mapRef.current.fitBounds([
+                          [clearSkyAnchor.lat - R, clearSkyAnchor.lng - R * 1.5],
+                          [clearSkyAnchor.lat + R, clearSkyAnchor.lng + R * 1.5],
+                        ], { padding: [80, 80], animate: true, duration: 0.5 })
+                      }
+                    }, 200)
+                  }}
+                  style={{ width: 90, cursor: 'pointer', accentColor: '#44ddaa' }}
+                />
+                <span style={{ color: '#2a6655', fontSize: 9, fontFamily: FONT, whiteSpace: 'nowrap' }}>
+                  {Math.round(clearSkyRadius)}mi
+                </span>
               </div>
-            )}
-
-            {/* Manual anchor active — show X to clear */}
-            {manualAnchor && (
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, marginTop: 3 }}>
-                <span style={{ color: '#44ddaa', fontSize: 9, fontFamily: FONT }}>⚓ MANUAL ANCHOR</span>
+              {/* X to clear any anchor */}
+              {clearSkyAnchor && (
                 <button
-                  onClick={() => { setManualAnchor(null); setBestInCircle(null) }}
+                  onClick={() => { setManualAnchor(null); setClearSkyAnchor(null); setBestInCircle(null); setCircleBottomPos(null) }}
+                  title="Clear anchor"
                   style={{
-                    background: 'none', border: '1px solid #445566',
+                    background: 'none', border: '1px solid #334455',
                     color: '#445566', fontSize: 9, fontFamily: FONT,
-                    cursor: 'pointer', borderRadius: 2, padding: '1px 6px',
+                    cursor: 'pointer', borderRadius: 2, padding: '1px 5px',
                   }}
                 >✕</button>
-              </div>
-            )}
+              )}
+            </div>
 
+            {/* Long Shot warning — below buttons */}
             {longShot && (
-              <div style={{ color: '#ff8c00', fontSize: 8, fontFamily: FONT, letterSpacing: 1, marginTop: 2 }}>
+              <div style={{ color: '#ff8c00', fontSize: 8, fontFamily: FONT, letterSpacing: 1, marginTop: 2, whiteSpace: 'nowrap' }}>
                 ⚠️ LONG SHOT · HEAVILY CLOUDED REGION
               </div>
             )}
+          </div>
+        )}
+
+        {/* No-anchor prompt — centered on map */}
+        {clearSkyMode && !clearSkyAnchor && (
+          <div style={{
+            position: 'absolute', top: '40%', left: '50%', transform: 'translate(-50%, -50%)',
+            zIndex: 2000, textAlign: 'center', fontFamily: FONT,
+          }}>
+            <div style={{ color: '#ff8c00', fontSize: 10, letterSpacing: 1, marginBottom: 8, whiteSpace: 'nowrap' }}>
+              LONG PRESS MAP TO SET ANCHOR
+            </div>
+            {userLocation && (
+              <button
+                onClick={() => {
+                  const loc = { lat: userLocation.lat, lng: userLocation.lng }
+                  setManualAnchor(null)
+                  setClearSkyAnchor(loc)
+                }}
+                style={{
+                  background: 'rgba(68,221,170,0.15)', border: '1px solid #44ddaa',
+                  color: '#44ddaa', fontSize: 9, fontFamily: FONT, letterSpacing: 1,
+                  cursor: 'pointer', borderRadius: 3, padding: '5px 14px',
+                }}
+              >⊕ USE MY GPS LOCATION</button>
+            )}
+          </div>
+        )}
+
+        {/* Best in selection — hugs bottom of circle, centered on anchor */}
+        {clearSkyMode && bestInCircle !== null && circleBottomPos && (
+          <div
+            onClick={() => helpMode && showHelp('best_in_selection')}
+            style={{
+              position: 'absolute',
+              top: circleBottomPos.y,
+              left: circleBottomPos.x,
+              transform: 'translateX(-50%)',
+              zIndex: 2000, pointerEvents: helpMode ? 'auto' : 'none',
+              color: '#44ddaa', fontSize: 9, fontFamily: FONT,
+              letterSpacing: 0.5, cursor: helpMode ? 'pointer' : 'default',
+              whiteSpace: 'nowrap',
+              textShadow: '0 1px 4px rgba(6,8,15,0.9)',
+            }}
+          >
+            best in selection: {bestInCircle}% clear
           </div>
         )}
 
@@ -707,14 +736,16 @@ function App() {
           )}
         </Badges>
 
-        {/* Night Watch title — top center overlay */}
-        <div style={{
-          position: 'absolute', top: 10, left: '50%', transform: 'translateX(-50%)',
-          color: 'rgba(100,140,180,0.35)', fontSize: 10, letterSpacing: 3,
-          fontFamily: FONT, zIndex: 900, pointerEvents: 'none', whiteSpace: 'nowrap',
-        }}>
-          NIGHT WATCH · SWL713
-        </div>
+        {/* Night Watch title — hidden in clear sky mode to save space */}
+        {!clearSkyMode && (
+          <div style={{
+            position: 'absolute', top: 10, left: '50%', transform: 'translateX(-50%)',
+            color: 'rgba(100,140,180,0.35)', fontSize: 10, letterSpacing: 3,
+            fontFamily: FONT, zIndex: 900, pointerEvents: 'none', whiteSpace: 'nowrap',
+          }}>
+            NIGHT WATCH · SWL713
+          </div>
+        )}
 
         {/* Camera mode hint */}
         {cameraMode && (
@@ -727,22 +758,6 @@ function App() {
             boxShadow: '0 2px 12px rgba(0,0,0,0.7)',
           }}>
             📷 TAP YOUR SHOOTING LOCATION ON THE MAP
-          </div>
-        )}
-
-        {/* Best in selection readout — plain teal text, bottom right, clear sky mode only */}
-        {clearSkyMode && bestInCircle !== null && (
-          <div
-            onClick={() => helpMode && showHelp('best_in_selection')}
-            style={{
-              position: 'absolute', bottom: 84, right: 80,
-              zIndex: 1000, pointerEvents: helpMode ? 'auto' : 'none',
-              color: '#44ddaa', fontSize: 9, fontFamily: FONT,
-              letterSpacing: 0.5, cursor: helpMode ? 'pointer' : 'default',
-              whiteSpace: 'nowrap',
-            }}
-          >
-            best in selection: {bestInCircle}% clear
           </div>
         )}
 
