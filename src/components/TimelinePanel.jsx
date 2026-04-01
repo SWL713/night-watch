@@ -215,7 +215,7 @@ export default function TimelinePanel({ spaceWeather, selectedHour, onHourSelect
           </div>
 
           <div
-            style={{ position:'absolute', bottom:6, left:8, cursor: helpMode ? 'pointer' : 'default' }}
+            style={{ position:'absolute', top:6, left:8, cursor: helpMode ? 'pointer' : 'default' }}
             onClick={e => { if (helpMode) { e.stopPropagation(); onHelpTap?.('bz_readout') } }}
           >
             <div style={{ color:'#334455', fontSize:7, letterSpacing:1 }}>Bz</div>
