@@ -220,9 +220,9 @@ export default function ClearSkyLayer({
 
     // Dashed orange border for Long Shot
     if (globalLongShot && lsPixels) {
-      ctx.strokeStyle = 'rgba(255,140,0,0.85)'
-      ctx.lineWidth = 1.5
-      ctx.setLineDash([4, 4])
+      ctx.strokeStyle = 'rgba(255,140,0,0.7)'
+      ctx.lineWidth = 0.75
+      ctx.setLineDash([3, 6])
       ctx.beginPath()
       for (let py = 1; py < CANVAS_H - 1; py++) {
         for (let px = 1; px < CANVAS_W - 1; px++) {
