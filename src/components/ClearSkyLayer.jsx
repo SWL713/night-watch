@@ -1,67 +1,76 @@
-// ClearSkyLayer — geographic pre-render of clear sky scoring → Leaflet ImageOverlay
+// ClearSkyLayer — radius-based clear sky scoring centered on an anchor point.
 //
-// ARCHITECTURE: Only imports react, react-leaflet, leaflet — identical to before.
-// No new module boundaries crossed. Module graph is unchanged from original.
+// ARCHITECTURE: Only imports react, react-leaflet, leaflet. No cross-component imports.
+// Module graph unchanged — safe from Rollup circular dep crashes.
 //
 // HOW IT WORKS:
-// useMemo computes a fixed geographic canvas (600×400px covering data bounds)
-// once per cloudData/windowHours change. Leaflet mounts it as an ImageOverlay
-// and handles all pan/zoom repositioning automatically — zero pixel work on moves.
+// 1. useMemo renders the full data-bounds scoring canvas once per cloudData/windowHours
+//    (same as before — fast ImageOverlay, no per-pan pixel work)
+// 2. A second lightweight mask canvas darkens everything outside the radius circle
+// 3. Scoring renormalizes to only points inside the radius (debounced on slider release)
+// 4. A Leaflet Circle draws the solid teal boundary line
 //
-// Previously: per-pixel loop ran on every moveend/zoomend (~3M iterations on
-// a 3× DPR phone). Now: canvas renders once, Leaflet does the rest.
+// Props:
+//   cloudData      — HRRR cloud data object
+//   getAvgCloudAt  — bilinear interpolation fn from useCloudCover
+//   windowHours    — 4 or 8
+//   anchor         — { lat, lng } center of scoring radius (GPS or manual)
+//   radiusMiles    — radius in miles
+//   onLongShot     — callback(bool)
+//   onBestInCircle — callback(pctClear) — best absolute score inside radius
 
-import { useEffect, useRef, useMemo } from 'react'
+import { useEffect, useRef, useMemo, useState } from 'react'
 import { useMap } from 'react-leaflet'
 import L from 'leaflet'
 
 const CANVAS_W = 900
 const CANVAS_H = 600
-
-const ANCHORS = [
-  { lat: 42.9, lon: -78.9 },  // Buffalo
-  { lat: 43.0, lon: -76.1 },  // Syracuse
-  { lat: 43.0, lon: -73.8 },  // Albany
-  { lat: 44.5, lon: -73.2 },  // Burlington
-  { lat: 42.4, lon: -71.1 },  // Boston
-  { lat: 40.7, lon: -74.0 },  // NYC
-  { lat: 39.9, lon: -75.2 },  // Philadelphia
-  { lat: 43.7, lon: -79.4 },  // Toronto
-  { lat: 45.4, lon: -75.7 },  // Ottawa
-  { lat: 45.5, lon: -73.6 },  // Montreal
-]
-const ANCHOR_R = 150 / 69
-const BLEND    = 30  / 69
 const AA       = 0.015
-const FADE     = 0.5
+const FADE     = 0.3
 
 function pyFmt(v) {
   const s = v.toString()
   return s.includes('.') ? s : s + '.0'
 }
 
-export default function ClearSkyLayer({ cloudData, getAvgCloudAt, windowHours = 8, onLongShot }) {
-  const map        = useMap()
-  const overlayRef = useRef(null)
+// Miles to degrees latitude (approximate, good enough for scoring)
+function milesToDeg(miles) { return miles / 69 }
 
-  // ── Geographic pre-render ────────────────────────────────────────────────────
-  // Runs once per cloudData/windowHours change, not on every map move.
-  // Output is a plain { dataUrl, bounds, longShot } object.
+export default function ClearSkyLayer({
+  cloudData, getAvgCloudAt, windowHours = 8,
+  anchor, radiusMiles = 40,
+  onLongShot, onBestInCircle,
+}) {
+  const map         = useRef(null)
+  const mapInstance = useMap()
+  map.current       = mapInstance
+
+  const overlayRef  = useRef(null)
+  const maskRef     = useRef(null)
+  const circleRef   = useRef(null)
+  const debounceRef = useRef(null)
+
+  // Track last rendered radius/anchor for mask redraws
+  const lastRenderRef = useRef({ anchor: null, radiusMiles: null })
+
+  // ── 1. Full-bounds scoring canvas ────────────────────────────────────────────
+  // Renders once per cloudData/windowHours — same fast ImageOverlay as before
+  // Now scores ONLY points inside the radius, percentile-ranked within that set
   const geoImage = useMemo(() => {
-    if (!cloudData?.points) return null
+    if (!cloudData?.points || !anchor) return null
     const keys = Object.keys(cloudData.points)
     if (!keys.length) return null
 
-    const lats   = keys.map(k => parseFloat(k.split(',')[0]))
-    const lons    = keys.map(k => parseFloat(k.split(',')[1]))
-    const minLat  = Math.min(...lats), maxLat = Math.max(...lats)
-    const minLon  = Math.min(...lons), maxLon = Math.max(...lons)
-    const spacing = cloudData.spacing || 0.1
+    const lats    = keys.map(k => parseFloat(k.split(',')[0]))
+    const lons     = keys.map(k => parseFloat(k.split(',')[1]))
+    const minLat   = Math.min(...lats), maxLat = Math.max(...lats)
+    const minLon   = Math.min(...lons), maxLon = Math.max(...lons)
+    const spacing  = cloudData.spacing || 0.1
+    const radiusDeg = milesToDeg(radiusMiles)
 
-    // Windowed stats — same logic as before
+    // Windowed stats for all points
     const now    = Date.now()
     const cutoff = now + windowHours * 3600000
-
     const pointStats = {}
     for (const k of keys) {
       const fc = cloudData.points[k]
@@ -73,14 +82,44 @@ export default function ClearSkyLayer({ cloudData, getAvgCloudAt, windowHours = 
       const use = windowed.length > 0 ? windowed : fc
       const sorted = use.map(p => p.cloudcover ?? 0).sort((a, b) => a - b)
       const mid = Math.floor(sorted.length / 2)
-      const med = sorted.length % 2
-        ? sorted[mid]
-        : (sorted[mid - 1] + sorted[mid]) / 2
+      const med = sorted.length % 2 ? sorted[mid] : (sorted[mid - 1] + sorted[mid]) / 2
       const avg = use.reduce((s, p) => s + (p.cloudcover ?? 0), 0) / use.length
       pointStats[k] = { med, avg }
     }
 
-    // Bilinear interpolation on windowed avg — matches threshold data exactly
+    // Filter to only points inside the radius
+    const insideKeys = keys.filter(k => {
+      const [la, lo] = k.split(',').map(parseFloat)
+      const d = Math.sqrt(
+        (la - anchor.lat) ** 2 +
+        ((lo - anchor.lng) * Math.cos(anchor.lat * Math.PI / 180)) ** 2
+      )
+      return d <= radiusDeg
+    })
+
+    if (!insideKeys.length) return null
+
+    // Percentile thresholds from points INSIDE radius only
+    const meds = insideKeys
+      .map(k => pointStats[k]?.med)
+      .filter(v => v != null)
+      .sort((a, b) => a - b)
+
+    const p20 = meds[Math.floor(meds.length * 0.20)] ?? 100
+    const p40 = meds[Math.floor(meds.length * 0.40)] ?? 100
+    const p60 = Math.min(meds[Math.floor(meds.length * 0.60)] ?? 100, 45)
+    const p05 = meds[Math.floor(meds.length * 0.05)] ?? 100
+
+    const qualCount = meds.filter(m => m <= 45).length
+    const globalLongShot = qualCount / meds.length < 0.05
+
+    // Best absolute score inside radius
+    const bestCloud = meds[0] ?? 100
+    const bestClear = Math.round(Math.max(0, 100 - bestCloud))
+    onBestInCircle?.(bestClear)
+    onLongShot?.(globalLongShot)
+
+    // Bilinear interpolation on windowed avg
     function getWindowedAvg(lat, lon) {
       const lat0 = parseFloat((Math.floor(lat / spacing) * spacing).toFixed(2))
       const lon0 = parseFloat((Math.floor(lon / spacing) * spacing).toFixed(2))
@@ -110,36 +149,7 @@ export default function ClearSkyLayer({ cloudData, getAvgCloudAt, windowHours = 
       return wt > 0 ? sum / wt : null
     }
 
-    // Per-anchor thresholds
-    const anchorThresholds = ANCHORS.map(anchor => {
-      const nearby = keys.filter(k => {
-        const [la, lo] = k.split(',').map(parseFloat)
-        const d = Math.sqrt(
-          (la - anchor.lat) ** 2 +
-          ((lo - anchor.lon) * Math.cos(anchor.lat * Math.PI / 180)) ** 2
-        )
-        return d <= ANCHOR_R
-      })
-      const meds = nearby
-        .map(k => pointStats[k]?.med)
-        .filter(v => v != null)
-        .sort((a, b) => a - b)
-      if (!meds.length) return null
-      const qualCount = meds.filter(m => m <= 45).length
-      return {
-        lat: anchor.lat, lon: anchor.lon,
-        longShot: qualCount / meds.length < 0.05,
-        p20: meds[Math.floor(meds.length * 0.20)],
-        p40: meds[Math.floor(meds.length * 0.40)],
-        p60: Math.min(meds[Math.floor(meds.length * 0.60)], 45),
-        p05: meds[Math.floor(meds.length * 0.05)],
-      }
-    }).filter(Boolean)
-
-    const globalLongShot = anchorThresholds.length > 0 && anchorThresholds.every(a => a.longShot)
-
-    // Geographic canvas — each pixel maps linearly to lat/lon
-    // No Leaflet projection calls needed — Leaflet's ImageOverlay handles Mercator
+    // Render geographic canvas — only color pixels inside radius
     const canvas = document.createElement('canvas')
     canvas.width  = CANVAS_W
     canvas.height = CANVAS_H
@@ -149,41 +159,35 @@ export default function ClearSkyLayer({ cloudData, getAvgCloudAt, windowHours = 
     const imageData = ctx.createImageData(CANVAS_W, CANVAS_H)
     const d = imageData.data
     const lsPixels = globalLongShot ? new Uint8Array(CANVAS_W * CANVAS_H) : null
-
     const latSpan = maxLat - minLat
     const lonSpan = maxLon - minLon
 
     for (let py = 0; py < CANVAS_H; py++) {
       const lat = maxLat - (py / (CANVAS_H - 1)) * latSpan
-
       for (let px = 0; px < CANVAS_W; px++) {
         const lon = minLon + (px / (CANVAS_W - 1)) * lonSpan
+
+        // Only render inside radius
+        const distFromAnchor = Math.sqrt(
+          (lat - anchor.lat) ** 2 +
+          ((lon - anchor.lng) * Math.cos(anchor.lat * Math.PI / 180)) ** 2
+        )
+        if (distFromAnchor > radiusDeg) continue
 
         const cf = getWindowedAvg(lat, lon)
         if (cf === null) continue
 
-        const edgeDist = Math.min(
-          lat - minLat, maxLat - lat,
-          lon - minLon, maxLon - lon
-        )
-        const edgeFade = Math.pow(Math.max(0, Math.min(1, edgeDist / FADE)), 0.4)
+        const edgeFade = Math.pow(Math.max(0, Math.min(1,
+          Math.min(lat - minLat, maxLat - lat, lon - minLon, maxLon - lon) / FADE
+        )), 0.4)
         const idx = (py * CANVAS_W + px) * 4
 
-        // Normal zone — distance-weighted blend across overlapping anchors
-        let totalWeight = 0, weightedAlpha = 0
-        for (const a of anchorThresholds) {
-          const dist = Math.sqrt(
-            (lat - a.lat) ** 2 +
-            ((lon - a.lon) * Math.cos(a.lat * Math.PI / 180)) ** 2
-          )
-          if (dist > ANCHOR_R) continue
-          if (cf > a.p60) continue
-          const weight = dist < ANCHOR_R - BLEND ? 1 : Math.max(0, (ANCHOR_R - dist) / BLEND)
-          if (weight <= 0) continue
+        if (cf <= p60) {
+          // Normal zone — single set of thresholds for the whole radius
           const cfBINS = [
-            { maxCf: a.p20, alpha: 153, nextAlpha: 95 },
-            { maxCf: a.p40, alpha: 95,  nextAlpha: 45 },
-            { maxCf: a.p60, alpha: 45,  nextAlpha: 0  },
+            { maxCf: p20, alpha: 153, nextAlpha: 95 },
+            { maxCf: p40, alpha: 95,  nextAlpha: 45 },
+            { maxCf: p60, alpha: 45,  nextAlpha: 0  },
           ]
           let aAlpha = 0
           for (const bin of cfBINS) {
@@ -191,59 +195,40 @@ export default function ClearSkyLayer({ cloudData, getAvgCloudAt, windowHours = 
             const hi = bin.maxCf + AA * 100
             if (cf > hi) continue
             if (cf <= lo) { aAlpha = bin.alpha; break }
-            // Interpolate between this zone's alpha and the NEXT zone's alpha
-            // (was: interpolate from bin.alpha to 0, causing a dark dip at every boundary)
             const t = (hi - cf) / (2 * AA * 100)
             const s = t * t * (3 - 2 * t)
             aAlpha = Math.round(bin.nextAlpha + (bin.alpha - bin.nextAlpha) * s)
             break
           }
-          weightedAlpha += aAlpha * weight
-          totalWeight   += weight
-        }
-
-        if (totalWeight > 0 && weightedAlpha / totalWeight > 2) {
-          const alpha = Math.round((weightedAlpha / totalWeight) * edgeFade)
-          d[idx]=0; d[idx+1]=210; d[idx+2]=160; d[idx+3]=alpha
-
-        } else {
-          // Long Shot — only for anchors in Long Shot mode
-          let lsThreshold = null
-          for (const a of anchorThresholds) {
-            if (!a.longShot) continue
-            const dist = Math.sqrt(
-              (lat - a.lat) ** 2 +
-              ((lon - a.lon) * Math.cos(a.lat * Math.PI / 180)) ** 2
-            )
-            if (dist <= ANCHOR_R && (lsThreshold === null || a.p05 < lsThreshold))
-              lsThreshold = a.p05
+          if (aAlpha > 2) {
+            d[idx]=0; d[idx+1]=210; d[idx+2]=160; d[idx+3]=Math.round(aAlpha * edgeFade)
           }
-          if (lsThreshold === null || cf > lsThreshold + AA * 100) continue
-          const t = Math.max(0, Math.min(1, (lsThreshold + AA * 100 - cf) / (2 * AA * 100)))
+        } else if (globalLongShot && cf <= p05 + AA * 100) {
+          // Long Shot
+          const t = Math.max(0, Math.min(1, (p05 + AA * 100 - cf) / (2 * AA * 100)))
           const s = t * t * (3 - 2 * t)
           const alpha = Math.round(40 * s * edgeFade)
-          if (alpha === 0) continue
-          d[idx]=150; d[idx+1]=210; d[idx+2]=120; d[idx+3]=alpha
-          if (lsPixels) lsPixels[py * CANVAS_W + px] = 1
+          if (alpha > 0) {
+            d[idx]=150; d[idx+1]=210; d[idx+2]=120; d[idx+3]=alpha
+            if (lsPixels) lsPixels[py * CANVAS_W + px] = 1
+          }
         }
       }
     }
 
     ctx.putImageData(imageData, 0, 0)
 
-    // Dashed orange border baked into the image
+    // Dashed orange border for Long Shot
     if (globalLongShot && lsPixels) {
       ctx.strokeStyle = 'rgba(255,140,0,0.85)'
-      ctx.lineWidth   = 1.5
+      ctx.lineWidth = 1.5
       ctx.setLineDash([4, 4])
       ctx.beginPath()
       for (let py = 1; py < CANVAS_H - 1; py++) {
         for (let px = 1; px < CANVAS_W - 1; px++) {
           if (!lsPixels[py * CANVAS_W + px]) continue
-          if (
-            !lsPixels[(py - 1) * CANVAS_W + px] || !lsPixels[(py + 1) * CANVAS_W + px] ||
-            !lsPixels[py * CANVAS_W + px - 1]   || !lsPixels[py * CANVAS_W + px + 1]
-          ) {
+          if (!lsPixels[(py-1)*CANVAS_W+px] || !lsPixels[(py+1)*CANVAS_W+px] ||
+              !lsPixels[py*CANVAS_W+px-1]   || !lsPixels[py*CANVAS_W+px+1]) {
             ctx.rect(px, py, 1, 1)
           }
         }
@@ -252,21 +237,16 @@ export default function ClearSkyLayer({ cloudData, getAvgCloudAt, windowHours = 
     }
 
     return {
-      dataUrl:  canvas.toDataURL('image/png'),
-      bounds:   { minLat, maxLat, minLon, maxLon },
+      dataUrl: canvas.toDataURL('image/png'),
+      bounds: { minLat, maxLat, minLon, maxLon },
       longShot: globalLongShot,
     }
-  }, [cloudData, windowHours])  // eslint-disable-line react-hooks/exhaustive-deps
+  }, [cloudData, windowHours, anchor, radiusMiles])  // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Notify parent of Long Shot status
-  useEffect(() => {
-    onLongShot?.(geoImage?.longShot ?? false)
-  }, [geoImage?.longShot])  // eslint-disable-line react-hooks/exhaustive-deps
-
-  // Mount / update / unmount the ImageOverlay
+  // ── 2. Mount / update ImageOverlay ────────────────────────────────────────
   useEffect(() => {
     if (overlayRef.current) {
-      map.removeLayer(overlayRef.current)
+      mapInstance.removeLayer(overlayRef.current)
       overlayRef.current = null
     }
     if (!geoImage?.dataUrl) return
@@ -276,15 +256,98 @@ export default function ClearSkyLayer({ cloudData, getAvgCloudAt, windowHours = 
       dataUrl,
       [[minLat, minLon], [maxLat, maxLon]],
       { opacity: 1, zIndex: 201, interactive: false }
-    ).addTo(map)
+    ).addTo(mapInstance)
 
     return () => {
       if (overlayRef.current) {
-        map.removeLayer(overlayRef.current)
+        mapInstance.removeLayer(overlayRef.current)
         overlayRef.current = null
       }
     }
-  }, [geoImage, map])
+  }, [geoImage, mapInstance])
+
+  // ── 3. Dark mask outside radius ───────────────────────────────────────────
+  // Lightweight canvas layer — redraws on moveend/zoomend and when anchor/radius changes
+  useEffect(() => {
+    if (!anchor || !geoImage) return
+
+    function drawMask() {
+      const size = mapInstance.getSize()
+      const dpr  = Math.min(window.devicePixelRatio || 1, 1.5)
+      const W = Math.round(size.x * dpr), H = Math.round(size.y * dpr)
+
+      if (!maskRef.current) {
+        const c = document.createElement('canvas')
+        c.style.cssText = 'position:absolute;pointer-events:none;z-index:202;'
+        mapInstance.getPanes().overlayPane.appendChild(c)
+        maskRef.current = c
+      }
+
+      const canvas = maskRef.current
+      canvas.width  = W; canvas.height = H
+      canvas.style.width  = size.x + 'px'
+      canvas.style.height = size.y + 'px'
+      L.DomUtil.setPosition(canvas, mapInstance.containerPointToLayerPoint([0, 0]))
+
+      const ctx = canvas.getContext('2d')
+      ctx.clearRect(0, 0, W, H)
+
+      // Dark fill everywhere
+      ctx.fillStyle = 'rgba(6,8,15,0.72)'
+      ctx.fillRect(0, 0, W, H)
+
+      // Cut out the circle using destination-out
+      const center = mapInstance.latLngToContainerPoint([anchor.lat, anchor.lng])
+      const edgePoint = mapInstance.latLngToContainerPoint([
+        anchor.lat + milesToDeg(radiusMiles), anchor.lng
+      ])
+      const radiusPx = Math.abs(edgePoint.y - center.y) * dpr
+      const cx = center.x * dpr, cy = center.y * dpr
+
+      ctx.globalCompositeOperation = 'destination-out'
+      ctx.beginPath()
+      ctx.arc(cx, cy, radiusPx, 0, Math.PI * 2)
+      ctx.fillStyle = 'rgba(0,0,0,1)'
+      ctx.fill()
+      ctx.globalCompositeOperation = 'source-over'
+    }
+
+    drawMask()
+    mapInstance.on('moveend zoomend resize move', drawMask)
+
+    return () => {
+      mapInstance.off('moveend zoomend resize move', drawMask)
+      if (maskRef.current) {
+        maskRef.current.remove()
+        maskRef.current = null
+      }
+    }
+  }, [anchor, radiusMiles, geoImage, mapInstance])
+
+  // ── 4. Teal circle boundary line ─────────────────────────────────────────
+  useEffect(() => {
+    if (circleRef.current) {
+      mapInstance.removeLayer(circleRef.current)
+      circleRef.current = null
+    }
+    if (!anchor) return
+
+    circleRef.current = L.circle([anchor.lat, anchor.lng], {
+      radius: radiusMiles * 1609.34, // miles to meters
+      color: '#44ddaa',
+      weight: 2,
+      fill: false,
+      opacity: 0.9,
+      interactive: false,
+    }).addTo(mapInstance)
+
+    return () => {
+      if (circleRef.current) {
+        mapInstance.removeLayer(circleRef.current)
+        circleRef.current = null
+      }
+    }
+  }, [anchor, radiusMiles, mapInstance])
 
   return null
 }
