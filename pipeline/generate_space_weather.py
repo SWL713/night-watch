@@ -462,17 +462,14 @@ def compute_hss_active(v_kms, density_ncc, noaa, prev_json):
     # Core flags
     v_latch_ok  = v >= V_LATCH
     v_auto_ok   = v >= V_AUTO
-    density_low = d  < D_HSS_MAX
+    density_low = d  < D_HSS_MAX   # kept for logging context
 
-    # Compound CME+HSS: if NOAA flagged both AND speed is elevated AND density is high
-    # (CME compressed it), escalate watch flag — density signal alone is ambiguous here
-    if hss_cme_interact and v_auto_ok and not density_low:
-        hss_watch = True
+    # Tier 1: speed alone ≥ 500 km/s — no other gates
+    # Both HSS and CME-driven enhancement are worth flagging at this speed.
+    # Research-based density differentiation is too fragile for compound events.
+    tier1 = v_auto_ok
 
-    # Tier 1: speed + low density (no alert needed — classic HSS body)
-    tier1 = v_auto_ok and density_low
-
-    # Tier 2: alert/watch confirmed + speed (density may be high during CIR precursor)
+    # Tier 2: NOAA alert/watch for CH HSS + speed ≥ 450
     tier2 = (hss_active_alert or hss_watch) and v_latch_ok
 
     # Tier 3: latch — already active, stay on while speed elevated
@@ -485,7 +482,7 @@ def compute_hss_active(v_kms, density_ncc, noaa, prev_json):
         f'alert={hss_active_alert} watch={hss_watch} cme_mix={hss_cme_interact} '
         f'tier1={tier1} tier2={tier2} tier3={tier3} -> active={new_active}'
     )
-    return new_active, hss_watch   # return updated hss_watch so caller can write it
+    return new_active, hss_watch
 
 
 def moon_illumination(dt):
