@@ -240,36 +240,64 @@ def fetch_kp_data():
     kp_now = None
     try:
         data = safe_get(KP_FORECAST_URL)
-        if data and len(data) > 1:
-            # First row is headers: ["time_tag","kp","observed","noaa_scale"]
-            headers = [h.lower() for h in data[0]]
-            ti = headers.index('time_tag') if 'time_tag' in headers else 0
-            ki = next((i for i, h in enumerate(headers) if 'kp' in h), 1)
-            oi = headers.index('observed') if 'observed' in headers else 2
+        if not data:
+            log.warning('Kp forecast: no data returned')
+        else:
+            log.info(f'Kp forecast raw: {len(data)} rows, first row type={type(data[0]).__name__}, first row={str(data[0])[:120]}')
             last_observed_kp = None
-            for row in data[1:]:
-                try:
-                    t_str = row[ti]
-                    dt = datetime.fromisoformat(str(t_str).replace('Z', '+00:00'))
-                    if dt.tzinfo is None: dt = dt.replace(tzinfo=timezone.utc)
-                    kp_f = float(row[ki])
-                    obs_flag = str(row[oi]).lower() if len(row) > oi else ''
-                    is_observed = obs_flag in ('observed', 'estimated')
-                    g = kp_to_g(kp_f)
-                    kp_forecast.append({
-                        'time': dt.isoformat(), 'kp': round(kp_f, 2),
-                        'g': g, 'observed': is_observed,
-                    })
-                    # kp_now = most recent completed 3-hour observed block
-                    if is_observed and dt <= now:
-                        last_observed_kp = kp_f
-                except Exception:
-                    continue
+
+            # Handle list-of-lists (header row first) OR list-of-dicts
+            if isinstance(data[0], list):
+                headers = [str(h).lower().strip() for h in data[0]]
+                log.info(f'Kp forecast headers: {headers}')
+                ti = next((i for i, h in enumerate(headers) if 'time' in h), 0)
+                ki = next((i for i, h in enumerate(headers) if 'kp' in h), 1)
+                oi = next((i for i, h in enumerate(headers) if 'observ' in h), 2)
+                for row in data[1:]:
+                    try:
+                        t_str = str(row[ti]).replace('Z', '+00:00')
+                        dt = datetime.fromisoformat(t_str)
+                        if dt.tzinfo is None: dt = dt.replace(tzinfo=timezone.utc)
+                        kp_f = float(row[ki])
+                        obs_flag = str(row[oi]).lower() if len(row) > oi else ''
+                        is_observed = obs_flag in ('observed', 'estimated')
+                        kp_forecast.append({'time': dt.isoformat(), 'kp': round(kp_f, 2),
+                                            'g': kp_to_g(kp_f), 'observed': is_observed})
+                        if is_observed and dt <= now:
+                            last_observed_kp = kp_f
+                    except Exception as row_err:
+                        log.debug(f'Kp forecast row skip: {row_err} | row={row}')
+            elif isinstance(data[0], dict):
+                log.info(f'Kp forecast dict keys: {list(data[0].keys())}')
+                for rec in data:
+                    try:
+                        t_str = str(rec.get('time_tag') or rec.get('time') or '').replace('Z', '+00:00')
+                        dt = datetime.fromisoformat(t_str)
+                        if dt.tzinfo is None: dt = dt.replace(tzinfo=timezone.utc)
+                        kp_f = float(rec.get('kp') or rec.get('Kp') or rec.get('kp_index') or 0)
+                        obs_flag = str(rec.get('observed') or rec.get('type') or '').lower()
+                        is_observed = obs_flag in ('observed', 'estimated', 'true', '1')
+                        kp_forecast.append({'time': dt.isoformat(), 'kp': round(kp_f, 2),
+                                            'g': kp_to_g(kp_f), 'observed': is_observed})
+                        if is_observed and dt <= now:
+                            last_observed_kp = kp_f
+                    except Exception as row_err:
+                        log.debug(f'Kp forecast dict row skip: {row_err}')
+
             if last_observed_kp is not None:
                 kp_now = round(last_observed_kp, 2)
+
+            # Fallback: use most recent 1-min observed Kp if forecast gave nothing
+            if kp_now is None and kp_observed:
+                recent_kps = [p['kp'] for p in kp_observed[-6:] if p.get('kp') is not None]
+                if recent_kps:
+                    kp_now = round(max(recent_kps), 2)
+                    log.info(f'Kp now fallback from 1m observed: {kp_now}')
+
             log.info(f'Kp forecast: {len(kp_forecast)} blocks, kp_now={kp_now}')
     except Exception as e:
         log.warning(f'Kp forecast fetch failed: {e}')
+        import traceback; log.warning(traceback.format_exc())
 
     g_now = kp_to_g(kp_now) if kp_now is not None else ''
     return {
