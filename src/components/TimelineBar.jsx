@@ -338,15 +338,16 @@ export default function TimelineBar({ spaceWeather, moonData, selectedHour, onHo
       .filter(p => p.speed != null || p.density != null)
       .sort((a, b) => a.time - b.time)
 
-    // V scale — tight range around observed mean, minimum 100 km/s span
-    const obsV   = plasma.map(p => p.speed).filter(v => v != null)
-    const enlilV = enlil.map(p => p.speed).filter(v => v != null)
-    const allV   = [...obsV, ...enlilV]
-    // Fixed scale: 200–1100 km/s always
-    // Quiet wind (~450) sits at 28%, fast stream (~700) at 56%, CME (~900) at 78%
-    var vMin = 200, vMax = 1100
-    const vRange = vMax - vMin
-    function vY(v) { return Math.max(PAD_T, Math.min(PAD_T + pH, PAD_T + pH * (1 - (v - vMin) / vRange))) }
+    // V scale — sqrt transform so quiet wind (~450) hugs bottom, spikes stand out
+    // Floor 250, ceiling 1200. At 450: sqrt((450-250)/950) = 0.145 → 85.5% from top = 14.5% from bottom
+    // At 700 (fast stream): sqrt(450/950) = 0.688 → 31% from bottom. CME 900: sqrt(650/950) = 0.827 → 83%
+    var vMin = 250, vMax = 1200
+    const vSpan = vMax - vMin
+    function vY(v) {
+      if (v == null || isNaN(v)) return PAD_T + pH
+      const frac = Math.sqrt(Math.max(0, Math.min(1, (v - vMin) / vSpan)))
+      return Math.max(PAD_T, Math.min(PAD_T + pH, PAD_T + pH * (1 - frac)))
+    }
 
     // Observed V solid
     const vPoints = plasma.filter(p => p.speed != null)
@@ -384,11 +385,16 @@ export default function TimelineBar({ spaceWeather, moonData, selectedHour, onHo
     const obsD   = plasma.map(p => p.density).filter(d => d != null)
     const enlilD = enlil.map(p => p.density).filter(d => d != null)
     const allD   = [...obsD, ...enlilD]
-    // Fixed scale: 0–50 n/cc always
-    // Quiet density (~5) sits at 10%, elevated (~20) at 40%, CME sheath (~40) at 80%
-    let dMin = 0, dMax = 50
-    const dRange = dMax - dMin
-    function dY(d) { return Math.max(PAD_T, Math.min(PAD_T + pH, PAD_T + pH * (1 - (d - dMin) / dRange))) }
+    // Density scale — sqrt transform so quiet ~5 n/cc hugs bottom
+    // Floor 0, ceiling 80. At 5: sqrt(5/80) = 0.25 → 25% from bottom (but with sqrt it's even lower)
+    // sqrt(5/80)=0.25 → 25% height. At 20: sqrt(20/80)=0.5 → 50%. CME 40: sqrt(40/80)=0.71 → 71%
+    let dMin = 0, dMax = 80
+    const dSpan = dMax - dMin
+    function dY(d) {
+      if (d == null || isNaN(d)) return PAD_T + pH
+      const frac = Math.sqrt(Math.max(0, Math.min(1, (d - dMin) / dSpan)))
+      return Math.max(PAD_T, Math.min(PAD_T + pH, PAD_T + pH * (1 - frac)))
+    }
 
     const dPoints = plasma.filter(p => p.density != null)
     if (dPoints.length >= 2) {
