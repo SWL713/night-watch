@@ -22,7 +22,7 @@ export const SPACE_WEATHER_URL = 'https://raw.githubusercontent.com/SWL713/night
 // -- Map region bounds (Northeast US + SE Canada) ------------
 export const MAP_BOUNDS = {
   center: [43.5, -74.5],
-  zoom: 11,
+  zoom: 9,
   minZoom: 1,
   maxZoom: 22,
 }
