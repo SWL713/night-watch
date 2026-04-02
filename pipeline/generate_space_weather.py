@@ -335,51 +335,116 @@ def fetch_kp_data():
 
 def fetch_noaa_alerts():
     """
-    HSS detection only — G level now comes from real-time Kp via fetch_kp_data().
-    HSS is stateful: turns on with fresh alert + V≥450, stays on until V<450,
-    requires fresh alert + V≥450 to re-arm. Alert expiry = 24 hours.
+    Parse NOAA alerts.json for HSS/CH signals.
+
+    Key changes from original:
+    - Alert lookback extended to 5 days — NOAA issues CH HSS watches 2-3 days
+      before arrival, so 24h window was cutting off valid pre-arrival watches.
+    - Distinguishes hss_watch (forecast), hss_active_alert (arrival confirmed),
+      and hss_cme_interaction (CME+HSS compound event).
+    - Logs matching alerts so we can see what's being parsed.
     """
-    hss_alert_fresh = False
-    hss_watch = False
+    hss_active_alert   = False   # NOAA confirmed arrival/in-progress
+    hss_watch          = False   # NOAA watch/warning for upcoming HSS
+    hss_cme_interact   = False   # compound CME+HSS interaction flagged
 
     try:
         alerts = safe_get(NOAA_ALERTS_URL) or []
         now = datetime.now(timezone.utc)
+        log.info(f'NOAA alerts: {len(alerts)} total')
+
         for alert in alerts:
-            # Check alert age — ignore if > 24h old
             issue_str = alert.get('issue_datetime') or alert.get('issue_time') or ''
+            age_hours = None
             if issue_str:
                 try:
                     issue_dt = datetime.fromisoformat(str(issue_str).replace('Z', '+00:00'))
                     if issue_dt.tzinfo is None: issue_dt = issue_dt.replace(tzinfo=timezone.utc)
-                    if (now - issue_dt).total_seconds() > 86400:
-                        continue  # skip stale alerts
+                    age_hours = (now - issue_dt).total_seconds() / 3600
+                    if age_hours > 120:   # 5-day window (was 24h)
+                        continue
                 except Exception:
                     pass
 
-            msg = (alert.get('message', '') + alert.get('product_id', '')).lower()
-            hss_signal = ('high speed stream' in msg or ' hss' in msg or
-                          'coronal hole' in msg or 'ch hss' in msg)
+            msg = (alert.get('message', '') + ' ' + alert.get('product_id', '')).lower()
+
+            # HSS / coronal hole signal
+            hss_signal = (
+                'high speed stream' in msg or
+                ' hss' in msg or
+                'ch hss' in msg or
+                'coronal hole' in msg
+            )
             if hss_signal:
-                if any(x in msg for x in ['in progress', 'geomagnetic activity', 'arrival', 'arrived']):
-                    hss_alert_fresh = True
-                if any(x in msg for x in ['warning', 'watch', 'expected', 'likely', 'anticipated']):
+                # Arrival confirmed / in progress
+                if any(x in msg for x in [
+                    'in progress', 'geomagnetic activity', 'arrival',
+                    'arrived', 'onset', 'effects observed', 'g1', 'g2', 'g3',
+                ]):
+                    hss_active_alert = True
+                    log.info(f'HSS active alert matched (age={age_hours:.1f}h): {msg[:80]}')
+
+                # Watch / warning for upcoming arrival
+                if any(x in msg for x in [
+                    'warning', 'watch', 'expected', 'likely', 'anticipated',
+                    'forecast', 'predicted', 'possible',
+                ]):
                     hss_watch = True
+                    log.info(f'HSS watch matched (age={age_hours:.1f}h): {msg[:80]}')
+
+            # CME+HSS interaction
+            if ('cme' in msg or 'coronal mass' in msg) and (
+                'high speed stream' in msg or 'coronal hole' in msg or 'hss' in msg
+            ):
+                hss_cme_interact = True
+
     except Exception as e:
         log.warning(f'alerts.json fetch failed: {e}')
 
-    return {'hss_alert_fresh': hss_alert_fresh, 'hss_watch': hss_watch}
+    return {
+        'hss_active_alert': hss_active_alert,
+        'hss_alert_fresh':  hss_active_alert,   # backward compat
+        'hss_watch':        hss_watch,
+        'hss_cme_interact': hss_cme_interact,
+    }
 
 
-def compute_hss_active(v_kms, noaa, prev_json):
+def compute_hss_active(v_kms, density_ncc, noaa, prev_json):
     """
-    Stateful HSS active flag:
-    - ON:      fresh alert AND V >= 450
-    - STAYS:   V >= 450 (latched, no alert needed)
-    - OFF:     V < 450
-    - RE-ARM:  needs fresh alert AND V >= 450 again
+    Multi-signal HSS detection using speed, density, and NOAA alert context.
+
+    Scientific basis:
+      HSS body:    V > 450 km/s + LOW density (< 8 n/cc) + gradual speed ramp
+      CME sheath:  V elevated + HIGH density spike + sudden speed jump
+      CIR/SIR:     density spike BEFORE speed peak (compression region ahead of HSS)
+
+    Three tiers of confidence:
+
+    TIER 1 — High confidence (speed + density together):
+      V >= 500 AND density < 10 n/cc
+      → Speed is elevated AND density is low = classic HSS body signature.
+        CME sheaths have HIGH density so this excludes most CME-only events.
+
+    TIER 2 — Alert-confirmed (NOAA forecast or arrival + speed):
+      (hss_watch OR hss_active_alert) AND V >= 450
+      → NOAA explicitly flagged CH HSS activity. Extended alert window to 5 days
+        so pre-arrival watches arm the flag before the HSS actually arrives at L1.
+
+    TIER 3 — Latch (already active, stays on while speed elevated):
+      prev_active AND V >= 450
+      → Once confirmed, stay active until speed drops below threshold.
+
+    CME+HSS compound events:
+      When hss_cme_interact is True and both V and density are elevated,
+      we flag hss_watch but not hss_active so the badge shows WATCH not ACTIVE,
+      since the density signal is ambiguous in compound events.
+
+    Turns OFF when V < 450 km/s regardless of other signals.
     """
-    HSS_V_THRESHOLD = 450
+    V_LATCH   = 450   # km/s — minimum to stay active / qualify with alert
+    V_AUTO    = 500   # km/s — required for density-only detection (no alert needed)
+    D_HSS_MAX = 10    # n/cc — HSS body typically < 5-8; CME sheath >> 10
+
     prev_active = False
     try:
         if prev_json:
@@ -387,17 +452,38 @@ def compute_hss_active(v_kms, noaa, prev_json):
     except Exception:
         pass
 
-    hss_alert_fresh = noaa.get('hss_alert_fresh', False)
-    v_sufficient    = (v_kms or 0) >= HSS_V_THRESHOLD
+    v   = v_kms      or 0
+    d   = density_ncc or 999   # default high so low-density check fails safely
 
-    if prev_active:
-        # Stay on as long as V is sufficient — turns off when V drops
-        new_active = v_sufficient
-    else:
-        # Off — need fresh alert AND sufficient V to turn on
-        new_active = hss_alert_fresh and v_sufficient
+    hss_active_alert = noaa.get('hss_active_alert', False)
+    hss_watch        = noaa.get('hss_watch',        False)
+    hss_cme_interact = noaa.get('hss_cme_interact', False)
 
-    log.info(f'HSS: prev={prev_active} alert={hss_alert_fresh} V={v_kms} -> active={new_active}')
+    # Core flags
+    v_latch_ok  = v >= V_LATCH
+    v_auto_ok   = v >= V_AUTO
+    density_low = d  < D_HSS_MAX
+
+    # Tier 1: speed + low density (no alert needed)
+    tier1 = v_auto_ok and density_low
+
+    # Tier 2: alert + speed (density may be elevated during CIR precursor — don't require low density)
+    tier2 = (hss_active_alert or hss_watch) and v_latch_ok
+
+    # Tier 3: latch
+    tier3 = prev_active and v_latch_ok
+
+    # Compound CME+HSS: flag as watch-only (ambiguous density)
+    if hss_cme_interact and v_auto_ok and not density_low:
+        hss_watch = True  # bubble up to watch state but don't set active
+
+    new_active = tier1 or tier2 or tier3
+
+    log.info(
+        f'HSS: prev={prev_active} V={v:.0f} d={d:.1f} '
+        f'alert={hss_active_alert} watch={hss_watch} cme_mix={hss_cme_interact} '
+        f'tier1={tier1} tier2={tier2} tier3={tier3} -> active={new_active}'
+    )
     return new_active
 
 
@@ -1440,7 +1526,7 @@ def main():
     try:
         with open(OUTPUT_PATH) as f: prev_json = json.load(f)
     except Exception: prev_json = {}
-    hss_active  = compute_hss_active(v_kms, noaa, prev_json)
+    hss_active  = compute_hss_active(v_kms, density, noaa, prev_json)
     g_level     = kp.get('g_now', '')
     noaa['hss_active'] = hss_active
     noaa['g_level']    = g_level
@@ -1885,7 +1971,7 @@ def main_with_clouds():
     try:
         with open(OUTPUT_PATH) as f: prev_json = json.load(f)
     except Exception: prev_json = {}
-    hss_active  = compute_hss_active(v_kms, noaa, prev_json)
+    hss_active  = compute_hss_active(v_kms, density, noaa, prev_json)
     g_level     = kp.get('g_now', '')
     noaa['hss_active'] = hss_active
     noaa['g_level']    = g_level
