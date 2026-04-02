@@ -464,18 +464,19 @@ def compute_hss_active(v_kms, density_ncc, noaa, prev_json):
     v_auto_ok   = v >= V_AUTO
     density_low = d  < D_HSS_MAX
 
-    # Tier 1: speed + low density (no alert needed)
+    # Compound CME+HSS: if NOAA flagged both AND speed is elevated AND density is high
+    # (CME compressed it), escalate watch flag — density signal alone is ambiguous here
+    if hss_cme_interact and v_auto_ok and not density_low:
+        hss_watch = True
+
+    # Tier 1: speed + low density (no alert needed — classic HSS body)
     tier1 = v_auto_ok and density_low
 
-    # Tier 2: alert + speed (density may be elevated during CIR precursor — don't require low density)
+    # Tier 2: alert/watch confirmed + speed (density may be high during CIR precursor)
     tier2 = (hss_active_alert or hss_watch) and v_latch_ok
 
-    # Tier 3: latch
+    # Tier 3: latch — already active, stay on while speed elevated
     tier3 = prev_active and v_latch_ok
-
-    # Compound CME+HSS: flag as watch-only (ambiguous density)
-    if hss_cme_interact and v_auto_ok and not density_low:
-        hss_watch = True  # bubble up to watch state but don't set active
 
     new_active = tier1 or tier2 or tier3
 
@@ -484,7 +485,7 @@ def compute_hss_active(v_kms, density_ncc, noaa, prev_json):
         f'alert={hss_active_alert} watch={hss_watch} cme_mix={hss_cme_interact} '
         f'tier1={tier1} tier2={tier2} tier3={tier3} -> active={new_active}'
     )
-    return new_active
+    return new_active, hss_watch   # return updated hss_watch so caller can write it
 
 
 def moon_illumination(dt):
@@ -1526,9 +1527,10 @@ def main():
     try:
         with open(OUTPUT_PATH) as f: prev_json = json.load(f)
     except Exception: prev_json = {}
-    hss_active  = compute_hss_active(v_kms, density, noaa, prev_json)
+    hss_active, hss_watch_updated = compute_hss_active(v_kms, density, noaa, prev_json)
     g_level     = kp.get('g_now', '')
     noaa['hss_active'] = hss_active
+    noaa['hss_watch']  = hss_watch_updated   # write back updated watch flag
     noaa['g_level']    = g_level
 
     # State
@@ -1971,9 +1973,10 @@ def main_with_clouds():
     try:
         with open(OUTPUT_PATH) as f: prev_json = json.load(f)
     except Exception: prev_json = {}
-    hss_active  = compute_hss_active(v_kms, density, noaa, prev_json)
+    hss_active, hss_watch_updated = compute_hss_active(v_kms, density, noaa, prev_json)
     g_level     = kp.get('g_now', '')
     noaa['hss_active'] = hss_active
+    noaa['hss_watch']  = hss_watch_updated   # write back updated watch flag
     noaa['g_level']    = g_level
     state = determine_state(bz_now, v_kms, noaa)
 
