@@ -337,16 +337,15 @@ def fetch_noaa_alerts():
     """
     Parse NOAA alerts.json for HSS/CH signals.
 
-    Key changes from original:
-    - Alert lookback extended to 5 days — NOAA issues CH HSS watches 2-3 days
-      before arrival, so 24h window was cutting off valid pre-arrival watches.
-    - Distinguishes hss_watch (forecast), hss_active_alert (arrival confirmed),
-      and hss_cme_interaction (CME+HSS compound event).
-    - Logs matching alerts so we can see what's being parsed.
+    Alert lookback: 5 days (NOAA issues CH HSS watches 2-3 days before arrival).
+
+    Key rule: if a G-scale watch/warning explicitly mentions coronal hole /
+    high speed stream / CH HSS in its text, that IS an HSS event by NOAA's
+    own classification — immediately set hss_watch.
     """
-    hss_active_alert   = False   # NOAA confirmed arrival/in-progress
-    hss_watch          = False   # NOAA watch/warning for upcoming HSS
-    hss_cme_interact   = False   # compound CME+HSS interaction flagged
+    hss_active_alert   = False
+    hss_watch          = False
+    hss_cme_interact   = False
 
     try:
         alerts = safe_get(NOAA_ALERTS_URL) or []
@@ -355,47 +354,57 @@ def fetch_noaa_alerts():
 
         for alert in alerts:
             issue_str = alert.get('issue_datetime') or alert.get('issue_time') or ''
-            age_hours = None
+            age_hours = 0
             if issue_str:
                 try:
                     issue_dt = datetime.fromisoformat(str(issue_str).replace('Z', '+00:00'))
                     if issue_dt.tzinfo is None: issue_dt = issue_dt.replace(tzinfo=timezone.utc)
                     age_hours = (now - issue_dt).total_seconds() / 3600
-                    if age_hours > 120:   # 5-day window (was 24h)
+                    if age_hours > 120:   # 5-day window
                         continue
                 except Exception:
                     pass
 
             msg = (alert.get('message', '') + ' ' + alert.get('product_id', '')).lower()
 
-            # HSS / coronal hole signal
-            hss_signal = (
+            # HSS keywords — NOAA uses these in CH HSS alerts
+            hss_keywords = (
                 'high speed stream' in msg or
                 ' hss' in msg or
                 'ch hss' in msg or
                 'coronal hole' in msg
             )
-            if hss_signal:
+
+            # G-scale watch/warning keywords
+            g_watch = any(x in msg for x in ['wata', 'watg', 'g1', 'g2', 'g3', 'g4',
+                                               'geomagnetic storm', 'geomagnetic watch',
+                                               'geomagnetic warning'])
+
+            if hss_keywords:
                 # Arrival confirmed / in progress
                 if any(x in msg for x in [
-                    'in progress', 'geomagnetic activity', 'arrival',
-                    'arrived', 'onset', 'effects observed', 'g1', 'g2', 'g3',
+                    'in progress', 'geomagnetic activity', 'arrival', 'arrived',
+                    'onset', 'effects observed',
                 ]):
                     hss_active_alert = True
-                    log.info(f'HSS active alert matched (age={age_hours:.1f}h): {msg[:80]}')
+                    log.info(f'HSS active alert (age={age_hours:.1f}h): {msg[:100]}')
 
-                # Watch / warning for upcoming arrival
+                # Watch / warning / forecast for upcoming HSS
                 if any(x in msg for x in [
                     'warning', 'watch', 'expected', 'likely', 'anticipated',
                     'forecast', 'predicted', 'possible',
                 ]):
                     hss_watch = True
-                    log.info(f'HSS watch matched (age={age_hours:.1f}h): {msg[:80]}')
+                    log.info(f'HSS watch (age={age_hours:.1f}h): {msg[:100]}')
+
+            # KEY RULE: G watch/warning that mentions HSS/coronal hole = HSS confirmed
+            # e.g. "G2 Watch issued in anticipation of CH HSS arrival"
+            if g_watch and hss_keywords:
+                hss_watch = True
+                log.info(f'G-watch+HSS combo -> hss_watch=True (age={age_hours:.1f}h): {msg[:100]}')
 
             # CME+HSS interaction
-            if ('cme' in msg or 'coronal mass' in msg) and (
-                'high speed stream' in msg or 'coronal hole' in msg or 'hss' in msg
-            ):
+            if ('cme' in msg or 'coronal mass' in msg) and hss_keywords:
                 hss_cme_interact = True
 
     except Exception as e:
@@ -403,7 +412,7 @@ def fetch_noaa_alerts():
 
     return {
         'hss_active_alert': hss_active_alert,
-        'hss_alert_fresh':  hss_active_alert,   # backward compat
+        'hss_alert_fresh':  hss_active_alert,
         'hss_watch':        hss_watch,
         'hss_cme_interact': hss_cme_interact,
     }
