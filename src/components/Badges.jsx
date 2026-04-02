@@ -36,14 +36,17 @@ export default function Badges({ spaceWeather, selectedHour, helpMode, onHelpTap
   const gHeader = gNum > 0 ? 'NOAA scale' : 'NOAA'
   const gFooter = gNum > 0 ? (selectedHour === 0 ? 'active' : `+${selectedHour}h fcst`) : 'quiet'
 
-  // HSS is time-aware: when scrubbing forward, if hss_watch is set and the
-  // forecast shows G-level activity at that hour, keep badge lit as WATCH.
-  // hss_active = right now. hss_watch = expected within the forecast window.
+  // HSS time-aware logic:
+  // hr=0: show ACTIVE if hss_active, WATCH if hss_watch only
+  // hr>0: if hss_active now, show WATCH (HSS persists for days — it's still relevant)
+  //        if hss_watch only, show WATCH when G forecast is also active at that hour
   const hr = selectedHour ?? 0
-  const hssActiveNow  = hss_active
-  const hssWatchFuture = hss_watch && hr > 0 && gNum > 0   // watch + G forecast at this hour
-  const hssShowActive = hssActiveNow && hr === 0
-  const hssShowWatch  = (!hssShowActive) && (hss_watch || hssWatchFuture)
+  const hssShowActive = hss_active && hr === 0
+  const hssShowWatch  = !hssShowActive && (
+    (hss_active) ||                          // active now → still relevant when scrubbing
+    (hss_watch) ||                           // explicit watch flag
+    (hss_watch && hr > 0 && gNum > 0)        // watch + G forecast confirms it
+  )
 
   const hssColor = hssShowActive ? '#ffaa33' : hssShowWatch ? '#cc8822' : '#2a2a3a'
   const hssSub   = hssShowActive ? 'ACTIVE'  : hssShowWatch ? 'WATCH'  : 'inactive'
