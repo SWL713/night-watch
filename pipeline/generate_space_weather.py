@@ -59,6 +59,7 @@ GOES_MAG_SECONDARY_CANDIDATES = [
 ]
 KP_1M_URL         = 'https://services.swpc.noaa.gov/json/planetary_k_index_1m.json'
 KP_FORECAST_URL   = 'https://services.swpc.noaa.gov/products/noaa-planetary-k-index-forecast.json'
+NOAA_SCALES_URL   = 'https://services.swpc.noaa.gov/products/noaa-scales.json'
 SW_MAG_7DAY_URL   = 'https://services.swpc.noaa.gov/products/solar-wind/mag-7-day.json'
 SW_PLASMA_7DAY_URL= 'https://services.swpc.noaa.gov/products/solar-wind/plasma-7-day.json'
 ACE_EPAM_URL      = 'https://services.swpc.noaa.gov/json/ace/epam/ace_epam_5m.json'
@@ -300,6 +301,30 @@ def fetch_kp_data():
         import traceback; log.warning(traceback.format_exc())
 
     g_now = kp_to_g(kp_now) if kp_now is not None else ''
+
+    # ── Direct G level from noaa-scales.json (most reliable, survives format changes) ──
+    # Format: {"G":{"Scale":"2",...},"S":{"Scale":"0",...},"R":{"Scale":"1",...},...}
+    try:
+        scales = safe_get(NOAA_SCALES_URL)
+        if scales:
+            log.info(f'noaa-scales.json keys: {list(scales.keys()) if isinstance(scales, dict) else type(scales).__name__}')
+            # Handle both dict and list-of-dicts (some versions return list)
+            rec = scales if isinstance(scales, dict) else (scales[0] if isinstance(scales, list) and scales else {})
+            g_scale = rec.get('G', {})
+            if isinstance(g_scale, dict):
+                g_val = str(g_scale.get('Scale', '0') or '0').strip()
+            else:
+                g_val = str(g_scale or '0').strip()
+            g_num = int(g_val) if g_val.isdigit() else 0
+            if g_num > 0:
+                g_now = f'G{g_num}'
+                # Back-derive kp_now if we didn't get it from the forecast
+                if kp_now is None:
+                    kp_now = {1: 5.0, 2: 6.0, 3: 7.0, 4: 8.0, 5: 9.0}.get(g_num, 5.0)
+            log.info(f'noaa-scales G={g_val} -> g_now={g_now}')
+    except Exception as e:
+        log.warning(f'noaa-scales.json fetch failed: {e}')
+
     return {
         'kp_observed': kp_observed,
         'kp_forecast': kp_forecast,
