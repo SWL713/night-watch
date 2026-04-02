@@ -102,6 +102,7 @@ function App() {
   const [longShot, setLongShot] = useState(false)
   const [clearSkyAnchor, setClearSkyAnchor] = useState(null)   // { lat, lng } — GPS or manual
   const [manualAnchor, setManualAnchor]     = useState(null)   // { lat, lng } — only when manually placed
+  const [pickingAnchor, setPickingAnchor]   = useState(false)  // true = waiting for user to tap/choose new anchor
   const [clearSkyRadius, setClearSkyRadius] = useState(40)     // miles, resets each session
   const [bestInCircle, setBestInCircle]     = useState(null)
   const [circleBottomPos, setCircleBottomPos] = useState(null) // {x,y} screen px
@@ -120,8 +121,9 @@ function App() {
   function closeHelp() { setHelpEntry(null) }
   function toggleHelp() { setHelpMode(m => { if (m) setHelpEntry(null); return !m }) }
 
-  // Clear sky anchor = manual anchor if set, otherwise GPS location
+  // Clear sky anchor = manual anchor if set, otherwise GPS — but not while user is picking a new location
   useEffect(() => {
+    if (pickingAnchor) return  // waiting for user choice — don't auto-assign
     if (manualAnchor) {
       setClearSkyAnchor(manualAnchor)
     } else if (userLocation) {
@@ -129,7 +131,7 @@ function App() {
     } else {
       setClearSkyAnchor(null)
     }
-  }, [manualAnchor, userLocation])
+  }, [manualAnchor, userLocation, pickingAnchor])
 
   const moonData = getMoonData()
   const [bortleGrid, setBortleGrid] = useState(null)
@@ -262,10 +264,12 @@ function App() {
             }}
           />
 
-          {/* Long press to place manual anchor in clear sky mode */}
+          {/* Long press to place manual anchor; tap to set anchor when picking */}
           <LongPressHandler
             active={clearSkyMode}
-            onLongPress={(lat, lng) => setManualAnchor({ lat, lng })}
+            pickingAnchor={pickingAnchor}
+            onLongPress={(lat, lng) => { setManualAnchor({ lat, lng }); setPickingAnchor(false) }}
+            onTap={(lat, lng) => { setManualAnchor({ lat, lng }); setPickingAnchor(false) }}
           />
 
           {/* Manual anchor marker — teal anchor emoji, only when manual anchor is set */}
@@ -357,6 +361,7 @@ function App() {
                     setManualAnchor(null)
                     setBestInCircle(null)
                     setCircleBottomPos(null)
+                    setPickingAnchor(false)
                   }
                   return !m
                 })
@@ -615,10 +620,16 @@ function App() {
                   {Math.round(clearSkyRadius)}mi
                 </span>
               </div>
-              {/* X to clear any anchor */}
+              {/* X to clear anchor and enter pick mode */}
               {clearSkyAnchor && (
                 <button
-                  onClick={() => { setManualAnchor(null); setClearSkyAnchor(null); setBestInCircle(null); setCircleBottomPos(null) }}
+                  onClick={() => {
+                    setManualAnchor(null)
+                    setClearSkyAnchor(null)
+                    setBestInCircle(null)
+                    setCircleBottomPos(null)
+                    setPickingAnchor(true)  // wait for user to tap or choose GPS
+                  }}
                   title="Clear anchor"
                   style={{
                     background: 'none', border: '1px solid #334455',
@@ -638,14 +649,14 @@ function App() {
           </div>
         )}
 
-        {/* No-anchor prompt — centered on map */}
+        {/* No-anchor prompt — shown when in clearsky mode with no anchor, or when picking a new one */}
         {clearSkyMode && !clearSkyAnchor && (
           <div style={{
             position: 'absolute', top: '40%', left: '50%', transform: 'translate(-50%, -50%)',
             zIndex: 2000, textAlign: 'center', fontFamily: FONT,
           }}>
             <div style={{ color: '#ff8c00', fontSize: 10, letterSpacing: 1, marginBottom: 8, whiteSpace: 'nowrap' }}>
-              LONG PRESS MAP TO SET ANCHOR
+              TAP MAP TO SET ANCHOR
             </div>
             {userLocation && (
               <button
@@ -653,6 +664,7 @@ function App() {
                   const loc = { lat: userLocation.lat, lng: userLocation.lng }
                   setManualAnchor(null)
                   setClearSkyAnchor(loc)
+                  setPickingAnchor(false)
                 }}
                 style={{
                   background: 'rgba(68,221,170,0.15)', border: '1px solid #44ddaa',
@@ -1224,22 +1236,45 @@ function AnchorMarker({ position }) {
 }
 
 // Long press handler for manual anchor placement in clear sky mode
-function LongPressHandler({ active, onLongPress }) {
-  const timerRef = useRef(null)
+function LongPressHandler({ active, pickingAnchor, onLongPress, onTap }) {
+  const timerRef   = useRef(null)
+  const movedRef   = useRef(false)
+  const downTimeRef = useRef(0)
+
   useMapEvents({
     mousedown(e) {
       if (!active) return
-      timerRef.current = setTimeout(() => onLongPress(e.latlng.lat, e.latlng.lng), 600)
+      movedRef.current = false
+      downTimeRef.current = Date.now()
+      if (!pickingAnchor) {
+        timerRef.current = setTimeout(() => onLongPress(e.latlng.lat, e.latlng.lng), 600)
+      }
     },
-    mouseup()   { clearTimeout(timerRef.current) },
-    mousemove() { clearTimeout(timerRef.current) },
+    mouseup(e) {
+      clearTimeout(timerRef.current)
+      if (!active || movedRef.current) return
+      if (pickingAnchor && onTap) {
+        onTap(e.latlng.lat, e.latlng.lng)
+      }
+    },
+    mousemove() { clearTimeout(timerRef.current); movedRef.current = true },
     touchstart(e) {
       if (!active) return
+      movedRef.current = false
+      downTimeRef.current = Date.now()
       const latlng = e.latlng
-      timerRef.current = setTimeout(() => onLongPress(latlng.lat, latlng.lng), 600)
+      if (!pickingAnchor) {
+        timerRef.current = setTimeout(() => onLongPress(latlng.lat, latlng.lng), 600)
+      }
     },
-    touchend()  { clearTimeout(timerRef.current) },
-    touchmove() { clearTimeout(timerRef.current) },
+    touchend(e) {
+      clearTimeout(timerRef.current)
+      if (!active || movedRef.current) return
+      if (pickingAnchor && onTap && e.latlng) {
+        onTap(e.latlng.lat, e.latlng.lng)
+      }
+    },
+    touchmove() { clearTimeout(timerRef.current); movedRef.current = true },
   })
   return null
 }
