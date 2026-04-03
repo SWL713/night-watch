@@ -142,9 +142,9 @@ class CMEStateMachine:
         return 'INBOUND'
     
     def _check_imminent_to_arrived(self, cme, l1_mag, l1_plasma):
-        """IMMINENT → ARRIVED triggers"""
+        """IMMINENT → ARRIVED triggers (RELAXED THRESHOLDS)"""
         
-        # Trigger 1: Magnetic field jump
+        # Trigger 1: Magnetic field jump (LOWERED: 15 → 10 nT)
         if l1_mag and len(l1_mag) > 10:
             recent = l1_mag[-10:]
             bt_values = []
@@ -154,10 +154,10 @@ class CMEStateMachine:
                 elif isinstance(p, dict) and 'bt' in p:
                     bt_values.append(p['bt'])
             
-            if bt_values and max(bt_values) > 15:  # Strong field
+            if bt_values and max(bt_values) > 10:  # LOWERED from 15
                 return 'ARRIVED'
         
-        # Trigger 2: Velocity spike
+        # Trigger 2: Velocity spike (LOWERED: 550 → 500 km/s)
         if l1_plasma and len(l1_plasma) > 10:
             recent = l1_plasma[-10:]
             speeds = []
@@ -167,8 +167,26 @@ class CMEStateMachine:
                 elif isinstance(p, dict) and 'speed' in p:
                     speeds.append(p['speed'])
             
-            if speeds and max(speeds) > 550:  # Fast wind
+            if speeds and max(speeds) > 500:  # LOWERED from 550
                 return 'ARRIVED'
+        
+        # Trigger 3: Density spike (NEW)
+        if l1_plasma and len(l1_plasma) > 10:
+            recent = l1_plasma[-10:]
+            densities = []
+            for p in recent:
+                if isinstance(p, (list, tuple)) and len(p) > 2:
+                    densities.append(p[2])  # Density column
+                elif isinstance(p, dict) and 'density' in p:
+                    densities.append(p['density'])
+            
+            if densities and max(densities) > 15:  # Density compression
+                return 'ARRIVED'
+        
+        # Trigger 4: ETA passed (NEW - fallback if CME missed detection)
+        eta_hours = self._calculate_eta(cme)
+        if eta_hours is not None and eta_hours <= 0:  # Past predicted arrival
+            return 'ARRIVED'
         
         return 'IMMINENT'
     

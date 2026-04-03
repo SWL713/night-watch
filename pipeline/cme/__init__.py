@@ -74,6 +74,7 @@ def run_cme_pipeline(l1_mag, l1_plasma, stereo_a, epam, log):
         queue['active_cme_id'] = state_machine.determine_active_cme(queue['cmes'])
         
         # 7. Run classifier on active CME if in appropriate state
+        # EXPANDED: Now classifies INBOUND/IMMINENT too (not just ARRIVED)
         classification_data = {
             'metadata': {'last_updated': None, 'active_cme_id': queue['active_cme_id']},
             'classifications': {}
@@ -82,7 +83,8 @@ def run_cme_pipeline(l1_mag, l1_plasma, stereo_a, epam, log):
         if queue['active_cme_id']:
             active_cme = next((c for c in queue['cmes'] if c['id'] == queue['active_cme_id']), None)
             
-            if active_cme and active_cme['state']['current'] in ['ARRIVED', 'STORM_ACTIVE']:
+            # EXPANDED: Classify in INBOUND, IMMINENT, ARRIVED, STORM_ACTIVE states
+            if active_cme and active_cme['state']['current'] in ['INBOUND', 'IMMINENT', 'ARRIVED', 'STORM_ACTIVE']:
                 classifier = BothmerSchwennClassifier(log)
                 classification = classifier.classify(active_cme, l1_mag, l1_plasma)
                 classification_data['classifications'][queue['active_cme_id']] = classification
