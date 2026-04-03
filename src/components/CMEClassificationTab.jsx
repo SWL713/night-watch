@@ -6,13 +6,13 @@ const C = {
   plotBg: '#04060d',
   border: '#0d1525',
   grid: 'rgba(30,45,70,0.6)',
-  zero: 'rgba(60,90,120,0.5)',
+  zero: 'rgba(60,90,120,0.2)',  // MUCH MORE SUBTLE
   text: '#e0e6ed',
   textDim: '#44ddaa',
-  bz_pos: '#44ddaa',   // Space Weather green
-  bz_neg: '#ee5577',   // Space Weather red
-  by_pos: '#4488ff',   // Space Weather blue
-  by_neg: '#ff8800',   // Space Weather orange
+  bz_pos: '#44ddaa',
+  bz_neg: '#ee5577',
+  by_pos: '#4488ff',
+  by_neg: '#ff8800',
   phi: '#44aaff',
   crosshair: 'rgba(255,255,255,0.35)',
 };
@@ -22,12 +22,11 @@ const CME_COLORS = [
   '#FF0080', '#0080FF', '#FF8000', '#80FF00',
 ];
 
+// TIME RANGE PRESETS - 24H default, add 12H and 48H
 const PRESETS = [
-  { label: '1H',  ms: 1  * 3600000 },
-  { label: '6H',  ms: 6  * 3600000 },
+  { label: '12H', ms: 12 * 3600000 },
   { label: '24H', ms: 24 * 3600000 },
-  { label: '3D',  ms: 3  * 86400000 },
-  { label: '7D',  ms: 7  * 86400000 },
+  { label: '48H', ms: 48 * 3600000 },
 ];
 
 const BASE = 'https://raw.githubusercontent.com/SWL713/night-watch/main/data';
@@ -79,14 +78,13 @@ export default function CMEClassificationTab({ cmes, classifications }) {
   const [loadError, setLoadError] = useState(null);
   const [selectedCMEIndex, setSelectedCMEIndex] = useState(0);
   
-  const [presetMs, setPresetMs] = useState(24 * 3600000);
+  const [presetMs, setPresetMs] = useState(24 * 3600000); // 24H DEFAULT
   const [zoomRange, setZoomRange] = useState(null);
   const [zoomMode, setZoomMode] = useState(false);
   const [zoomStep, setZoomStep] = useState(0);
   const [crosshairT, setCrosshairT] = useState(null);
   const zoomStartRef = useRef(null);
 
-  // Collapsible state
   const [bzByExpanded, setBzByExpanded] = useState(true);
   const [phiExpanded, setPhiExpanded] = useState(true);
 
@@ -146,9 +144,12 @@ export default function CMEClassificationTab({ cmes, classifications }) {
       return <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: 140, color: C.textDim, fontSize: 10 }}>No data</div>;
     }
 
+    // AUTO-SCALE Y-axis
     const allVals = visibleData.flatMap(d => [d.bz, d.by]).filter(v => v != null);
-    const minVal = Math.min(...allVals, -10);
-    const maxVal = Math.max(...allVals, 10);
+    const dataMin = Math.min(...allVals);
+    const dataMax = Math.max(...allVals);
+    const minVal = Math.min(dataMin, -5);  // Include 0 with some padding
+    const maxVal = Math.max(dataMax, 5);
 
     const scaleY = (v) => {
       const norm = (v - minVal) / (maxVal - minVal);
@@ -157,7 +158,6 @@ export default function CMEClassificationTab({ cmes, classifications }) {
 
     const scaleX = (t) => padL + ((t - tMin) / (tMax - tMin)) * plotWidth;
 
-    // Build paths with color changes
     const bzSegments = [];
     const bySegments = [];
     let currentBzColor = null;
@@ -219,7 +219,8 @@ export default function CMEClassificationTab({ cmes, classifications }) {
           handleZoomTap(t);
         }}
       >
-        <line x1={padL} y1={scaleY(0)} x2={width - padR} y2={scaleY(0)} stroke={C.zero} strokeWidth="1.5" />
+        {/* SUBTLE zero line */}
+        <line x1={padL} y1={scaleY(0)} x2={width - padR} y2={scaleY(0)} stroke={C.zero} strokeWidth="1" />
         {showBz && bzSegments.map((seg, i) => (
           <path key={`bz${i}`} d={seg.path} fill="none" stroke={seg.color} strokeWidth="2" />
         ))}
@@ -311,7 +312,7 @@ export default function CMEClassificationTab({ cmes, classifications }) {
           handleZoomTap(t);
         }}
       >
-        <line x1={padL} y1={scaleY(0)} x2={width - padR} y2={scaleY(0)} stroke={C.zero} strokeWidth="1.5" />
+        <line x1={padL} y1={scaleY(0)} x2={width - padR} y2={scaleY(0)} stroke={C.zero} strokeWidth="1" />
         <line x1={padL} y1={scaleY(90)} x2={width - padR} y2={scaleY(90)} stroke={C.grid} strokeDasharray="2,2" />
         <line x1={padL} y1={scaleY(-90)} x2={width - padR} y2={scaleY(-90)} stroke={C.grid} strokeDasharray="2,2" />
         {phiPath && <path d={phiPath} fill="none" stroke={C.phi} strokeWidth="2" />}
@@ -348,7 +349,7 @@ export default function CMEClassificationTab({ cmes, classifications }) {
 
   return (
     <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
-      {/* Time range controls */}
+      {/* Time range controls - 12H, 24H, 48H */}
       <div style={{ display: 'flex', gap: 3, padding: '3px 8px', borderBottom: `1px solid ${C.border}`, alignItems: 'center', flexShrink: 0 }}>
         <span style={{ color: C.textDim, fontSize: 8, letterSpacing: 1, marginRight: 4 }}>RANGE</span>
         {PRESETS.map(p => (
@@ -372,20 +373,18 @@ export default function CMEClassificationTab({ cmes, classifications }) {
             padding: '1px 7px', fontSize: 8, fontFamily: FONT,
             background: '#1a0a00', border: '1px solid #ff8800', color: '#ff8800',
             cursor: 'pointer', borderRadius: 2,
-          }}>RESET ZOOM</button>
+          }}>RESET</button>
         )}
       </div>
 
       {zoomMode && (
         <div style={{ padding: '3px 10px', background: '#1a0d00', borderBottom: `1px solid #ff8800`,
           color: '#ff8800', fontSize: 8, letterSpacing: 0.5, flexShrink: 0, textAlign: 'center' }}>
-          {zoomStep === 0 ? 'TAP FIRST POINT ON ANY PLOT' : 'TAP SECOND POINT TO SET ZOOM RANGE'}
+          {zoomStep === 0 ? 'TAP FIRST POINT' : 'TAP SECOND POINT'}
         </div>
       )}
 
-      {/* Non-scrollable content - all fits on screen */}
       <div style={{ flex: 1, display: 'flex', flexDirection: 'column', padding: '8px', gap: 8, overflow: 'hidden' }}>
-        {/* Bz/By Plot - Collapsible */}
         <div style={{ background: C.bg, border: `1px solid ${C.border}`, borderRadius: 4, flexShrink: 0 }}>
           <div onClick={() => setBzByExpanded(!bzByExpanded)} style={{ 
             padding: '8px 10px', cursor: 'pointer', display: 'flex', justifyContent: 'space-between', alignItems: 'center',
@@ -409,7 +408,6 @@ export default function CMEClassificationTab({ cmes, classifications }) {
           )}
         </div>
 
-        {/* Phi Plot - Collapsible */}
         {magData.length > 0 && (
           <div style={{ background: C.bg, border: `1px solid ${C.border}`, borderRadius: 4, flexShrink: 0 }}>
             <div onClick={() => setPhiExpanded(!phiExpanded)} style={{ 
@@ -427,7 +425,6 @@ export default function CMEClassificationTab({ cmes, classifications }) {
           </div>
         )}
 
-        {/* Classification Details - Takes remaining space */}
         <div style={{ flex: 1, background: C.bg, border: `2px solid ${selectedColor}`, borderRadius: 4, padding: '10px', display: 'flex', flexDirection: 'column', minHeight: 0 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8, paddingBottom: 8, borderBottom: `1px solid ${C.border}` }}>
             <span style={{ color: selectedColor, fontSize: 18, fontWeight: 'bold' }}>{selectedCMEIndex + 1}</span>
@@ -453,7 +450,7 @@ export default function CMEClassificationTab({ cmes, classifications }) {
               </div>
             ) : (
               <div style={{ textAlign: 'center', padding: '12px 0', color: C.textDim, fontSize: 9 }}>
-                Classification pending - awaiting arrival window
+                Classification pending
               </div>
             )}
           </div>
