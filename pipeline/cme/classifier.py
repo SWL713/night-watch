@@ -1,7 +1,9 @@
 """
 Bothmer-Schwenn Classifier
-Simplified 4-type version for MVP (upgradeable to full 8-type)
+Now uses flux_rope_l1 module for proper L1 GSM classification
 """
+
+from .flux_rope_l1 import classify_flux_rope_l1
 
 class BothmerSchwennClassifier:
     
@@ -10,222 +12,120 @@ class BothmerSchwennClassifier:
     
     def classify(self, cme, l1_mag, l1_plasma):
         """
-        Classify CME magnetic structure
+        Classify CME magnetic structure using flux_rope_l1
         
-        MVP: 4 types (SOUTH_LEADING, SOUTH_TRAILING, SOUTH_THROUGHOUT, NORTH_THROUGHOUT)
-        Future: Upgrade to full 8-type Bothmer-Schwenn
+        Args:
+            cme: CME dict with state info
+            l1_mag: L1 magnetometer data
+            l1_plasma: L1 plasma data
+            
+        Returns:
+            Classification dict with flux rope type, confidence, predictions
         """
         
-        # Extract window data
-        window_data = self._extract_window(cme, l1_mag, l1_plasma)
+        # Determine shock_time from state history
+        shock_time = None
+        for h in cme['state']['history']:
+            if h.get('to') == 'ARRIVED':
+                shock_time = h.get('timestamp')
+                break
         
-        if not window_data:
+        # Run flux rope classification
+        result = classify_flux_rope_l1(
+            l1_mag=l1_mag,
+            l1_plasma=l1_plasma,
+            shock_time=shock_time,
+            structure_duration_hrs=24.0
+        )
+        
+        if result['insufficient_data']:
             return self._empty_classification()
         
-        # Simplified classification logic
-        bs_type = self._determine_type_simplified(window_data)
-        confidence = self._calculate_confidence(window_data)
-        bz_predictions = self._generate_bz_predictions(bs_type, window_data)
-        
+        # Map to Night Watch classification format
         classification = {
             'active': True,
             'classification_window': {
-                'start': window_data['start_time'],
+                'start': result.get('ejecta_start_time'),
                 'end': None,  # Ongoing
-                'duration_hours': window_data['duration_hours']
+                'duration_hours': result['structure_progress_pct'] / 100 * 24.0
             },
             'current': {
-                'bs_type': bs_type,
-                'bs_type_full': self._expand_type_name(bs_type),
-                'confidence': confidence,
+                'bs_type': result['type'],
+                'bs_type_full': self._expand_type_name(result['type']),
+                'confidence': result['confidence_pct'],
                 'confidence_trend': 'STABLE',
-                'locked': False
+                'locked': result['structure_progress_pct'] >= 80,
+                'chirality': result['chirality']
             },
-            'signatures': window_data['signatures'],
-            'bz_predictions': bz_predictions,
+            'signatures': {
+                'structure_progress_pct': result['structure_progress_pct'],
+                'bz_onset_timing': result['bz_onset_timing']
+            },
+            'bz_predictions': {
+                'description': result['aurora_impact'],
+                'aurora_potential': self._map_aurora_potential(result['type']),
+                'kp_estimate': self._map_kp_estimate(result['type']),
+                'onset_time': result['bz_onset_timing'],
+                'duration_hours_low': result['bz_south_duration_hrs_low'],
+                'duration_hours_high': result['bz_south_duration_hrs_high'],
+                'peak_bz_estimate': result['peak_bz_estimate_nT']
+            },
             'phi_events': [],
             'quality_flags': {
                 'nosedive_detected': False,
                 'reverted': False,
                 'boundary_detected': False,
-                'expert_review_needed': confidence < 55
-            }
+                'expert_review_needed': result['confidence_pct'] < 55
+            },
+            'notes': result.get('notes', [])
         }
         
         return classification
     
-    def _extract_window(self, cme, l1_mag, l1_plasma):
-        """Extract classification window data"""
-        
-        if not l1_mag or not l1_plasma:
-            return None
-        
-        # Find shock arrival time (from state transition)
-        shock_time = None
-        for h in cme['state']['history']:
-            if 'ARRIVED' in h.get('trigger', ''):
-                shock_time = h['exited']
-                break
-        
-        if not shock_time:
-            return None
-        
-        # Extract data from shock onwards
-        from datetime import datetime
-        shock_dt = datetime.fromisoformat(shock_time.replace('Z', '+00:00'))
-        
-        # Get Bz values after shock
-        bz_values = []
-        by_values = []
-        
-        for entry in l1_mag:
-            if len(entry) > 3:
-                try:
-                    entry_time = datetime.fromisoformat(entry[0].replace('Z', '+00:00'))
-                    if entry_time >= shock_dt:
-                        if entry[3]:  # Bz
-                            bz_values.append(entry[3])
-                        if entry[2]:  # By
-                            by_values.append(entry[2])
-                except:
-                    continue
-        
-        if not bz_values:
-            return None
-        
-        # Calculate signatures
-        Tp = None
-        Texp = None
-        if l1_plasma:
-            for entry in l1_plasma:
-                if len(entry) > 2:
-                    try:
-                        entry_time = datetime.fromisoformat(entry[0].replace('Z', '+00:00'))
-                        if entry_time >= shock_dt and entry[2]:  # Temperature
-                            Tp = entry[2]
-                            if entry[1]:  # Speed
-                                Texp = 0.031 * (entry[1] ** 0.78)
-                            break
-                    except:
-                        continue
-        
-        return {
-            'start_time': shock_time,
-            'duration_hours': len(bz_values) / 60.0,  # Assuming 1-min resolution
-            'bz_values': bz_values,
-            'by_values': by_values,
-            'bz_min': min(bz_values),
-            'bz_max': max(bz_values),
-            'by_mean': sum(by_values) / len(by_values) if by_values else 0,
-            'signatures': {
-                'temperature_ratio': Tp / Texp if (Tp and Texp) else None,
-                'field_enhancement': max(bz_values) / 8.0 if bz_values else 1.0,  # vs ambient ~8nT
-                'variance_ratio': 0.3  # Placeholder
-            }
-        }
-    
-    def _determine_type_simplified(self, window_data):
-        """
-        Simplified 4-type classification
-        
-        Types:
-        - SOUTH_LEADING: South field now (SEN + SWN)
-        - SOUTH_TRAILING: South field later (NES + NWS) - BEST
-        - SOUTH_THROUGHOUT: South entire time (ESW + WSE) - EXTREME
-        - NORTH_THROUGHOUT: No south field (ENW + WNE) - NO AURORA
-        """
-        
-        bz_values = window_data['bz_values']
-        
-        if not bz_values:
-            return 'UNKNOWN'
-        
-        # Count south vs north time
-        south_count = sum(1 for bz in bz_values if bz < 0)
-        north_count = len(bz_values) - south_count
-        
-        south_percent = south_count / len(bz_values) if bz_values else 0
-        
-        # Check Bz progression
-        first_half = bz_values[:len(bz_values)//2]
-        second_half = bz_values[len(bz_values)//2:]
-        
-        avg_first = sum(first_half) / len(first_half) if first_half else 0
-        avg_second = sum(second_half) / len(second_half) if second_half else 0
-        
-        if south_percent > 0.7:
-            return 'SOUTH_THROUGHOUT'
-        elif south_percent < 0.3:
-            return 'NORTH_THROUGHOUT'
-        elif avg_first < 0 and avg_second > avg_first:
-            return 'SOUTH_LEADING'
-        elif avg_first > 0 and avg_second < 0:
-            return 'SOUTH_TRAILING'
-        else:
-            return 'SOUTH_LEADING'
-    
     def _expand_type_name(self, bs_type):
         """Expand type abbreviation to full name"""
-        
         names = {
-            'SOUTH_LEADING': 'South Leading Edge',
-            'SOUTH_TRAILING': 'South Trailing Edge (Best for Aurora)',
-            'SOUTH_THROUGHOUT': 'South Throughout (Extreme)',
-            'NORTH_THROUGHOUT': 'North Throughout (No Aurora)'
+            'NES': 'North-East-South (South mid/trailing - sustained storm)',
+            'NWS': 'North-West-South (South trailing - late onset)',
+            'SEN': 'South-East-North (South leading - fast onset)',
+            'SWN': 'South-West-North (Weakening - north trailing)',
+            'ESW': 'East-South-West (South throughout - extreme storm)',
+            'WSE': 'West-South-East (South throughout - extreme storm)',
+            'ENW': 'East-North-West (North throughout - no aurora)',
+            'WNE': 'West-North-East (North throughout - no aurora)',
+            'unknown': 'Classification in progress'
         }
         return names.get(bs_type, bs_type)
     
-    def _calculate_confidence(self, window_data):
-        """Calculate classification confidence"""
-        
-        confidence = 100.0
-        
-        # Penalize if temperature signature weak
-        if window_data['signatures'].get('temperature_ratio'):
-            temp_ratio = window_data['signatures']['temperature_ratio']
-            if temp_ratio > 0.5:
-                confidence -= 20
-            elif temp_ratio > 0.3:
-                confidence -= 10
-        
-        # Penalize if too short
-        if window_data['duration_hours'] < 2:
-            confidence -= 15
-        
-        return max(0, min(100, confidence))
+    def _map_aurora_potential(self, bs_type):
+        """Map B-S type to aurora potential"""
+        mapping = {
+            'NES': 'EXCELLENT',
+            'NWS': 'GOOD',
+            'SEN': 'GOOD',
+            'SWN': 'WEAK',
+            'ESW': 'EXTREME',
+            'WSE': 'EXTREME',
+            'ENW': 'NONE',
+            'WNE': 'NONE',
+            'unknown': 'UNKNOWN'
+        }
+        return mapping.get(bs_type, 'UNKNOWN')
     
-    def _generate_bz_predictions(self, bs_type, window_data):
-        """Generate Bz behavior predictions"""
-        
-        descriptions = {
-            'SOUTH_LEADING': 'South field NOW at leading edge. Duration: 2-4 hours. Good but brief aurora.',
-            'SOUTH_TRAILING': 'South field expected in 3-4 hours at trailing edge. Duration: 4-8 hours (sustained). EXCELLENT aurora potential.',
-            'SOUTH_THROUGHOUT': 'Strong south field THROUGHOUT passage. Duration: 6-12+ hours. EXTREME aurora event.',
-            'NORTH_THROUGHOUT': 'Northward field throughout. NO aurora potential.'
+    def _map_kp_estimate(self, bs_type):
+        """Map B-S type to Kp estimate"""
+        mapping = {
+            'NES': '6-7',
+            'NWS': '5-6',
+            'SEN': '5-6',
+            'SWN': '3-4',
+            'ESW': '7-9',
+            'WSE': '7-9',
+            'ENW': 'N/A',
+            'WNE': 'N/A',
+            'unknown': 'N/A'
         }
-        
-        aurora_potentials = {
-            'SOUTH_LEADING': 'GOOD',
-            'SOUTH_TRAILING': 'EXCELLENT',
-            'SOUTH_THROUGHOUT': 'EXTREME',
-            'NORTH_THROUGHOUT': 'NONE'
-        }
-        
-        kp_estimates = {
-            'SOUTH_LEADING': '4-5',
-            'SOUTH_TRAILING': '6-7',
-            'SOUTH_THROUGHOUT': '7-9',
-            'NORTH_THROUGHOUT': 'N/A'
-        }
-        
-        return {
-            'description': descriptions.get(bs_type, 'Unknown type'),
-            'aurora_potential': aurora_potentials.get(bs_type, 'UNKNOWN'),
-            'kp_estimate': kp_estimates.get(bs_type, 'N/A'),
-            'onset_time': None,  # To be calculated
-            'duration_hours': 4,
-            'peak_bz_estimate': window_data['bz_min']
-        }
+        return mapping.get(bs_type, 'N/A')
     
     def _empty_classification(self):
         """Return empty classification when no data"""
@@ -236,5 +136,6 @@ class BothmerSchwennClassifier:
             'signatures': {},
             'bz_predictions': None,
             'phi_events': [],
-            'quality_flags': {}
+            'quality_flags': {},
+            'notes': ['Insufficient data for classification']
         }

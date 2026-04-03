@@ -142,7 +142,15 @@ class CMEStateMachine:
         return 'INBOUND'
     
     def _check_imminent_to_arrived(self, cme, l1_mag, l1_plasma):
-        """IMMINENT → ARRIVED triggers (RELAXED THRESHOLDS)"""
+        """IMMINENT → ARRIVED triggers with direct in-situ ejecta detection"""
+        
+        # PRIMARY: Direct in-situ ejecta detection (ported from CME_Watch)
+        # This catches CMEs where shock V-jump baseline was already elevated
+        # Requires: Bt > 10nT AND V > 450km/s AND sustained southward Bz
+        if self._detect_ejecta_in_situ(l1_mag, l1_plasma):
+            return 'ARRIVED'
+        
+        # SECONDARY: Traditional threshold checks
         
         # Trigger 1: Magnetic field jump (LOWERED: 15 → 10 nT)
         if l1_mag and len(l1_mag) > 10:
@@ -189,6 +197,69 @@ class CMEStateMachine:
             return 'ARRIVED'
         
         return 'IMMINENT'
+    
+    def _detect_ejecta_in_situ(self, l1_mag, l1_plasma):
+        """
+        Direct in-situ ejecta detection (ported from CME_Watch state_machine.py)
+        
+        Detects CME arrival by checking for COMBINED signatures:
+        - Bt > 10nT (elevated magnetic field)
+        - V > 450 km/s (elevated velocity)
+        - Sustained southward Bz (>50% of readings < -3nT)
+        
+        This catches cases where traditional shock detection fails because
+        the baseline window already contains CME wind.
+        
+        Returns: True if ejecta is in-situ, False otherwise
+        """
+        if not l1_mag or not l1_plasma:
+            return False
+        
+        # Need at least 1 hour of recent data
+        if len(l1_mag) < 60 or len(l1_plasma) < 60:
+            return False
+        
+        # Extract last hour of data
+        recent_mag = l1_mag[-60:]
+        recent_plasma = l1_plasma[-60:]
+        
+        # Extract Bt values
+        bt_values = []
+        for p in recent_mag:
+            if isinstance(p, (list, tuple)) and len(p) > 4:
+                if p[4] is not None:
+                    bt_values.append(p[4])
+            elif isinstance(p, dict) and 'bt' in p and p['bt'] is not None:
+                bt_values.append(p['bt'])
+        
+        # Extract Bz values
+        bz_values = []
+        for p in recent_mag:
+            if isinstance(p, (list, tuple)) and len(p) > 0:
+                if p[0] is not None:  # Bz is first column
+                    bz_values.append(p[0])
+            elif isinstance(p, dict) and 'bz' in p and p['bz'] is not None:
+                bz_values.append(p['bz'])
+        
+        # Extract V values
+        v_values = []
+        for p in recent_plasma:
+            if isinstance(p, (list, tuple)) and len(p) > 1:
+                if p[1] is not None:  # V is second column
+                    v_values.append(p[1])
+            elif isinstance(p, dict) and 'speed' in p and p['speed'] is not None:
+                v_values.append(p['speed'])
+        
+        # Need sufficient data
+        if len(bt_values) < 10 or len(bz_values) < 10 or len(v_values) < 10:
+            return False
+        
+        # Check conditions
+        bt_ok = sum(bt_values) / len(bt_values) > 10.0  # Mean Bt > 10nT
+        v_ok = sorted(v_values)[len(v_values)//2] > 450.0  # Median V > 450 km/s
+        bz_ok = sum(1 for bz in bz_values if bz < -3.0) / len(bz_values) > 0.50  # >50% southward
+        
+        return bt_ok and v_ok and bz_ok
     
     def _check_arrived_to_storm(self, cme, l1_mag):
         """ARRIVED → STORM_ACTIVE triggers"""

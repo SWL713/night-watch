@@ -1,82 +1,119 @@
-# CME DASHBOARD V3 - ALL FIXES
+# V11 FIXES - CME Dashboard Improvements
 
-## ✅ CHANGES IN V3:
+## 📦 WHAT'S INCLUDED:
 
-1. ✅ Shrunk tab buttons (0.35rem padding, 0.8rem font)
-2. ✅ Shrunk banner (0.4rem padding)
-3. ✅ Teal button style matching Space Weather
-4. ⚠️ **Bottom nav integration needed** - See below
-5. ✅ Fixed visualization aspect ratio (1000x140)
-6. ✅ STEREO-A positioned upstream, offset to side
-7. ✅ Visualization at TOP 20%, cards get 80%
-8. ✅ Compressed card text (0.75rem → 0.7rem)
-9. ✅ CME selector buttons under classification panel (horizontal)
+### ✅ COMPLETE FIXES:
+1. **CME Persistent Numbering & Coloring** (#5)
+   - Numbers assigned by launch order (oldest = #1)
+   - Display sorted by distance (nearest Earth = top)
+   - Numbers/colors stick with CME until it clears
+   - Colors reused from available pool
+   - Reset only when board is empty
 
----
+2. **Diffuse Outer Glow** (#6)
+   - Triple-layer Gaussian blur filters
+   - Throbs with existing animation
 
-## ⚠️ BOTTOM NAVIGATION BAR
+3. **Classification Tab Improvements** (#2, #3, #4)
+   - Tighter padding (reduced from 20px to 12px top, 18px to 14px bottom)
+   - Drag crosshair (follows finger, no tap required)
+   - Phi plotting: 0-360° range (NOAA standard)
+   - Sector backgrounds: Blue (0-180° Away), Pink (180-360° Toward)
+   - Date/time label on crosshair: "Apr 3, 3:24 PM"
 
-Your app has a bottom navigation bar (Map, Space Weather, Substorm Timing, etc.).
+### ⚠️ SPACE WEATHER PANEL (#1)
+**NOT INCLUDED** - Requires changes to main app file, not CME components.
 
-**The CME Dashboard needs to integrate with this existing pattern.**
-
-I can't see your full app structure, but here's how to integrate:
-
-### If you have a `BottomNav.jsx` component:
-```jsx
-// In your App.jsx or main routing file:
-import CMEDashboard from './components/CMEDashboard';
-import BottomNav from './components/BottomNav';
-
-function App() {
-  const [currentView, setCurrentView] = useState('map');
-
-  return (
-    <div className="app">
-      {currentView === 'map' && <MapView />}
-      {currentView === 'space-weather' && <SpaceWeatherView />}
-      {currentView === 'cme' && <CMEDashboard />}
-      {currentView === 'substorm' && <SubstormView />}
-      
-      <BottomNav 
-        currentView={currentView}
-        onNavigate={setCurrentView}
-      />
-    </div>
-  );
-}
-```
-
-### Update BottomNav to include CME button:
-```jsx
-<button 
-  className={currentView === 'cme' ? 'active' : ''}
-  onClick={() => onNavigate('cme')}
->
-  CME Dashboard
-</button>
-```
+**What needs to be done:**
+Add date/time label to crosshair in `src/components/SpaceWeatherPanel.jsx`
+(Same implementation as Classification tab)
 
 ---
 
 ## 🚀 DEPLOYMENT:
 
-### Step 1: Replace Files
-Extract and copy to your repo:
-- All .jsx and .css files from `/components`
-- `useCMEData.js` from `/hooks`
+### STEP 1: Extract files
+- `components/` → Copy to `src/components/`
+- `hooks/` → Copy to `src/hooks/`
 
-### Step 2: Integrate Bottom Nav
-Follow pattern above to add CME Dashboard to your navigation
-
-### Step 3: Git Push
+### STEP 2: Deploy
 ```bash
 cd "C:\GitHub Repos\night-watch"
 git add src/components/CME* src/hooks/useCMEData.js
-git commit -m "CME Dashboard V3 - compact teal theme, viz fixes, bottom nav ready"
+git commit -m "CME Dashboard V11 - persistent numbering, diffuse glow, classification improvements"
 git pull --rebase origin main
 git push origin main
 ```
 
-### Step 4: Deploy
-Trigger workflow at: https://github.com/SWL713/night-watch/actions
+---
+
+## 📋 WHAT CHANGED:
+
+### CMEQueueTab.jsx
+- Added persistent registry for CME numbers/colors
+- Sort by launch_time for numbering
+- Sort by distance_au for display
+- Registry persists across renders
+- Auto-resets when board clears
+
+### CMEPositionViz.jsx
+- Uses registry for colors and numbers
+- Added diffuse glow filters (feGaussianBlur: 8px, 15px, 25px)
+- Glow throbs with existing animation
+
+### CMEClassificationTab.jsx
+- Reduced padding: PAD_T=12 (was 20), PAD_B=14 (was 18)
+- Drag crosshair: onTouchMove + onMouseMove handlers
+- Phi: 0-360° range with sector backgrounds
+- Date/time label: "Apr 3, 3:24 PM" at top of crosshair
+- Phi normalization: wraps negative values to 0-360°
+
+### CMEDashboard.jsx
+- Passes registry between Queue and Classification tabs
+- Registry state managed at dashboard level
+
+---
+
+## 🎯 TESTING CHECKLIST:
+
+- [ ] CME #1 is oldest launch, displayed at top if nearest
+- [ ] CME cards swap positions if one overtakes another
+- [ ] Numbers/colors stay with CME until it clears
+- [ ] After all CMEs clear, next one is #1 again
+- [ ] No duplicate numbers or colors at any time
+- [ ] CME dots have soft outer glow that pulses
+- [ ] Classification plots tighter, more space efficient
+- [ ] Drag finger across classification plots = crosshair follows
+- [ ] Phi shows 0-360° range with blue/pink sectors
+- [ ] Crosshair shows "Apr 3, 3:24 PM" style label
+
+---
+
+## 📝 NOTES:
+
+**Registry Persistence:**
+- Registry tracks CME ID → {number, color, launchTime}
+- Survives re-renders via useState
+- Clears only when cmes array is empty
+- Numbers assigned sequentially by launch order
+- Colors assigned from available pool
+
+**Color Pool Management:**
+- 8 colors available: Cyan, Magenta, Green, Yellow, Pink, Blue, Orange, Lime
+- Tracks which colors are in use
+- Reuses colors from pool when CME clears
+- Never duplicates while CME is active
+
+**Phi Sector Logic:**
+- 0-180°: Away sector (blue background)
+- 180-360°: Toward sector (pink background)
+- Matches NOAA standard exactly
+
+**Known Limitation:**
+- Space Weather panel (#1) still needs manual update
+- Same pattern as Classification tab can be used
+- Add date/time label to crosshair display
+
+---
+
+**All CME Dashboard fixes complete!** 🎯
