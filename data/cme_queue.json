@@ -1,6 +1,6 @@
 {
   "metadata": {
-    "last_updated": "2026-04-03T10:36:55.667104+00:00"
+    "last_updated": "2026-04-03T11:08:38.869530+00:00"
   },
   "active_cme_id": "CME_2026-04-02T20:46Z",
   "cmes": [
@@ -17,7 +17,7 @@
       },
       "properties": {
         "speed_initial": 500,
-        "speed_current": 500,
+        "speed_current": null,
         "half_angle": 35,
         "type": "Unknown",
         "direction_lat": 0,
@@ -70,7 +70,7 @@
       },
       "properties": {
         "speed_initial": 500,
-        "speed_current": 500,
+        "speed_current": null,
         "half_angle": 35,
         "type": "Partial Halo",
         "direction_lat": 0,
@@ -123,9 +123,9 @@
       },
       "properties": {
         "speed_initial": 500,
-        "speed_current": 500,
+        "speed_current": null,
         "half_angle": 35,
-        "type": "Unknown",
+        "type": "Faint CME",
         "direction_lat": 0,
         "direction_lon": 0
       },
@@ -176,9 +176,9 @@
       },
       "properties": {
         "speed_initial": 500,
-        "speed_current": 500,
+        "speed_current": null,
         "half_angle": 35,
-        "type": "Unknown",
+        "type": "Faint CME",
         "direction_lat": 0,
         "direction_lon": 0
       },
