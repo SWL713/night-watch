@@ -45,6 +45,48 @@ class CMEStateMachine:
             })
             cme['state']['current'] = new_state
             cme['state']['entered_at'] = datetime.now(timezone.utc).isoformat()
+            
+            # CRITICAL: Update speed_current when CME arrives at Earth!
+            # Show REAL L1 speed (700-800 km/s), not launch speed (400s km/s)
+            if new_state == 'ARRIVED' and l1_plasma_list:
+                # Get most recent L1 speed measurements
+                recent_speeds = []
+                for p in l1_plasma_list[-30:]:  # Last 30 minutes
+                    if isinstance(p, (list, tuple)) and len(p) > 1:
+                        speed = p[1]
+                        if speed and speed > 0:
+                            recent_speeds.append(speed)
+                    elif isinstance(p, dict) and 'speed' in p:
+                        speed = p['speed']
+                        if speed and speed > 0:
+                            recent_speeds.append(speed)
+                
+                if recent_speeds:
+                    # Use average of recent measurements for stability
+                    avg_speed = sum(recent_speeds) / len(recent_speeds)
+                    cme['properties']['speed_current'] = round(avg_speed)
+                    # Also log it for debugging
+                    import logging
+                    log = logging.getLogger(__name__)
+                    log.info(f"CME {cme.get('id')} ARRIVED - updated speed_current to {round(avg_speed)} km/s (L1 measured)")
+        
+        # ALSO: Update speed for CMEs already in ARRIVED/STORM_ACTIVE/SUBSIDING states
+        # Keep showing real-time L1 speed, not stale launch speed
+        if current_state in ['ARRIVED', 'STORM_ACTIVE', 'SUBSIDING'] and l1_plasma_list:
+            recent_speeds = []
+            for p in l1_plasma_list[-30:]:
+                if isinstance(p, (list, tuple)) and len(p) > 1:
+                    speed = p[1]
+                    if speed and speed > 0:
+                        recent_speeds.append(speed)
+                elif isinstance(p, dict) and 'speed' in p:
+                    speed = p['speed']
+                    if speed and speed > 0:
+                        recent_speeds.append(speed)
+            
+            if recent_speeds:
+                avg_speed = sum(recent_speeds) / len(recent_speeds)
+                cme['properties']['speed_current'] = round(avg_speed)
     
     def _extract_list(self, data):
         """Extract list from data - handles both list and dict formats"""
