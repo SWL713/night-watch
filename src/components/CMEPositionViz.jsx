@@ -25,18 +25,18 @@ export default function CMEPositionViz({ cmes, positions, cmeColors, onCMEClick 
       preserveAspectRatio="xMidYMid meet"
       style={{ maxWidth: '100%', maxHeight: '100%' }}
     >
-      {/* THROBBING PULSE WITH OUTER GLOW */}
+      {/* BIGGER OUTER GLOW */}
       <style>
         {`
           @keyframes cme-throb {
             0%, 100% { 
               transform: scale(1);
-              filter: drop-shadow(0 0 4px currentColor);
+              filter: drop-shadow(0 0 6px currentColor) drop-shadow(0 0 10px currentColor);
               opacity: 0.85;
             }
             50% { 
               transform: scale(1.25);
-              filter: drop-shadow(0 0 16px currentColor) drop-shadow(0 0 24px currentColor);
+              filter: drop-shadow(0 0 20px currentColor) drop-shadow(0 0 32px currentColor) drop-shadow(0 0 40px currentColor);
               opacity: 1;
             }
           }
@@ -74,7 +74,6 @@ export default function CMEPositionViz({ cmes, positions, cmeColors, onCMEClick 
           <g key={cme.id}>
             <line x1={sunX + sunRadius} y1={centerY} x2={cmeX} y2={cmeY} stroke={color} strokeWidth="2.5" opacity="0.5" />
             
-            {/* THROBBING CME WITH OUTER GLOW */}
             <circle 
               className="cme-pulse"
               cx={cmeX} 

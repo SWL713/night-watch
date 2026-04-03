@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import CMEPositionViz from './CMEPositionViz';
 import CMEDetailPopup from './CMEDetailPopup';
 
@@ -42,38 +42,35 @@ function calculateEstimatedSpeed(cme) {
   };
 }
 
-// Get average ETA from scorecard models
-function getAverageETA(cme) {
-  // Try scorecard ensemble prediction first
+// Get ETA timestamp - use MEDIAN (more scientifically robust)
+function getETAInfo(cme) {
+  // Try scorecard median first (most robust)
   const ensemble = cme.nasa_scorecard?.ensemble_prediction;
+  if (ensemble?.median_arrival_time) {
+    return {
+      timestamp: new Date(ensemble.median_arrival_time),
+      hours: Math.round((new Date(ensemble.median_arrival_time) - new Date()) / (1000 * 60 * 60)),
+      source: 'median'
+    };
+  }
+  
+  // Try mean as fallback
   if (ensemble?.arrival_time) {
-    const arrivalTime = new Date(ensemble.arrival_time);
-    const now = new Date();
-    const hoursUntil = (arrivalTime - now) / (1000 * 60 * 60);
-    return hoursUntil > 0 ? Math.round(hoursUntil) : null;
+    return {
+      timestamp: new Date(ensemble.arrival_time),
+      hours: Math.round((new Date(ensemble.arrival_time) - new Date()) / (1000 * 60 * 60)),
+      source: 'mean'
+    };
   }
   
-  // Try position eta_hours
+  // Calculate from position
   if (cme.position?.eta_hours) {
-    return Math.round(cme.position.eta_hours);
-  }
-  
-  // Try calculating from arrival models
-  if (cme.arrival?.models && cme.arrival.models.length > 0) {
-    const validETAs = cme.arrival.models
-      .map(m => {
-        if (!m.estimated_arrival) return null;
-        const arrivalTime = new Date(m.estimated_arrival);
-        const now = new Date();
-        const hours = (arrivalTime - now) / (1000 * 60 * 60);
-        return hours > 0 ? hours : null;
-      })
-      .filter(h => h !== null);
-    
-    if (validETAs.length > 0) {
-      const avgETA = validETAs.reduce((a, b) => a + b, 0) / validETAs.length;
-      return Math.round(avgETA);
-    }
+    const eta = new Date(Date.now() + cme.position.eta_hours * 3600000);
+    return {
+      timestamp: eta,
+      hours: Math.round(cme.position.eta_hours),
+      source: 'calc'
+    };
   }
   
   return null;
@@ -81,6 +78,17 @@ function getAverageETA(cme) {
 
 export default function CMEQueueTab({ cmes, positions }) {
   const [selectedCME, setSelectedCME] = useState(null);
+
+  // SORT BY DISTANCE (nearest to Earth first), but keep original indices for numbering
+  const sortedCMEsWithIndices = useMemo(() => {
+    return cmes
+      .map((cme, originalIndex) => ({ cme, originalIndex }))
+      .sort((a, b) => {
+        const distA = a.cme.position?.distance_au || 999;
+        const distB = b.cme.position?.distance_au || 999;
+        return distA - distB;
+      });
+  }, [cmes]);
 
   const formatDate = (isoString) => {
     if (!isoString) return 'Unknown';
@@ -90,6 +98,16 @@ export default function CMEQueueTab({ cmes, positions }) {
       day: 'numeric', 
       hour: '2-digit', 
       minute: '2-digit' 
+    });
+  };
+
+  const formatETATimestamp = (timestamp) => {
+    if (!timestamp) return null;
+    return timestamp.toLocaleDateString('en-US', {
+      month: 'short',
+      day: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit'
     });
   };
 
@@ -129,11 +147,11 @@ export default function CMEQueueTab({ cmes, positions }) {
         flexDirection: 'column',
         gap: 6
       }}>
-        {cmes.map((cme, idx) => {
-          const cmeColor = CME_COLORS[idx % CME_COLORS.length];
+        {sortedCMEsWithIndices.map(({ cme, originalIndex }) => {
+          const cmeNumber = originalIndex + 1; // Number by launch order
+          const cmeColor = CME_COLORS[originalIndex % CME_COLORS.length];
           const speedInfo = calculateEstimatedSpeed(cme);
           
-          // FIXED: Get correct model count
           const numModels = cme.arrival?.models?.length 
             || cme.nasa_scorecard?.ensemble_prediction?.num_models 
             || cme.arrival?.num_models 
@@ -147,8 +165,7 @@ export default function CMEQueueTab({ cmes, positions }) {
             || cme.nasa_scorecard?.cme_analysis?.width 
             || null;
           
-          // AVERAGE ETA FROM SCORECARD
-          const avgETA = getAverageETA(cme);
+          const etaInfo = getETAInfo(cme);
           
           return (
             <div
@@ -179,7 +196,7 @@ export default function CMEQueueTab({ cmes, positions }) {
                 paddingBottom: 4,
                 borderBottom: `1px solid ${C.border}`
               }}>
-                <span style={{ color: cmeColor, fontSize: 16, fontWeight: 'bold', minWidth: 20 }}>{idx + 1}</span>
+                <span style={{ color: cmeColor, fontSize: 16, fontWeight: 'bold', minWidth: 20 }}>{cmeNumber}</span>
                 <span style={{ color: C.textDim, fontSize: 8, fontFamily: FONT, flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{cme.id}</span>
                 <span style={{
                   background: cme.state?.current === 'WATCH' ? '#FFA500' 
@@ -241,7 +258,14 @@ export default function CMEQueueTab({ cmes, positions }) {
                   <div style={{ display: 'flex', gap: 6 }}>
                     <span style={{ color: C.textDim }}>ETA:</span>
                     <span style={{ color: C.text }}>
-                      {avgETA ? `${avgETA}h (avg)` : 'N/A'}
+                      {etaInfo ? `${etaInfo.hours}h` : 'N/A'}
+                    </span>
+                  </div>
+                  
+                  <div style={{ display: 'flex', gap: 6 }}>
+                    <span style={{ color: C.textDim }}>ARRIVAL:</span>
+                    <span style={{ color: C.text, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                      {etaInfo ? formatETATimestamp(etaInfo.timestamp) : 'N/A'}
                     </span>
                   </div>
                   

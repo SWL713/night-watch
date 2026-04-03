@@ -6,7 +6,7 @@ const C = {
   plotBg: '#04060d',
   border: '#0d1525',
   grid: 'rgba(30,45,70,0.6)',
-  zero: 'rgba(60,90,120,0.5)',
+  zero: 'rgba(60,90,120,0.2)',
   text: '#e0e6ed',
   textDim: '#44ddaa',
   bz_neg: '#ee5577',
@@ -75,26 +75,45 @@ function isToward(phi) {
   return phi >= 90 && phi < 270;
 }
 
-// ONLY PHI ANNOTATIONS
+// STRICTER ANNOTATIONS - reduced false positives
 function detectAnnotations(magData, timeRange) {
   const [tMin, tMax] = timeRange;
   const visData = magData.filter(d => d.time.getTime() >= tMin && d.time.getTime() <= tMax);
   const annotations = [];
   
-  // Sector boundaries
-  let prevSector = null;
+  // Sector boundaries - require stable sector for 30min before marking transition
+  const SECTOR_STABILITY = 30 * 60000;
+  let currentSector = null;
+  let sectorStartTime = null;
+  let lastSBAnnotation = 0;
+  const MIN_SB_GAP = 2 * 3600000; // 2 hours between SB annotations
+  
   for (const pt of visData) {
     if (pt.phi === null) continue;
     const sector = isToward(pt.phi) ? 'toward' : 'away';
-    if (prevSector && sector !== prevSector) {
-      annotations.push({ time: pt.time, type: 'sb', label: 'SB' });
+    
+    if (currentSector === null) {
+      currentSector = sector;
+      sectorStartTime = pt.time.getTime();
+    } else if (sector !== currentSector) {
+      // Sector changed - reset
+      currentSector = sector;
+      sectorStartTime = pt.time.getTime();
+    } else if (pt.time.getTime() - sectorStartTime >= SECTOR_STABILITY) {
+      // Stable for 30min and haven't annotated recently
+      if (pt.time.getTime() - lastSBAnnotation >= MIN_SB_GAP) {
+        annotations.push({ time: new Date(sectorStartTime), type: 'sb', label: 'SB' });
+        lastSBAnnotation = pt.time.getTime();
+        sectorStartTime = pt.time.getTime();
+      }
     }
-    prevSector = sector;
   }
   
-  // Structure shifts
-  const PHI_SHIFT_THRESHOLD = 60;
-  const SHIFT_WIN = 15 * 60000;
+  // Structure shifts - STRICTER: 90° in 20 min (not 60° in 15min)
+  const PHI_SHIFT_THRESHOLD = 90;
+  const SHIFT_WIN = 20 * 60000;
+  const MIN_SHIFT_GAP = 3600000; // 1 hour between shifts
+  let lastShiftAnnotation = 0;
   
   for (let i = 1; i < visData.length; i++) {
     const curr = visData[i];
@@ -110,8 +129,11 @@ function detectAnnotations(magData, timeRange) {
     const phiChangeRate = (phiChange / timeDiff) * SHIFT_WIN;
     
     if (phiChangeRate >= PHI_SHIFT_THRESHOLD) {
-      annotations.push({ time: curr.time, type: 'shift', label: 'SHIFT' });
-      i += 5;
+      if (curr.time.getTime() - lastShiftAnnotation >= MIN_SHIFT_GAP) {
+        annotations.push({ time: curr.time, type: 'shift', label: 'SHIFT' });
+        lastShiftAnnotation = curr.time.getTime();
+      }
+      i += 10; // Skip ahead more
     }
   }
   
@@ -208,7 +230,6 @@ function PlotCanvas({ data, series, yMin, yMax, timeRange, crosshairTime, onCros
       ctx.stroke();
     }
 
-    // ANNOTATIONS - ONLY PHI
     if (showAnnotations && annotations && annotations.length > 0) {
       for (const ann of annotations) {
         const t = ann.time.getTime();
@@ -413,7 +434,6 @@ export default function CMEClassificationTab({ cmes, classifications }) {
   const [bzByExpanded, setBzByExpanded] = useState(true);
   const [phiExpanded, setPhiExpanded] = useState(true);
   
-  // ONLY PHI ANNOTATIONS
   const [showAnnotations, setShowAnnotations] = useState(true);
 
   useEffect(() => {
@@ -468,6 +488,9 @@ export default function CMEClassificationTab({ cmes, classifications }) {
   const selectedColor = CME_COLORS[selectedCMEIndex % CME_COLORS.length];
   const classification = classifications[selectedCME.id];
 
+  // FLEX LAYOUT like Space Weather
+  const numExpanded = (bzByExpanded ? 1 : 0) + (phiExpanded ? 1 : 0);
+
   return (
     <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
       <div style={{ display: 'flex', gap: 3, padding: '3px 8px', borderBottom: `1px solid ${C.border}`, alignItems: 'center', flexShrink: 0 }}>
@@ -495,7 +518,6 @@ export default function CMEClassificationTab({ cmes, classifications }) {
             cursor: 'pointer', borderRadius: 2,
           }}>RESET</button>
         )}
-        {/* SINGLE ANNOTATION TOGGLE */}
         <button onClick={() => setShowAnnotations(v => !v)} style={{
           padding: '1px 7px', fontSize: 8, fontFamily: FONT,
           background: showAnnotations ? '#0d1a2a' : 'transparent',
@@ -512,16 +534,16 @@ export default function CMEClassificationTab({ cmes, classifications }) {
         </div>
       )}
 
-      {/* FIXED LAYOUT: Set max heights to prevent over-expansion */}
+      {/* SPACE WEATHER STYLE LAYOUT - Equal space distribution */}
       <div style={{ flex: 1, display: 'flex', flexDirection: 'column', padding: '8px', gap: 8, overflow: 'hidden' }}>
         <div style={{ 
           background: C.bg, 
           border: `1px solid ${C.border}`, 
           borderRadius: 4, 
-          flexShrink: 0,
-          height: bzByExpanded ? 180 : 'auto',  // FIXED HEIGHT
           display: 'flex', 
-          flexDirection: 'column'
+          flexDirection: 'column',
+          flex: bzByExpanded ? 1 : 0,
+          minHeight: bzByExpanded ? 100 : 'auto'
         }}>
           <div onClick={() => setBzByExpanded(!bzByExpanded)} style={{ 
             padding: '8px 10px', cursor: 'pointer', display: 'flex', justifyContent: 'space-between', alignItems: 'center',
@@ -539,7 +561,7 @@ export default function CMEClassificationTab({ cmes, classifications }) {
             </div>
           </div>
           {bzByExpanded && magData.length > 0 && (
-            <div style={{ flex: 1, padding: '8px' }}>
+            <div style={{ flex: 1, padding: '8px', minHeight: 0 }}>
               <PlotCanvas data={magData} series={bzBySeries} timeRange={timeRange} crosshairTime={crosshairT} onCrosshair={zoomMode ? handleZoomTap : setCrosshairT} zoomMode={zoomMode} symmetric={true} showLabels={true} yLabel="nT" annotations={annotations} showAnnotations={showAnnotations} />
             </div>
           )}
@@ -550,10 +572,10 @@ export default function CMEClassificationTab({ cmes, classifications }) {
             background: C.bg, 
             border: `1px solid ${C.border}`, 
             borderRadius: 4, 
-            flexShrink: 0,
-            height: phiExpanded ? 160 : 'auto',  // FIXED HEIGHT
             display: 'flex', 
-            flexDirection: 'column'
+            flexDirection: 'column',
+            flex: phiExpanded ? 1 : 0,
+            minHeight: phiExpanded ? 100 : 'auto'
           }}>
             <div onClick={() => setPhiExpanded(!phiExpanded)} style={{ 
               padding: '8px 10px', cursor: 'pointer', display: 'flex', justifyContent: 'space-between', alignItems: 'center',
@@ -563,23 +585,22 @@ export default function CMEClassificationTab({ cmes, classifications }) {
               <span style={{ color: C.textDim, fontSize: 12 }}>{phiExpanded ? '▼' : '▶'}</span>
             </div>
             {phiExpanded && (
-              <div style={{ flex: 1, padding: '8px' }}>
+              <div style={{ flex: 1, padding: '8px', minHeight: 0 }}>
                 <PlotCanvas data={magData} series={phiSeries} yMin={-180} yMax={180} timeRange={timeRange} crosshairTime={crosshairT} onCrosshair={zoomMode ? handleZoomTap : setCrosshairT} zoomMode={zoomMode} showLabels={true} yLabel="deg" phiMode={true} annotations={annotations} showAnnotations={showAnnotations} />
               </div>
             )}
           </div>
         )}
 
-        {/* CLASSIFICATION PANEL: Minimum height maintained */}
         <div style={{ 
-          flex: 1, 
+          flex: 1,
           background: C.bg, 
           border: `2px solid ${selectedColor}`, 
           borderRadius: 4, 
           padding: '10px', 
           display: 'flex', 
           flexDirection: 'column', 
-          minHeight: 180,  // MINIMUM HEIGHT
+          minHeight: 100,
           overflow: 'hidden'
         }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8, paddingBottom: 8, borderBottom: `1px solid ${C.border}`, flexShrink: 0 }}>
