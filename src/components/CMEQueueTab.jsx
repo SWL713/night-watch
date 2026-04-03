@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import CMEPositionViz from './CMEPositionViz';
 import CMEDetailPopup from './CMEDetailPopup';
 
@@ -42,9 +42,7 @@ function calculateEstimatedSpeed(cme) {
   };
 }
 
-// Get ETA timestamp - use MEDIAN (more scientifically robust)
 function getETAInfo(cme) {
-  // Try scorecard median first (most robust)
   const ensemble = cme.nasa_scorecard?.ensemble_prediction;
   if (ensemble?.median_arrival_time) {
     return {
@@ -54,7 +52,6 @@ function getETAInfo(cme) {
     };
   }
   
-  // Try mean as fallback
   if (ensemble?.arrival_time) {
     return {
       timestamp: new Date(ensemble.arrival_time),
@@ -63,7 +60,6 @@ function getETAInfo(cme) {
     };
   }
   
-  // Calculate from position
   if (cme.position?.eta_hours) {
     const eta = new Date(Date.now() + cme.position.eta_hours * 3600000);
     return {
@@ -78,17 +74,93 @@ function getETAInfo(cme) {
 
 export default function CMEQueueTab({ cmes, positions }) {
   const [selectedCME, setSelectedCME] = useState(null);
-
-  // SORT BY DISTANCE (nearest to Earth first), but keep original indices for numbering
-  const sortedCMEsWithIndices = useMemo(() => {
-    return cmes
-      .map((cme, originalIndex) => ({ cme, originalIndex }))
-      .sort((a, b) => {
-        const distA = a.cme.position?.distance_au || 999;
-        const distB = b.cme.position?.distance_au || 999;
-        return distA - distB;
-      });
-  }, [cmes]);
+  
+  // Persistent numbering and coloring
+  const [cmeRegistry, setCMERegistry] = useState({});
+  
+  // Assign numbers and colors based on launch order
+  const { sortedForDisplay, registry } = useMemo(() => {
+    if (!cmes || cmes.length === 0) {
+      // Board is empty - reset registry
+      return { sortedForDisplay: [], registry: {} };
+    }
+    
+    // Get existing registry or start fresh
+    const newRegistry = { ...cmeRegistry };
+    
+    // Track which numbers and colors are currently in use
+    const usedNumbers = new Set();
+    const usedColors = new Set();
+    
+    // First pass: preserve existing assignments
+    for (const cme of cmes) {
+      if (newRegistry[cme.id]) {
+        usedNumbers.add(newRegistry[cme.id].number);
+        usedColors.add(newRegistry[cme.id].color);
+      }
+    }
+    
+    // Second pass: assign numbers/colors to new CMEs
+    const cmeIds = new Set(cmes.map(c => c.id));
+    
+    // Remove CMEs that are no longer in the array
+    for (const id in newRegistry) {
+      if (!cmeIds.has(id)) {
+        delete newRegistry[id];
+      }
+    }
+    
+    // Sort by launch time to determine number assignment order
+    const sortedByLaunch = [...cmes].sort((a, b) => {
+      const timeA = a.source?.launch_time ? new Date(a.source.launch_time).getTime() : 0;
+      const timeB = b.source?.launch_time ? new Date(b.source.launch_time).getTime() : 0;
+      return timeA - timeB;
+    });
+    
+    // Assign numbers sequentially by launch order
+    let nextNumber = 1;
+    for (const cme of sortedByLaunch) {
+      if (!newRegistry[cme.id]) {
+        // Find next available number
+        while (usedNumbers.has(nextNumber)) {
+          nextNumber++;
+        }
+        
+        // Find next available color
+        let colorIndex = 0;
+        while (usedColors.has(CME_COLORS[colorIndex % CME_COLORS.length])) {
+          colorIndex++;
+          if (colorIndex >= CME_COLORS.length * 2) break; // Safety
+        }
+        
+        const assignedColor = CME_COLORS[colorIndex % CME_COLORS.length];
+        
+        newRegistry[cme.id] = {
+          number: nextNumber,
+          color: assignedColor,
+          launchTime: cme.source?.launch_time
+        };
+        
+        usedNumbers.add(nextNumber);
+        usedColors.add(assignedColor);
+        nextNumber++;
+      }
+    }
+    
+    // Sort by distance for display (nearest to Earth first)
+    const sortedForDisplay = [...cmes].sort((a, b) => {
+      const distA = a.position?.distance_au || 999;
+      const distB = b.position?.distance_au || 999;
+      return distA - distB;
+    });
+    
+    return { sortedForDisplay, registry: newRegistry };
+  }, [cmes, cmeRegistry]);
+  
+  // Update registry when it changes
+  useEffect(() => {
+    setCMERegistry(registry);
+  }, [registry]);
 
   const formatDate = (isoString) => {
     if (!isoString) return 'Unknown';
@@ -132,9 +204,9 @@ export default function CMEQueueTab({ cmes, positions }) {
         justifyContent: 'center'
       }}>
         <CMEPositionViz 
-          cmes={cmes} 
+          cmes={sortedForDisplay} 
           positions={positions}
-          cmeColors={CME_COLORS}
+          registry={registry}
           onCMEClick={setSelectedCME}
         />
       </div>
@@ -147,9 +219,10 @@ export default function CMEQueueTab({ cmes, positions }) {
         flexDirection: 'column',
         gap: 6
       }}>
-        {sortedCMEsWithIndices.map(({ cme, originalIndex }) => {
-          const cmeNumber = originalIndex + 1; // Number by launch order
-          const cmeColor = CME_COLORS[originalIndex % CME_COLORS.length];
+        {sortedForDisplay.map((cme) => {
+          const assignment = registry[cme.id] || { number: 0, color: '#888' };
+          const cmeNumber = assignment.number;
+          const cmeColor = assignment.color;
           const speedInfo = calculateEstimatedSpeed(cme);
           
           const numModels = cme.arrival?.models?.length 
@@ -285,8 +358,8 @@ export default function CMEQueueTab({ cmes, positions }) {
       {selectedCME && (
         <CMEDetailPopup
           cme={selectedCME}
-          cmeNumber={cmes.findIndex(c => c.id === selectedCME.id) + 1}
-          cmeColor={CME_COLORS[cmes.findIndex(c => c.id === selectedCME.id) % CME_COLORS.length]}
+          cmeNumber={registry[selectedCME.id]?.number || 0}
+          cmeColor={registry[selectedCME.id]?.color || '#888'}
           onClose={() => setSelectedCME(null)}
         />
       )}

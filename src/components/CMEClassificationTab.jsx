@@ -14,12 +14,12 @@ const C = {
   by_neg: '#ff8800',
   by_pos: '#4488ff',
   phi: '#44aaff',
-  crosshair: 'rgba(255,255,255,0.35)',
+  crosshair: 'rgba(255,255,255,0.6)',
   annot_sb: 'rgba(200,200,200,0.6)',
   annot_shift: 'rgba(255,180,40,0.7)',
+  phiAway: 'rgba(68,170,255,0.15)',
+  phiToward: 'rgba(238,85,119,0.15)',
 };
-
-const CME_COLORS = ['#00FFF0', '#FF00FF', '#00FF00', '#FFFF00', '#FF0080', '#0080FF', '#FF8000', '#80FF00'];
 
 const PRESETS = [
   { label: '12H', ms: 12 * 3600000 },
@@ -60,47 +60,47 @@ function parseColumnFile(raw) {
     try {
       const t = new Date(row[ti]);
       if (isNaN(t.getTime())) return null;
+      
+      // Convert phi to 0-360° range (NOAA standard)
+      let phi = indices.phi >= 0 ? row[indices.phi] : null;
+      if (phi !== null) {
+        while (phi < 0) phi += 360;
+        while (phi >= 360) phi -= 360;
+      }
+      
       return {
         time: t,
         bx: indices.bx >= 0 ? row[indices.bx] : null,
         by: indices.by >= 0 ? row[indices.by] : null,
         bz: indices.bz >= 0 ? row[indices.bz] : null,
-        phi: indices.phi >= 0 ? row[indices.phi] : null,
+        phi: phi,
       };
     } catch (_) { return null; }
   }).filter(Boolean);
 }
 
-function isToward(phi) {
-  return phi >= 90 && phi < 270;
-}
-
-// STRICTER ANNOTATIONS - reduced false positives
 function detectAnnotations(magData, timeRange) {
   const [tMin, tMax] = timeRange;
   const visData = magData.filter(d => d.time.getTime() >= tMin && d.time.getTime() <= tMax);
   const annotations = [];
   
-  // Sector boundaries - require stable sector for 30min before marking transition
   const SECTOR_STABILITY = 30 * 60000;
   let currentSector = null;
   let sectorStartTime = null;
   let lastSBAnnotation = 0;
-  const MIN_SB_GAP = 2 * 3600000; // 2 hours between SB annotations
+  const MIN_SB_GAP = 2 * 3600000;
   
   for (const pt of visData) {
     if (pt.phi === null) continue;
-    const sector = isToward(pt.phi) ? 'toward' : 'away';
+    const sector = (pt.phi >= 180 && pt.phi < 360) ? 'toward' : 'away';
     
     if (currentSector === null) {
       currentSector = sector;
       sectorStartTime = pt.time.getTime();
     } else if (sector !== currentSector) {
-      // Sector changed - reset
       currentSector = sector;
       sectorStartTime = pt.time.getTime();
     } else if (pt.time.getTime() - sectorStartTime >= SECTOR_STABILITY) {
-      // Stable for 30min and haven't annotated recently
       if (pt.time.getTime() - lastSBAnnotation >= MIN_SB_GAP) {
         annotations.push({ time: new Date(sectorStartTime), type: 'sb', label: 'SB' });
         lastSBAnnotation = pt.time.getTime();
@@ -109,10 +109,9 @@ function detectAnnotations(magData, timeRange) {
     }
   }
   
-  // Structure shifts - STRICTER: 90° in 20 min (not 60° in 15min)
   const PHI_SHIFT_THRESHOLD = 90;
   const SHIFT_WIN = 20 * 60000;
-  const MIN_SHIFT_GAP = 3600000; // 1 hour between shifts
+  const MIN_SHIFT_GAP = 3600000;
   let lastShiftAnnotation = 0;
   
   for (let i = 1; i < visData.length; i++) {
@@ -133,7 +132,7 @@ function detectAnnotations(magData, timeRange) {
         annotations.push({ time: curr.time, type: 'shift', label: 'SHIFT' });
         lastShiftAnnotation = curr.time.getTime();
       }
-      i += 10; // Skip ahead more
+      i += 10;
     }
   }
   
@@ -192,8 +191,8 @@ function PlotCanvas({ data, series, yMin, yMax, timeRange, crosshairTime, onCros
 
     const PAD_L = showLabels ? 36 : 8;
     const PAD_R = 6;
-    const PAD_T = 20;
-    const PAD_B = showLabels ? 18 : 4;
+    const PAD_T = 12; // REDUCED from 20
+    const PAD_B = showLabels ? 14 : 4; // REDUCED from 18
     const pW = W - PAD_L - PAD_R;
     const pH = H - PAD_T - PAD_B;
 
@@ -210,6 +209,21 @@ function PlotCanvas({ data, series, yMin, yMax, timeRange, crosshairTime, onCros
     ctx.fillStyle = C.plotBg;
     ctx.fillRect(0, 0, W, H);
 
+    // Phi sector backgrounds (NOAA style: 0-180° Away = Blue, 180-360° Toward = Pink)
+    if (phiMode) {
+      const y180 = vy(180);
+      const y0 = vy(0);
+      const y360 = vy(360);
+      
+      // Away sector (0-180°) - Blue
+      ctx.fillStyle = C.phiAway;
+      ctx.fillRect(PAD_L, y180, pW, y0 - y180);
+      
+      // Toward sector (180-360°) - Pink
+      ctx.fillStyle = C.phiToward;
+      ctx.fillRect(PAD_L, y360, pW, y180 - y360);
+    }
+
     ctx.strokeStyle = C.grid;
     ctx.lineWidth = 0.5;
     for (let i = 0; i <= 4; i++) {
@@ -220,7 +234,7 @@ function PlotCanvas({ data, series, yMin, yMax, timeRange, crosshairTime, onCros
       ctx.stroke();
     }
 
-    if (resolvedYMin < 0 && resolvedYMax > 0) {
+    if (resolvedYMin < 0 && resolvedYMax > 0 && !phiMode) {
       const y0 = vy(0);
       ctx.strokeStyle = C.zero;
       ctx.lineWidth = 1;
@@ -309,6 +323,7 @@ function PlotCanvas({ data, series, yMin, yMax, timeRange, crosshairTime, onCros
       }
     }
 
+    // CROSSHAIR with DATE/TIME LABEL
     if (crosshairTime && !zoomMode) {
       const closest = visData.reduce((prev, curr) =>
         Math.abs(curr.time.getTime() - crosshairTime) < Math.abs(prev.time.getTime() - crosshairTime) ? curr : prev
@@ -325,30 +340,48 @@ function PlotCanvas({ data, series, yMin, yMax, timeRange, crosshairTime, onCros
         ctx.stroke();
         ctx.setLineDash([]);
 
+        // DATE/TIME LABEL - Dynamic label at top
+        const dateLabel = closest.time.toLocaleDateString('en-US', { 
+          month: 'short', 
+          day: 'numeric' 
+        });
         const timeLabel = closest.time.toLocaleTimeString('en-US', { 
           hour: '2-digit', 
-          minute: '2-digit',
-          second: '2-digit'
+          minute: '2-digit'
         });
-        ctx.fillStyle = '#ffffff';
+        const fullLabel = `${dateLabel}, ${timeLabel}`;
+        
+        ctx.fillStyle = 'rgba(6,8,15,0.9)';
         ctx.font = `700 9px ${FONT}`;
-        ctx.textAlign = 'center';
-        ctx.fillText(timeLabel, x, PAD_T - 8);
+        const labelWidth = ctx.measureText(fullLabel).width;
+        const labelX = Math.min(x - labelWidth / 2, W - PAD_R - labelWidth - 2);
+        const labelXClamped = Math.max(PAD_L + 2, labelX);
+        ctx.fillRect(labelXClamped - 2, PAD_T - 12, labelWidth + 4, 11);
+        ctx.fillStyle = '#ffffff';
+        ctx.textAlign = 'left';
+        ctx.fillText(fullLabel, labelXClamped, PAD_T - 4);
 
+        // Value labels
         for (const s of series) {
           const v = closest[s.key];
           if (v === null || v === undefined) continue;
           const y = vy(v);
           if (y === null) continue;
           const color = s.colorFn ? s.colorFn(v) : s.color;
+          
           ctx.fillStyle = color;
           ctx.beginPath();
           ctx.arc(x, y, 3, 0, Math.PI * 2);
           ctx.fill();
+          
+          const val = phiMode ? `${v.toFixed(0)}°` : v.toFixed(1);
+          ctx.fillStyle = 'rgba(6,8,15,0.8)';
+          const tw = ctx.measureText(val).width;
+          const lx = Math.min(x + 3, W - PAD_R - tw - 2);
+          ctx.fillRect(lx - 1, y - 8, tw + 4, 11);
           ctx.fillStyle = color;
-          ctx.font = `700 9px ${FONT}`;
-          ctx.textAlign = 'left';
-          ctx.fillText(`${s.label}: ${v.toFixed(1)}`, x + 6, y + 3);
+          ctx.font = `8px ${FONT}`;
+          ctx.fillText(val, lx + 1, y);
         }
       }
     }
@@ -357,9 +390,21 @@ function PlotCanvas({ data, series, yMin, yMax, timeRange, crosshairTime, onCros
       ctx.fillStyle = C.textDim;
       ctx.font = `9px ${FONT}`;
       ctx.textAlign = 'right';
-      ctx.fillText(resolvedYMax.toFixed(0), PAD_L - 4, PAD_T + 10);
-      ctx.fillText('0', PAD_L - 4, vy(0) + 3);
-      ctx.fillText(resolvedYMin.toFixed(0), PAD_L - 4, PAD_T + pH);
+      
+      if (phiMode) {
+        // Phi labels: 0, 90, 180, 270, 360
+        ctx.fillText('360°', PAD_L - 4, vy(360) + 3);
+        ctx.fillText('270°', PAD_L - 4, vy(270) + 3);
+        ctx.fillText('180°', PAD_L - 4, vy(180) + 3);
+        ctx.fillText('90°', PAD_L - 4, vy(90) + 3);
+        ctx.fillText('0°', PAD_L - 4, vy(0) + 3);
+      } else {
+        ctx.fillText(resolvedYMax.toFixed(0), PAD_L - 4, PAD_T + 10);
+        if (!symmetric || resolvedYMin !== -resolvedYMax) {
+          ctx.fillText('0', PAD_L - 4, vy(0) + 3);
+        }
+        ctx.fillText(resolvedYMin.toFixed(0), PAD_L - 4, PAD_T + pH);
+      }
 
       if (yLabel) {
         ctx.save();
@@ -392,17 +437,23 @@ function PlotCanvas({ data, series, yMin, yMax, timeRange, crosshairTime, onCros
     return () => resizeObserver.disconnect();
   }, [draw]);
 
+  // DRAG BEHAVIOR (not tap)
   const handleInteraction = (e) => {
     if (!onCrosshair) return;
     const canvas = canvasRef.current;
     const rect = canvas.getBoundingClientRect();
-    const x = e.clientX - rect.left;
+    const x = e.clientX || e.touches?.[0]?.clientX;
+    if (!x) return;
+    const clientX = x - rect.left;
     const PAD_L = showLabels ? 36 : 8;
     const PAD_R = 6;
     const pW = canvas.clientWidth - PAD_L - PAD_R;
-    if (x < PAD_L || x > canvas.clientWidth - PAD_R) return;
+    if (clientX < PAD_L || clientX > canvas.clientWidth - PAD_R) {
+      onCrosshair(null);
+      return;
+    }
     const [tMin, tMax] = timeRange;
-    const t = tMin + ((x - PAD_L) / pW) * (tMax - tMin);
+    const t = tMin + ((clientX - PAD_L) / pW) * (tMax - tMin);
     onCrosshair(t);
   };
 
@@ -411,18 +462,20 @@ function PlotCanvas({ data, series, yMin, yMax, timeRange, crosshairTime, onCros
       ref={canvasRef}
       style={{ width: '100%', height: '100%', cursor: zoomMode ? 'crosshair' : 'default' }}
       onMouseMove={(e) => !zoomMode && handleInteraction(e)}
+      onTouchMove={(e) => !zoomMode && handleInteraction(e)}
       onMouseLeave={() => !zoomMode && onCrosshair?.(null)}
+      onTouchEnd={() => !zoomMode && onCrosshair?.(null)}
       onClick={zoomMode ? handleInteraction : undefined}
     />
   );
 }
 
-export default function CMEClassificationTab({ cmes, classifications }) {
+export default function CMEClassificationTab({ cmes, classifications, registry }) {
   const [showBz, setShowBz] = useState(true);
   const [showBy, setShowBy] = useState(true);
   const [magData, setMagData] = useState([]);
   const [loadError, setLoadError] = useState(null);
-  const [selectedCMEIndex, setSelectedCMEIndex] = useState(0);
+  const [selectedCMEId, setSelectedCMEId] = useState(null);
   
   const [presetMs, setPresetMs] = useState(24 * 3600000);
   const [zoomRange, setZoomRange] = useState(null);
@@ -455,6 +508,13 @@ export default function CMEClassificationTab({ cmes, classifications }) {
     return () => clearInterval(interval);
   }, []);
 
+  // Auto-select first CME if none selected
+  useEffect(() => {
+    if (cmes && cmes.length > 0 && !selectedCMEId) {
+      setSelectedCMEId(cmes[0].id);
+    }
+  }, [cmes, selectedCMEId]);
+
   const now = Date.now();
   const timeRange = zoomRange || [now - presetMs, now];
 
@@ -484,12 +544,11 @@ export default function CMEClassificationTab({ cmes, classifications }) {
     return <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', color: C.text, fontSize: 11 }}>No active CMEs to classify</div>;
   }
 
-  const selectedCME = cmes[selectedCMEIndex];
-  const selectedColor = CME_COLORS[selectedCMEIndex % CME_COLORS.length];
+  const selectedCME = cmes.find(c => c.id === selectedCMEId) || cmes[0];
+  const assignment = registry[selectedCME.id] || { number: 0, color: '#888' };
+  const selectedColor = assignment.color;
+  const selectedNumber = assignment.number;
   const classification = classifications[selectedCME.id];
-
-  // FLEX LAYOUT like Space Weather
-  const numExpanded = (bzByExpanded ? 1 : 0) + (phiExpanded ? 1 : 0);
 
   return (
     <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
@@ -534,8 +593,7 @@ export default function CMEClassificationTab({ cmes, classifications }) {
         </div>
       )}
 
-      {/* SPACE WEATHER STYLE LAYOUT - Equal space distribution */}
-      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', padding: '8px', gap: 8, overflow: 'hidden' }}>
+      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', padding: '6px', gap: 6, overflow: 'hidden' }}>
         <div style={{ 
           background: C.bg, 
           border: `1px solid ${C.border}`, 
@@ -546,7 +604,7 @@ export default function CMEClassificationTab({ cmes, classifications }) {
           minHeight: bzByExpanded ? 100 : 'auto'
         }}>
           <div onClick={() => setBzByExpanded(!bzByExpanded)} style={{ 
-            padding: '8px 10px', cursor: 'pointer', display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+            padding: '4px 8px', cursor: 'pointer', display: 'flex', justifyContent: 'space-between', alignItems: 'center',
             borderBottom: bzByExpanded ? `1px solid ${C.border}` : 'none', flexShrink: 0
           }}>
             <span style={{ color: C.textDim, fontSize: 8, letterSpacing: 1 }}>MAGNETIC FIELD (nT)</span>
@@ -561,8 +619,8 @@ export default function CMEClassificationTab({ cmes, classifications }) {
             </div>
           </div>
           {bzByExpanded && magData.length > 0 && (
-            <div style={{ flex: 1, padding: '8px', minHeight: 0 }}>
-              <PlotCanvas data={magData} series={bzBySeries} timeRange={timeRange} crosshairTime={crosshairT} onCrosshair={zoomMode ? handleZoomTap : setCrosshairT} zoomMode={zoomMode} symmetric={true} showLabels={true} yLabel="nT" annotations={annotations} showAnnotations={showAnnotations} />
+            <div style={{ flex: 1, padding: '4px', minHeight: 0 }}>
+              <PlotCanvas data={magData} series={bzBySeries} timeRange={timeRange} crosshairTime={crosshairT} onCrosshair={setCrosshairT} zoomMode={false} symmetric={true} showLabels={true} yLabel="nT" annotations={annotations} showAnnotations={showAnnotations} />
             </div>
           )}
         </div>
@@ -578,15 +636,15 @@ export default function CMEClassificationTab({ cmes, classifications }) {
             minHeight: phiExpanded ? 100 : 'auto'
           }}>
             <div onClick={() => setPhiExpanded(!phiExpanded)} style={{ 
-              padding: '8px 10px', cursor: 'pointer', display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+              padding: '4px 8px', cursor: 'pointer', display: 'flex', justifyContent: 'space-between', alignItems: 'center',
               borderBottom: phiExpanded ? `1px solid ${C.border}` : 'none', flexShrink: 0
             }}>
               <span style={{ color: C.textDim, fontSize: 8, letterSpacing: 1 }}>IMF PHI GSM (°)</span>
               <span style={{ color: C.textDim, fontSize: 12 }}>{phiExpanded ? '▼' : '▶'}</span>
             </div>
             {phiExpanded && (
-              <div style={{ flex: 1, padding: '8px', minHeight: 0 }}>
-                <PlotCanvas data={magData} series={phiSeries} yMin={-180} yMax={180} timeRange={timeRange} crosshairTime={crosshairT} onCrosshair={zoomMode ? handleZoomTap : setCrosshairT} zoomMode={zoomMode} showLabels={true} yLabel="deg" phiMode={true} annotations={annotations} showAnnotations={showAnnotations} />
+              <div style={{ flex: 1, padding: '4px', minHeight: 0 }}>
+                <PlotCanvas data={magData} series={phiSeries} yMin={0} yMax={360} timeRange={timeRange} crosshairTime={crosshairT} onCrosshair={setCrosshairT} zoomMode={false} showLabels={true} yLabel="deg" phiMode={true} annotations={annotations} showAnnotations={showAnnotations} />
               </div>
             )}
           </div>
@@ -597,14 +655,14 @@ export default function CMEClassificationTab({ cmes, classifications }) {
           background: C.bg, 
           border: `2px solid ${selectedColor}`, 
           borderRadius: 4, 
-          padding: '10px', 
+          padding: '6px', 
           display: 'flex', 
           flexDirection: 'column', 
           minHeight: 100,
           overflow: 'hidden'
         }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8, paddingBottom: 8, borderBottom: `1px solid ${C.border}`, flexShrink: 0 }}>
-            <span style={{ color: selectedColor, fontSize: 18, fontWeight: 'bold' }}>{selectedCMEIndex + 1}</span>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6, paddingBottom: 4, borderBottom: `1px solid ${C.border}`, flexShrink: 0 }}>
+            <span style={{ color: selectedColor, fontSize: 18, fontWeight: 'bold' }}>{selectedNumber}</span>
             <span style={{ color: C.textDim, fontSize: 9, fontFamily: FONT, flex: 1 }}>{selectedCME.id}</span>
             <span style={{
               background: selectedCME.state?.current === 'WATCH' ? '#FFA500' : '#4a6a70',
@@ -631,17 +689,20 @@ export default function CMEClassificationTab({ cmes, classifications }) {
           </div>
 
           {cmes.length > 1 && (
-            <div style={{ display: 'flex', gap: 4, marginTop: 10, paddingTop: 10, borderTop: `1px solid ${C.border}`, justifyContent: 'center', flexWrap: 'wrap', flexShrink: 0 }}>
-              {cmes.map((cme, idx) => (
-                <button key={cme.id} onClick={() => setSelectedCMEIndex(idx)} style={{
-                  background: idx === selectedCMEIndex ? `${CME_COLORS[idx % CME_COLORS.length]}22` : 'transparent',
-                  border: `1px solid ${CME_COLORS[idx % CME_COLORS.length]}`,
-                  color: CME_COLORS[idx % CME_COLORS.length],
-                  minWidth: 28, height: 28, borderRadius: 4, cursor: 'pointer',
-                  fontSize: 10, fontWeight: 'bold', transition: 'all 0.2s ease',
-                  boxShadow: idx === selectedCMEIndex ? `0 0 12px ${CME_COLORS[idx % CME_COLORS.length]}88` : 'none'
-                }}>{idx + 1}</button>
-              ))}
+            <div style={{ display: 'flex', gap: 4, marginTop: 6, paddingTop: 6, borderTop: `1px solid ${C.border}`, justifyContent: 'center', flexWrap: 'wrap', flexShrink: 0 }}>
+              {cmes.map((cme) => {
+                const cmeAssignment = registry[cme.id] || { number: 0, color: '#888' };
+                return (
+                  <button key={cme.id} onClick={() => setSelectedCMEId(cme.id)} style={{
+                    background: cme.id === selectedCMEId ? `${cmeAssignment.color}22` : 'transparent',
+                    border: `1px solid ${cmeAssignment.color}`,
+                    color: cmeAssignment.color,
+                    minWidth: 28, height: 28, borderRadius: 4, cursor: 'pointer',
+                    fontSize: 10, fontWeight: 'bold', transition: 'all 0.2s ease',
+                    boxShadow: cme.id === selectedCMEId ? `0 0 12px ${cmeAssignment.color}88` : 'none'
+                  }}>{cmeAssignment.number}</button>
+                );
+              })}
             </div>
           )}
         </div>

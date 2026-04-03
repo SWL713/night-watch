@@ -1,32 +1,27 @@
 import { useState } from 'react';
-import { useCMEData } from '../hooks/useCMEData';
 import CMEQueueTab from './CMEQueueTab';
 import CMEClassificationTab from './CMEClassificationTab';
+import useCMEData from '../hooks/useCMEData';
 
 const FONT = 'DejaVu Sans Mono, Consolas, monospace';
 const C = {
   bg: '#06080f',
   border: '#0d1525',
-  textDim: '#1a2a3a',
+  tabActive: '#44ddaa',
+  tabInactive: '#1a2a3a',
+  text: '#e0e6ed',
 };
 
 export default function CMEDashboard() {
-  const { cmes, positions, classifications, loading, error } = useCMEData();
-  const [subTab, setSubTab] = useState('queue');
+  const [activeTab, setActiveTab] = useState('queue');
+  const { cmes, classifications, positions, loading, error } = useCMEData();
+
+  // Share registry between tabs
+  const [registry, setRegistry] = useState({});
 
   if (loading) {
     return (
-      <div style={{ 
-        display: 'flex', 
-        flexDirection: 'column', 
-        height: '100%', 
-        background: C.bg, 
-        fontFamily: FONT,
-        alignItems: 'center',
-        justifyContent: 'center',
-        color: '#2a4a5a',
-        fontSize: 11
-      }}>
+      <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', color: C.text, fontSize: 11 }}>
         Loading CME data...
       </div>
     );
@@ -34,84 +29,67 @@ export default function CMEDashboard() {
 
   if (error) {
     return (
-      <div style={{ 
-        display: 'flex', 
-        flexDirection: 'column', 
-        height: '100%', 
-        background: C.bg, 
-        fontFamily: FONT,
-        alignItems: 'center',
-        justifyContent: 'center',
-        color: '#ff4444',
-        fontSize: 11
-      }}>
-        Error: {error}
+      <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#ff6666', fontSize: 11 }}>
+        Error loading CME data: {error}
       </div>
     );
   }
 
   return (
-    <div style={{ 
-      display: 'flex', 
-      flexDirection: 'column', 
-      height: '100%', 
-      background: C.bg, 
-      fontFamily: FONT, 
-      overflow: 'hidden' 
-    }}>
-      {/* Sub-tab selector - EXACT same style as SpaceWeatherPanel */}
+    <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
       <div style={{ 
         display: 'flex', 
-        gap: 3, 
-        padding: '4px 8px', 
-        borderBottom: `1px solid ${C.border}`, 
-        flexShrink: 0 
+        gap: 4, 
+        padding: '8px 12px', 
+        borderBottom: `2px solid ${C.border}`,
+        background: C.bg,
+        flexShrink: 0
       }}>
-        {[
-          ['queue', 'QUEUE'],
-          ['classification', 'CLASSIFICATION']
-        ].map(([key, label]) => (
-          <button 
-            key={key} 
-            onClick={() => setSubTab(key)} 
-            style={{
-              flex: 1, 
-              height: 28, 
-              background: subTab === key ? '#0d1a2a' : '#060810',
-              border: `1px solid ${subTab === key ? '#44ddaa' : '#1a2a3a'}`,
-              color: subTab === key ? '#44ddaa' : '#2a4a5a',
-              fontSize: 9, 
-              fontFamily: FONT, 
-              letterSpacing: 0.5,
-              cursor: 'pointer', 
-              borderRadius: 2, 
-              position: 'relative',
-            }}
-          >
-            {subTab === key && (
-              <div style={{ 
-                position: 'absolute', 
-                top: 0, 
-                left: 0, 
-                right: 0, 
-                height: 1, 
-                background: 'rgba(68,221,170,0.5)' 
-              }} />
-            )}
-            {label}
-          </button>
-        ))}
+        <button
+          onClick={() => setActiveTab('queue')}
+          style={{
+            background: activeTab === 'queue' ? 'rgba(68,221,170,0.1)' : 'transparent',
+            border: `1px solid ${activeTab === 'queue' ? C.tabActive : C.tabInactive}`,
+            color: activeTab === 'queue' ? C.tabActive : C.tabInactive,
+            padding: '6px 16px',
+            fontSize: 10,
+            fontFamily: FONT,
+            fontWeight: activeTab === 'queue' ? 700 : 400,
+            cursor: 'pointer',
+            borderRadius: 3,
+            letterSpacing: 0.5,
+            transition: 'all 0.2s ease',
+          }}
+        >
+          CME QUEUE
+        </button>
+        <button
+          onClick={() => setActiveTab('classification')}
+          style={{
+            background: activeTab === 'classification' ? 'rgba(68,221,170,0.1)' : 'transparent',
+            border: `1px solid ${activeTab === 'classification' ? C.tabActive : C.tabInactive}`,
+            color: activeTab === 'classification' ? C.tabActive : C.tabInactive,
+            padding: '6px 16px',
+            fontSize: 10,
+            fontFamily: FONT,
+            fontWeight: activeTab === 'classification' ? 700 : 400,
+            cursor: 'pointer',
+            borderRadius: 3,
+            letterSpacing: 0.5,
+            transition: 'all 0.2s ease',
+          }}
+        >
+          CLASSIFICATION
+        </button>
       </div>
 
-      {/* Content area - fills remaining space */}
-      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
-        {subTab === 'queue' && (
-          <CMEQueueTab cmes={cmes} positions={positions} />
-        )}
-        {subTab === 'classification' && (
-          <CMEClassificationTab cmes={cmes} classifications={classifications} />
-        )}
-      </div>
+      {activeTab === 'queue' && (
+        <CMEQueueTab cmes={cmes} positions={positions} />
+      )}
+
+      {activeTab === 'classification' && (
+        <CMEClassificationTab cmes={cmes} classifications={classifications} registry={registry} />
+      )}
     </div>
   );
 }
