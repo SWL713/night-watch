@@ -55,18 +55,45 @@ def calculate_single_cme_position(cme, coronal_holes, log):
     t_seconds = elapsed_hours * 3600
     v_current = w + (v0 - w) * math.exp(-gamma * w * t_seconds)
     
-    # Integrate to get distance: x(t) = w*t + (v0-w)/(gamma*w) * (1 - exp(-gamma*w*t))
-    if abs(gamma * w) > 1e-10:
-        x_km = w * t_seconds + (v0 - w) / (gamma * w) * (1 - math.exp(-gamma * w * t_seconds))
-    else:
-        x_km = v0 * t_seconds
-    
-    # Convert to AU
+    # Calculate distance - ALIGN WITH SCOREBOARD if available
     km_per_au = 1.496e8
-    distance_au = x_km / km_per_au
-    
-    # Calculate progress and ETA
     target_au = 1.0  # Distance to L1
+    distance_au = None
+    distance_source = 'dbm'
+    
+    # Priority 1: If scoreboard arrival time available, reverse-calculate distance
+    # This ensures visualizer shows CME at correct position for predicted arrival
+    if cme.get('arrival', {}).get('median_prediction'):
+        scoreboard_arrival = cme['arrival']['median_prediction']
+        total_travel_seconds = scoreboard_arrival - launch_time.timestamp()
+        elapsed_seconds = (now - launch_time).total_seconds()
+        
+        if total_travel_seconds > 0:
+            # Linear interpolation based on time
+            progress_fraction = elapsed_seconds / total_travel_seconds
+            distance_au = target_au * progress_fraction
+            distance_source = 'scoreboard_aligned'
+    
+    elif cme.get('arrival', {}).get('average_prediction'):
+        scoreboard_arrival = cme['arrival']['average_prediction']
+        total_travel_seconds = scoreboard_arrival - launch_time.timestamp()
+        elapsed_seconds = (now - launch_time).total_seconds()
+        
+        if total_travel_seconds > 0:
+            progress_fraction = elapsed_seconds / total_travel_seconds
+            distance_au = target_au * progress_fraction
+            distance_source = 'scoreboard_aligned'
+    
+    # Priority 2: Fallback to DBM physics calculation
+    if distance_au is None:
+        # Integrate to get distance: x(t) = w*t + (v0-w)/(gamma*w) * (1 - exp(-gamma*w*t))
+        if abs(gamma * w) > 1e-10:
+            x_km = w * t_seconds + (v0 - w) / (gamma * w) * (1 - math.exp(-gamma * w * t_seconds))
+        else:
+            x_km = v0 * t_seconds
+        distance_au = x_km / km_per_au
+    
+    # Calculate progress
     progress_percent = min(100, (distance_au / target_au) * 100)
     
     # ETA - PRIORITIZE SCOREBOARD PREDICTION (NASA consensus is ground truth)
@@ -101,7 +128,8 @@ def calculate_single_cme_position(cme, coronal_holes, log):
             'distance_au': round(distance_au, 3),
             'distance_rsun': round(distance_au * 215, 1),
             'velocity_current': round(v_current, 1),
-            'acceleration': 0  # Placeholder
+            'acceleration': 0,  # Placeholder
+            'distance_source': distance_source  # NEW: track calculation method
         },
         'uncertainty': {
             'cone_half_angle_deg': cme['properties'].get('half_angle', 35),
