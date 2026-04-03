@@ -32,6 +32,7 @@ import { useSpaceWeather } from './hooks/useSpaceWeather.js'
 import { useSpots } from './hooks/useSpots.js'
 import { useCloudCover } from './hooks/useCloudCover.js'
 import { getMoonData } from './utils/moon.js'
+import CMEDashboard from './components/CMEDashboard.jsx'
 
 import { MAP_BOUNDS, PASSPHRASE } from './config.js'
 import { loadBortleGrid, getBortle } from './utils/bortleGrid.js'
@@ -213,7 +214,13 @@ function App() {
         </div>
       )}
 
-      {(activeTab === 'substorm' || activeTab === 'cme') && (
+      {/* CME Dashboard tab */}
+      {activeTab === 'cme' && (
+        <CMEDashboard />
+      )}
+
+      {/* Substorm tab - keep placeholder */}
+      {activeTab === 'substorm' && (
         <div style={{
           flex: 1, background: '#000', display: 'flex',
           alignItems: 'center', justifyContent: 'center',
@@ -223,8 +230,7 @@ function App() {
             fontFamily: FONT, color: '#44ddaa', fontSize: 11,
             letterSpacing: 2, textAlign: 'center', borderRadius: 2,
           }}>
-            {activeTab === 'substorm' && 'SUBSTORM TIMING'}
-            {activeTab === 'cme'      && 'CME DASHBOARD'}
+            SUBSTORM TIMING
             <br/><br/>THIS FEATURE IS COMING SOON
           </div>
         </div>

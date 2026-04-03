@@ -4,3 +4,4 @@ pandas>=2.1.0
 netCDF4>=1.6.0
 cfgrib>=0.9.10
 scipy>=1.11.0
+beautifulsoup4==4.12.3
