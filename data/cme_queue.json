@@ -1,6 +1,6 @@
 {
   "metadata": {
-    "last_updated": "2026-04-03T07:57:53.890972+00:00",
+    "last_updated": "2026-04-03T09:46:11.846301+00:00",
     "schema_version": "1.0"
   },
   "active_cme_id": "CME_2026-04-03T16:50Z\r\n\r\n(-6.99h, +8.82h)",
@@ -145,100 +145,6 @@
       },
       "created_at": "2026-04-03T04:24:41.539563+00:00",
       "last_updated": "2026-04-03T04:24:41.539568+00:00"
-    },
-    {
-      "id": "CME_2026-04-04T05:29Z",
-      "source": {
-        "launch_time": null,
-        "location": {
-          "latitude": 0,
-          "longitude": 0
-        },
-        "associated_flare": null,
-        "coronal_hole": null
-      },
-      "properties": {
-        "speed_initial": 62.3333,
-        "speed_current": 62.3333,
-        "half_angle": 35,
-        "type": "---",
-        "direction_lat": 0,
-        "direction_lon": 0
-      },
-      "arrival": {
-        "average_prediction": null,
-        "median_prediction": null,
-        "earliest_prediction": null,
-        "latest_prediction": null,
-        "num_models": 0,
-        "confidence_spread_hours": 0
-      },
-      "state": {
-        "current": "QUIET",
-        "entered_at": "2026-04-03T04:24:41.539617+00:00",
-        "history": []
-      },
-      "classification": {
-        "status": "PENDING",
-        "window_start": null,
-        "window_end": null,
-        "bs_type": null,
-        "confidence": null
-      },
-      "position": {
-        "distance_au": 0.01,
-        "progress_percent": 0,
-        "eta_hours": null
-      },
-      "created_at": "2026-04-03T04:24:41.539624+00:00",
-      "last_updated": "2026-04-03T04:24:41.539627+00:00"
-    },
-    {
-      "id": "CME_2026-04-04T00:13Z",
-      "source": {
-        "launch_time": null,
-        "location": {
-          "latitude": 0,
-          "longitude": 0
-        },
-        "associated_flare": null,
-        "coronal_hole": null
-      },
-      "properties": {
-        "speed_initial": 66.0,
-        "speed_current": 66.0,
-        "half_angle": 35,
-        "type": "---",
-        "direction_lat": 0,
-        "direction_lon": 0
-      },
-      "arrival": {
-        "average_prediction": null,
-        "median_prediction": null,
-        "earliest_prediction": null,
-        "latest_prediction": null,
-        "num_models": 0,
-        "confidence_spread_hours": 0
-      },
-      "state": {
-        "current": "QUIET",
-        "entered_at": "2026-04-03T04:24:41.539685+00:00",
-        "history": []
-      },
-      "classification": {
-        "status": "PENDING",
-        "window_start": null,
-        "window_end": null,
-        "bs_type": null,
-        "confidence": null
-      },
-      "position": {
-        "distance_au": 0.01,
-        "progress_percent": 0,
-        "eta_hours": null
-      },
-      "created_at": "2026-04-03T04:24:41.539692+00:00",
-      "last_updated": "2026-04-03T04:24:41.539697+00:00"
     },
     {
       "id": "CME_Predicted Shock Arrival Time\nDifference (hrs)\nConfidence (%)\nSubmitted On\nLead Time (hrs)\nPredicted Geomagnetic Storm Parameter(s)\nMethod\nSubmitted By\n\n\n\n\n2026-03-31T10:40Z\r\n\r\n(-7.0h, +7.0h)\r\n\r\n\r\n\r\n\n\r\n\r\n\r\n-24.82\r\n\r\n\n\r\n\r\n----\r\n\r\n\r\n\n2026-03-30T04:45Z\n\r\n54.73\r\n\n\r\n\r\n\r\nMax Kp Range: 7.0 - 9.0\n\n\r\n\r\n  \r\n  \r\n\tWSA-ENLIL + Cone (NASA M2M) \r\n  \r\n\r\n\nCarina Alden (M2M SWAO)\n\n Detail\n\n\n2026-03-31T11:00Z\r\n\r\n\r\n\r\n\n\r\n\r\n\r\n-24.48\r\n\r\n\n\r\n\r\n----\r\n\r\n\r\n\n2026-03-30T06:00Z\n\r\n53.48\r\n\n\r\n\r\n----\r\n\r\n\r\n\r\n\r\n\r\n\r\n\n\nWSA-ENLIL + Cone (KSWC) \n\nRWC KSWC (KASA)\n\n Detail\n\n\n2026-04-01T04:24Z\r\n\r\n(-30.3h, +30.3h)\r\n\r\n\r\n\r\n\n\r\n\r\n\r\n-7.08\r\n\r\n\n\r\n\r\n\r\n80.0\r\n\r\n\n2026-03-30T06:00Z\n\r\n53.48\r\n\n\r\n\r\n\r\nMax Kp Range: 5.0 - 7.0\n\n\nIZMIRAN \n\nNataly Shlyk (IZMIRAN)\n\n Detail\n\n\n2026-03-31T12:17Z\r\n\r\n(-6.17h, +6.17h)\r\n\r\n\r\n\r\n\n\r\n\r\n\r\n-23.20\r\n\r\n\n\r\n\r\n\r\n99.0\r\n\r\n\n2026-03-30T11:51Z\n\r\n47.63\r\n\n\r\n\r\n----\r\n\r\n\r\n\r\n\r\n\r\n\r\n\n\r\n\r\n  \r\n  \r\n\tELEvo \r\n  \r\n\r\n\nHannah Ruedisser (ASWO)\n\n Detail\n\n\n2026-03-31T16:09Z\r\n\r\n(-3.25h, +3.91h)\r\n\r\n\r\n\r\n\n\r\n\r\n\r\n-19.33\r\n\r\n\n\r\n\r\n\r\n90.0\r\n\r\n\n2026-03-30T12:05Z\n\r\n47.40\r\n\n\r\n\r\n----\r\n\r\n\r\n\r\n\r\n\r\n\r\n\n\nCMEFM v.0.1 \n\nGarrett Imhoff (Other)\n\n Detail\n\n\n2026-03-31T21:00Z\r\n\r\n\r\n\r\n\n\r\n\r\n\r\n-14.48\r\n\r\n\n\r\n\r\n\r\n70.0\r\n\r\n\n2026-03-30T12:09Z\n\r\n47.33\r\n\n\r\n\r\n\r\nMax Kp Range: 6.0 - 8.0\n\n\r\n\r\n  \r\n  \r\n\tCone + HAF (SEPC, NSSC, CAS) \r\n  \r\n\r\n\nJingjing Wang (NSSC SEPC)\n\n Detail\n\n\n2026-03-31T15:07Z\r\n\r\n(-7.0h, +7.0h)\r\n\r\n\r\n\r\n\n\r\n\r\n\r\n-20.37\r\n\r\n\n\r\n\r\n----\r\n\r\n\r\n\n2026-03-30T12:37Z\n\r\n46.87\r\n\n\r\n\r\n\r\nMax Kp Range: 6.0 - 8.0\n\n\r\n\r\n  \r\n  \r\n\tWSA-ENLIL + Cone (NASA M2M) \r\n  \r\n\r\n\nAnna Chulaki (M2M SWAO)\n\n Detail\n\n\n2026-03-31T12:00Z\r\n\r\n(-5.0h, +12.0h)\r\n\r\n\r\n\r\n\n\r\n\r\n\r\n-23.48\r\n\r\n\n\r\n\r\n----\r\n\r\n\r\n\n2026-03-30T18:30Z\n\r\n40.98\r\n\n\r\n\r\n\r\nMax Kp Range: 5.0 - 7.0\n\n\nWSA-ENLIL + Cone (Met Office) \n\nMet Office (Met Office)\n\n Detail\n\n\n2026-03-31T12:00Z\r\n\r\n(-12.0h, +12.0h)\r\n\r\n\r\n\r\n\n\r\n\r\n\r\n-23.48\r\n\r\n\n\r\n\r\n\r\n85.0\r\n\r\n\n2026-03-30T20:44Z\n\r\n38.75\r\n\n\r\n\r\n\r\nMax Kp Range: 6.0 - 8.0\n\n\nOther (SIDC) \n\nMelissa Kane (M2M SWAO)\n\n Detail\n\n\n2026-03-31T16:09Z\r\n\r\n(-6.21h, +6.3h)\r\n\r\n\r\n\r\n\n\r\n\r\n\r\n-19.33\r\n\r\n\n\r\n\r\n\r\n92.0\r\n\r\n\n2026-03-30T20:46Z\n\r\n38.72\r\n\n\r\n\r\n\r\nMax Kp Range: 5.0 - 7.0\n\n\r\n\r\n  \r\n  \r\n\tEnsemble WSA-ENLIL + Cone (NASA M2M) \r\n  \r\n\r\n\nMelissa Kane (M2M SWAO)\n\n Detail\n\n\n2026-03-31T16:00Z\r\n\r\n\r\n\r\n\n\r\n\r\n\r\n-19.48\r\n\r\n\n\r\n\r\n\r\n100.0\r\n\r\n\n2026-03-31T02:00Z\n\r\n33.48\r\n\n\r\n\r\n\r\nMax Kp Range: 7.0 - 8.0\n\n\nWSA-ENLIL + Cone (BoM) \n\nDuty Forecaster (ASWFC)\n\n Detail\n\n\n2026-03-31T16:44Z\r\n\r\n\r\n\r\n\n\r\n\r\n\r\n-18.75\r\n\r\n\n\r\n\r\n\r\n88.0\r\n\r\n\n---\n---\n\r\n\r\n\r\nMax Kp Range: 5.875 - 7.75\n\n\r\n\r\n  \r\n  \r\n\tAverage of all Methods \r\n  \r\n\r\n\nAuto Generated (CCMC)\n\n Detail\n\n\n2026-03-31T15:33Z\r\n\r\n\r\n\r\n\n\r\n\r\n\r\n-19.93\r\n\r\n\n\r\n\r\n\r\n90.0\r\n\r\n\n---\n---\n\r\n\r\n\r\nMax Kp Range: 6.0 - 8.0\n\n\r\n\r\n  \r\n  \r\n\tMedian of all Methods \r\n  \r\n\r\n\nAuto Generated (CCMC)\n\n Detail\n\n\n2026-04-01T06:04Z\r\n\r\n\r\n\r\n\n\r\n\r\n\r\n-5.42\r\n\r\n\n\r\n\r\n----\r\n\r\n\r\n\n2026-03-31T19:11Z\n\r\n16.30\r\n\n\r\n\r\n----\r\n\r\n\r\n\r\n\r\n\r\n\r\n\n\nCMEFM v.0.1 \n\nGarrett Imhoff (Other)\n\n Detail",
@@ -5885,6 +5791,150 @@
       },
       "created_at": "2026-04-03T04:24:41.546771+00:00",
       "last_updated": "2026-04-03T04:24:41.546774+00:00"
+    },
+    {
+      "id": "CME_2026-04-04T04:24Z",
+      "source": {
+        "launch_time": null,
+        "location": {
+          "latitude": 0,
+          "longitude": 0
+        },
+        "associated_flare": null,
+        "coronal_hole": null
+      },
+      "properties": {
+        "speed_initial": 71.75,
+        "speed_current": 71.75,
+        "half_angle": 35,
+        "type": "---",
+        "direction_lat": 0,
+        "direction_lon": 0
+      },
+      "arrival": {
+        "average_prediction": null,
+        "median_prediction": null,
+        "earliest_prediction": null,
+        "latest_prediction": null,
+        "num_models": 0,
+        "confidence_spread_hours": 0,
+        "scoreboard_url": "https://kauai.ccmc.gsfc.nasa.gov/CMEscoreboard/"
+      },
+      "state": {
+        "current": "QUIET",
+        "entered_at": "2026-04-03T09:46:11.844215+00:00",
+        "history": []
+      },
+      "classification": {
+        "status": "PENDING",
+        "window_start": null,
+        "window_end": null,
+        "bs_type": null,
+        "confidence": null
+      },
+      "position": {
+        "distance_au": 0.01,
+        "progress_percent": 0,
+        "eta_hours": null
+      },
+      "created_at": "2026-04-03T09:46:11.844230+00:00",
+      "last_updated": "2026-04-03T09:46:11.844233+00:00"
+    },
+    {
+      "id": "CME_2026-04-03T23:36Z",
+      "source": {
+        "launch_time": null,
+        "location": {
+          "latitude": 0,
+          "longitude": 0
+        },
+        "associated_flare": null,
+        "coronal_hole": null
+      },
+      "properties": {
+        "speed_initial": 77.0,
+        "speed_current": 77.0,
+        "half_angle": 35,
+        "type": "---",
+        "direction_lat": 0,
+        "direction_lon": 0
+      },
+      "arrival": {
+        "average_prediction": null,
+        "median_prediction": null,
+        "earliest_prediction": null,
+        "latest_prediction": null,
+        "num_models": 0,
+        "confidence_spread_hours": 0,
+        "scoreboard_url": "https://kauai.ccmc.gsfc.nasa.gov/CMEscoreboard/"
+      },
+      "state": {
+        "current": "QUIET",
+        "entered_at": "2026-04-03T09:46:11.844289+00:00",
+        "history": []
+      },
+      "classification": {
+        "status": "PENDING",
+        "window_start": null,
+        "window_end": null,
+        "bs_type": null,
+        "confidence": null
+      },
+      "position": {
+        "distance_au": 0.01,
+        "progress_percent": 0,
+        "eta_hours": null
+      },
+      "created_at": "2026-04-03T09:46:11.844294+00:00",
+      "last_updated": "2026-04-03T09:46:11.844296+00:00"
+    },
+    {
+      "id": "CME_2026-04-03T23:00Z\r\n\r\n(-6.33h, +6.33h)",
+      "source": {
+        "launch_time": null,
+        "location": {
+          "latitude": 0,
+          "longitude": 0
+        },
+        "associated_flare": null,
+        "coronal_hole": null
+      },
+      "properties": {
+        "speed_initial": 100.0,
+        "speed_current": 100.0,
+        "half_angle": 35,
+        "type": "2026-04-03T09:02Z",
+        "direction_lat": 0,
+        "direction_lon": 0
+      },
+      "arrival": {
+        "average_prediction": null,
+        "median_prediction": null,
+        "earliest_prediction": null,
+        "latest_prediction": null,
+        "num_models": 0,
+        "confidence_spread_hours": 0,
+        "scoreboard_url": "https://kauai.ccmc.gsfc.nasa.gov/CMEscoreboard/"
+      },
+      "state": {
+        "current": "QUIET",
+        "entered_at": "2026-04-03T09:46:11.844344+00:00",
+        "history": []
+      },
+      "classification": {
+        "status": "PENDING",
+        "window_start": null,
+        "window_end": null,
+        "bs_type": null,
+        "confidence": null
+      },
+      "position": {
+        "distance_au": 0.01,
+        "progress_percent": 0,
+        "eta_hours": null
+      },
+      "created_at": "2026-04-03T09:46:11.844352+00:00",
+      "last_updated": "2026-04-03T09:46:11.844356+00:00"
     }
   ]
 }
