@@ -81,3 +81,5 @@ export function useCMEData() {
     error
   };
 }
+
+export default useCMEData;
