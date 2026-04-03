@@ -1,0 +1,5800 @@
+2026-04-03 00:11:22,967 INFO Night Watch pipeline starting: 2026-04-03T04:11:22.967296+00:00
+2026-04-03 00:11:24,044 INFO L1: Bz=-2.1 By=-1.0 V=646 d=0.6
+2026-04-03 00:11:24,528 INFO NOAA alerts: 181 total
+2026-04-03 00:11:24,986 INFO Kp 1m: 173 observed points in past 3h
+2026-04-03 00:11:25,491 INFO Kp forecast raw: 81 rows, first row type=dict, first row={'time_tag': '2026-03-27T00:00:00', 'kp': 1.67, 'observed': 'observed', 'noaa_scale': None}
+2026-04-03 00:11:25,491 INFO Kp forecast dict keys: ['time_tag', 'kp', 'observed', 'noaa_scale']
+2026-04-03 00:11:25,491 INFO Kp forecast: 81 blocks, kp_now=4.0
+2026-04-03 00:11:25,971 INFO noaa-scales.json keys: ['0', '1', '2', '3', '-1']
+2026-04-03 00:11:25,972 INFO noaa-scales G=0 -> g_now=
+2026-04-03 00:11:25,975 INFO ENLIL cache: 244 still-future points carried forward
+2026-04-03 00:11:26,828 INFO ENLIL JSON: 4560 records, keys=['time_tag', 'earth_particles_per_cm3', 'temperature', 'v_r', 'v_theta', 'v_phi', 'b_r', 'b_theta', 'b_phi', 'polarity', 'cloud']
+2026-04-03 00:11:26,832 INFO ENLIL: 244 fresh future points fetched
+2026-04-03 00:11:26,832 INFO ENLIL merged: 244 points covering now to +9h window
+2026-04-03 00:11:27,521 INFO Ovation: 65160 raw entries
+2026-04-03 00:11:27,542 INFO Ovation: 109 oval pts, 360 view pts
+2026-04-03 00:11:27,542 INFO Oval lat range: 53.0 to 74.0
+2026-04-03 00:11:27,548 INFO HSS: prev=True V=646 d=0.6 alert=False watch=False cme_mix=False tier1=True tier2=False tier3=True -> active=True
+2026-04-03 00:11:27,558 INFO space_weather.json written: WATCH Weak bz=-2.1
+2026-04-03 00:11:28,122 INFO sw_mag_7day: 9910 rows after purge
+2026-04-03 00:11:28,186 INFO sw_mag_7day.json written: 9910 points
+2026-04-03 00:11:28,705 INFO sw_plasma_7day: 9730 rows after purge
+2026-04-03 00:11:28,747 INFO sw_plasma_7day.json written: 9730 points
+2026-04-03 00:11:29,322 INFO EPAM keys found: e1=de1 e4=de4 protons={'p47': 'p1', 'p68': 'p2', 'p115': 'p3', 'p310': 'p5', 'p795': 'p6', 'p1060': 'p7'}
+2026-04-03 00:11:29,323 INFO EPAM: 287 fresh rows from NOAA
+2026-04-03 00:11:29,324 INFO EPAM: 663 rows loaded from cache
+2026-04-03 00:11:29,325 INFO EPAM: 663 rows after merge+purge (7-day accumulation)
+2026-04-03 00:11:29,332 INFO sw_epam.json written: 663 points
+2026-04-03 00:11:30,308 INFO STEREO-A: 25228 records, first keys: ['timestamp', 'density_cm3', 'speed_KPS', 'temp_K', 'mag_hgrtn_r_nT', 'mag_hgrtn_t_nT', 'mag_hgrtn_n_nT', 'Bt_nT', 'theta_deg', 'phi_deg']
+2026-04-03 00:11:30,523 INFO STEREO-A: 25228 fresh rows parsed
+2026-04-03 00:11:30,531 INFO STEREO-A: 6388 rows from cache
+2026-04-03 00:11:30,542 INFO STEREO-A: 6388 rows after merge+purge
+2026-04-03 00:11:30,589 INFO sw_stereo_a.json written: 6388 points
+2026-04-03 00:11:31,237 INFO STEREO-A: using https://services.swpc.noaa.gov/json/goes/primary/magnetometers-7-day.json
+2026-04-03 00:11:31,240 INFO GOES mag dict keys: ['time_tag', 'satellite', 'He', 'Hp', 'Hn', 'total', 'arcjet_flag']
+2026-04-03 00:11:31,280 INFO GOES mag East: 10074 timestamps from https://services.swpc.noaa.gov/json/goes/primary/magnetometers-7-day.json
+2026-04-03 00:11:32,138 INFO STEREO-A: using https://services.swpc.noaa.gov/json/goes/secondary/magnetometers-7-day.json
+2026-04-03 00:11:32,141 INFO GOES mag dict keys: ['time_tag', 'satellite', 'He', 'Hp', 'Hn', 'total', 'arcjet_flag']
+2026-04-03 00:11:32,179 INFO GOES mag West: 10075 timestamps from https://services.swpc.noaa.gov/json/goes/secondary/magnetometers-7-day.json
+2026-04-03 00:11:32,194 INFO GOES mag: 10075 fresh rows
+2026-04-03 00:11:32,210 INFO GOES mag: 11514 cached rows loaded
+2026-04-03 00:11:32,216 INFO GOES mag: 11514 rows after merge+purge
+2026-04-03 00:11:32,329 INFO sw_goes_mag.json written: 11514 points | east=https://services.swpc.noaa.gov/json/goes/primary/magnetometers-7-day.json west=https://services.swpc.noaa.gov/json/goes/secondary/magnetometers-7-day.json
+2026-04-03 00:11:32,338 INFO Running CME pipeline...
+2026-04-03 00:11:32,358 INFO CME Pipeline: Starting
+2026-04-03 00:11:33,737 WARNING Failed to parse CME row: could not convert string to float: '3.5144041218202604021600210022026040218482.1930304.'
+2026-04-03 00:11:33,738 WARNING Failed to parse CME row: could not convert string to float: ''
+2026-04-03 00:11:33,738 WARNING Failed to parse CME row: could not convert string to float: ''
+2026-04-03 00:11:33,738 WARNING Failed to parse CME row: could not convert string to float: ''
+2026-04-03 00:11:33,738 WARNING Failed to parse CME row: could not convert string to float: ''
+2026-04-03 00:11:33,738 WARNING Failed to parse CME row: could not convert string to float: ''
+2026-04-03 00:11:33,738 WARNING Failed to parse CME row: could not convert string to float: ''
+2026-04-03 00:11:33,738 WARNING Failed to parse CME row: could not convert string to float: ''
+2026-04-03 00:11:33,740 WARNING Failed to parse CME row: could not convert string to float: ''
+2026-04-03 00:11:33,740 WARNING Failed to parse CME row: could not convert string to float: ''
+2026-04-03 00:11:33,740 WARNING Failed to parse CME row: could not convert string to float: ''
+2026-04-03 00:11:33,740 WARNING Failed to parse CME row: could not convert string to float: ''
+2026-04-03 00:11:33,740 WARNING Failed to parse CME row: could not convert string to float: ''
+2026-04-03 00:11:33,740 WARNING Failed to parse CME row: could not convert string to float: ''
+2026-04-03 00:11:33,740 WARNING Failed to parse CME row: could not convert string to float: ''
+2026-04-03 00:11:33,740 WARNING Failed to parse CME row: could not convert string to float: ''
+2026-04-03 00:11:33,740 WARNING Failed to parse CME row: could not convert string to float: ''
+2026-04-03 00:11:33,740 WARNING Failed to parse CME row: could not convert string to float: ''
+2026-04-03 00:11:33,740 WARNING Failed to parse CME row: could not convert string to float: ''
+2026-04-03 00:11:33,740 WARNING Failed to parse CME row: could not convert string to float: ''
+2026-04-03 00:11:33,741 WARNING Failed to parse CME row: could not convert string to float: ''
+2026-04-03 00:11:33,741 WARNING Failed to parse CME row: could not convert string to float: ''
+2026-04-03 00:11:33,741 WARNING Failed to parse CME row: could not convert string to float: ''
+2026-04-03 00:11:33,741 WARNING Failed to parse CME row: could not convert string to float: ''
+2026-04-03 00:11:33,742 WARNING Failed to parse CME row: could not convert string to float: ''
+2026-04-03 00:11:33,742 WARNING Failed to parse CME row: could not convert string to float: ''
+2026-04-03 00:11:33,742 WARNING Failed to parse CME row: could not convert string to float: ''
+2026-04-03 00:11:33,742 WARNING Failed to parse CME row: could not convert string to float: ''
+2026-04-03 00:11:33,742 WARNING Failed to parse CME row: could not convert string to float: ''
+2026-04-03 00:11:33,742 WARNING Failed to parse CME row: could not convert string to float: ''
+2026-04-03 00:11:33,743 WARNING Failed to parse CME row: could not convert string to float: ''
+2026-04-03 00:11:33,744 WARNING Failed to parse CME row: could not convert string to float: ''
+2026-04-03 00:11:33,744 WARNING Failed to parse CME row: could not convert string to float: ''
+2026-04-03 00:11:33,744 WARNING Failed to parse CME row: could not convert string to float: ''
+2026-04-03 00:11:33,744 WARNING Failed to parse CME row: could not convert string to float: ''
+2026-04-03 00:11:33,744 WARNING Failed to parse CME row: could not convert string to float: ''
+2026-04-03 00:11:33,744 WARNING Failed to parse CME row: could not convert string to float: ''
+2026-04-03 00:11:33,745 WARNING Failed to parse CME row: could not convert string to float: ''
+2026-04-03 00:11:33,745 WARNING Failed to parse CME row: could not convert string to float: ''
+2026-04-03 00:11:33,745 WARNING Failed to parse CME row: could not convert string to float: ''
+2026-04-03 00:11:33,745 WARNING Failed to parse CME row: could not convert string to float: ''
+2026-04-03 00:11:33,745 WARNING Failed to parse CME row: could not convert string to float: ''
+2026-04-03 00:11:33,746 WARNING Failed to parse CME row: could not convert string to float: ''
+2026-04-03 00:11:33,746 WARNING Failed to parse CME row: could not convert string to float: ''
+2026-04-03 00:11:33,747 WARNING Failed to parse CME row: could not convert string to float: ''
+2026-04-03 00:11:33,747 WARNING Failed to parse CME row: could not convert string to float: ''
+2026-04-03 00:11:33,748 WARNING Failed to parse CME row: could not convert string to float: ''
+2026-04-03 00:11:33,748 WARNING Failed to parse CME row: could not convert string to float: ''
+2026-04-03 00:11:33,748 WARNING Failed to parse CME row: could not convert string to float: ''
+2026-04-03 00:11:33,748 WARNING Failed to parse CME row: could not convert string to float: ''
+2026-04-03 00:11:33,748 WARNING Failed to parse CME row: could not convert string to float: ''
+2026-04-03 00:11:33,748 WARNING Failed to parse CME row: could not convert string to float: ''
+2026-04-03 00:11:33,749 WARNING Failed to parse CME row: could not convert string to float: ''
+2026-04-03 00:11:33,749 WARNING Failed to parse CME row: could not convert string to float: ''
+2026-04-03 00:11:33,749 WARNING Failed to parse CME row: could not convert string to float: ''
+2026-04-03 00:11:33,749 WARNING Failed to parse CME row: could not convert string to float: ''
+2026-04-03 00:11:33,749 WARNING Failed to parse CME row: could not convert string to float: ''
+2026-04-03 00:11:33,749 WARNING Failed to parse CME row: could not convert string to float: ''
+2026-04-03 00:11:33,749 WARNING Failed to parse CME row: could not convert string to float: ''
+2026-04-03 00:11:33,750 WARNING Failed to parse CME row: could not convert string to float: ''
+2026-04-03 00:11:33,750 WARNING Failed to parse CME row: could not convert string to float: ''
+2026-04-03 00:11:33,750 WARNING Failed to parse CME row: could not convert string to float: ''
+2026-04-03 00:11:33,750 WARNING Failed to parse CME row: could not convert string to float: ''
+2026-04-03 00:11:33,750 WARNING Failed to parse CME row: could not convert string to float: ''
+2026-04-03 00:11:33,750 WARNING Failed to parse CME row: could not convert string to float: ''
+2026-04-03 00:11:33,751 WARNING Failed to parse CME row: could not convert string to float: ''
+2026-04-03 00:11:33,751 WARNING Failed to parse CME row: could not convert string to float: ''
+2026-04-03 00:11:33,751 WARNING Failed to parse CME row: could not convert string to float: ''
+2026-04-03 00:11:33,751 WARNING Failed to parse CME row: could not convert string to float: ''
+2026-04-03 00:11:33,751 WARNING Failed to parse CME row: could not convert string to float: ''
+2026-04-03 00:11:33,751 WARNING Failed to parse CME row: could not convert string to float: ''
+2026-04-03 00:11:33,752 WARNING Failed to parse CME row: could not convert string to float: ''
+2026-04-03 00:11:33,752 WARNING Failed to parse CME row: could not convert string to float: ''
+2026-04-03 00:11:33,752 WARNING Failed to parse CME row: could not convert string to float: ''
+2026-04-03 00:11:33,752 WARNING Failed to parse CME row: could not convert string to float: ''
+2026-04-03 00:11:33,752 WARNING Failed to parse CME row: could not convert string to float: ''
+2026-04-03 00:11:33,752 WARNING Failed to parse CME row: could not convert string to float: ''
+2026-04-03 00:11:33,753 WARNING Failed to parse CME row: could not convert string to float: ''
+2026-04-03 00:11:33,753 WARNING Failed to parse CME row: could not convert string to float: ''
+2026-04-03 00:11:33,753 WARNING Failed to parse CME row: could not convert string to float: ''
+2026-04-03 00:11:33,753 WARNING Failed to parse CME row: could not convert string to float: ''
+2026-04-03 00:11:33,754 WARNING Failed to parse CME row: could not convert string to float: ''
+2026-04-03 00:11:33,754 WARNING Failed to parse CME row: could not convert string to float: ''
+2026-04-03 00:11:33,754 WARNING Failed to parse CME row: could not convert string to float: ''
+2026-04-03 00:11:33,754 WARNING Failed to parse CME row: could not convert string to float: ''
+2026-04-03 00:11:33,754 WARNING Failed to parse CME row: could not convert string to float: ''
+2026-04-03 00:11:33,754 WARNING Failed to parse CME row: could not convert string to float: ''
+2026-04-03 00:11:33,754 WARNING Failed to parse CME row: could not convert string to float: ''
+2026-04-03 00:11:33,754 WARNING Failed to parse CME row: could not convert string to float: ''
+2026-04-03 00:11:33,754 WARNING Failed to parse CME row: could not convert string to float: ''
+2026-04-03 00:11:33,754 WARNING Failed to parse CME row: could not convert string to float: ''
+2026-04-03 00:11:33,754 WARNING Failed to parse CME row: could not convert string to float: ''
+2026-04-03 00:11:33,754 WARNING Failed to parse CME row: could not convert string to float: ''
+2026-04-03 00:11:33,754 WARNING Failed to parse CME row: could not convert string to float: ''
+2026-04-03 00:11:33,754 WARNING Failed to parse CME row: could not convert string to float: ''
+2026-04-03 00:11:33,754 WARNING Failed to parse CME row: could not convert string to float: ''
+2026-04-03 00:11:33,754 WARNING Failed to parse CME row: could not convert string to float: ''
+2026-04-03 00:11:33,755 WARNING Failed to parse CME row: could not convert string to float: ''
+2026-04-03 00:11:33,755 WARNING Failed to parse CME row: could not convert string to float: ''
+2026-04-03 00:11:33,755 WARNING Failed to parse CME row: could not convert string to float: ''
+2026-04-03 00:11:33,755 WARNING Failed to parse CME row: could not convert string to float: ''
+2026-04-03 00:11:33,755 WARNING Failed to parse CME row: could not convert string to float: ''
+2026-04-03 00:11:33,755 WARNING Failed to parse CME row: could not convert string to float: ''
+2026-04-03 00:11:33,756 WARNING Failed to parse CME row: could not convert string to float: ''
+2026-04-03 00:11:33,756 WARNING Failed to parse CME row: could not convert string to float: ''
+2026-04-03 00:11:33,757 WARNING Failed to parse CME row: could not convert string to float: ''
+2026-04-03 00:11:33,757 WARNING Failed to parse CME row: could not convert string to float: ''
+2026-04-03 00:11:33,757 WARNING Failed to parse CME row: could not convert string to float: ''
+2026-04-03 00:11:33,757 WARNING Failed to parse CME row: could not convert string to float: ''
+2026-04-03 00:11:33,757 WARNING Failed to parse CME row: could not convert string to float: ''
+2026-04-03 00:11:33,757 WARNING Failed to parse CME row: could not convert string to float: ''
+2026-04-03 00:11:33,757 WARNING Failed to parse CME row: could not convert string to float: ''
+2026-04-03 00:11:33,758 WARNING Failed to parse CME row: could not convert string to float: ''
+2026-04-03 00:11:33,758 WARNING Failed to parse CME row: could not convert string to float: ''
+2026-04-03 00:11:33,758 WARNING Failed to parse CME row: could not convert string to float: ''
+2026-04-03 00:11:33,758 WARNING Failed to parse CME row: could not convert string to float: ''
+2026-04-03 00:11:33,758 WARNING Failed to parse CME row: could not convert string to float: ''
+2026-04-03 00:11:33,758 WARNING Failed to parse CME row: could not convert string to float: ''
+2026-04-03 00:11:33,758 WARNING Failed to parse CME row: could not convert string to float: ''
+2026-04-03 00:11:33,758 WARNING Failed to parse CME row: could not convert string to float: ''
+2026-04-03 00:11:33,759 WARNING Failed to parse CME row: could not convert string to float: ''
+2026-04-03 00:11:33,759 WARNING Failed to parse CME row: could not convert string to float: ''
+2026-04-03 00:11:33,759 WARNING Failed to parse CME row: could not convert string to float: ''
+2026-04-03 00:11:33,759 WARNING Failed to parse CME row: could not convert string to float: ''
+2026-04-03 00:11:33,759 WARNING Failed to parse CME row: could not convert string to float: ''
+2026-04-03 00:11:33,760 WARNING Failed to parse CME row: could not convert string to float: ''
+2026-04-03 00:11:33,760 WARNING Failed to parse CME row: could not convert string to float: ''
+2026-04-03 00:11:33,760 WARNING Failed to parse CME row: could not convert string to float: ''
+2026-04-03 00:11:33,760 WARNING Failed to parse CME row: could not convert string to float: ''
+2026-04-03 00:11:33,761 WARNING Failed to parse CME row: could not convert string to float: ''
+2026-04-03 00:11:33,761 WARNING Failed to parse CME row: could not convert string to float: ''
+2026-04-03 00:11:33,761 WARNING Failed to parse CME row: could not convert string to float: ''
+2026-04-03 00:11:33,761 WARNING Failed to parse CME row: could not convert string to float: ''
+2026-04-03 00:11:33,761 WARNING Failed to parse CME row: could not convert string to float: ''
+2026-04-03 00:11:33,761 WARNING Failed to parse CME row: could not convert string to float: ''
+2026-04-03 00:11:33,761 WARNING Failed to parse CME row: could not convert string to float: ''
+2026-04-03 00:11:33,762 WARNING Failed to parse CME row: could not convert string to float: ''
+2026-04-03 00:11:33,762 WARNING Failed to parse CME row: could not convert string to float: ''
+2026-04-03 00:11:33,762 WARNING Failed to parse CME row: could not convert string to float: ''
+2026-04-03 00:11:33,762 WARNING Failed to parse CME row: could not convert string to float: ''
+2026-04-03 00:11:33,762 WARNING Failed to parse CME row: could not convert string to float: ''
+2026-04-03 00:11:33,762 WARNING Failed to parse CME row: could not convert string to float: ''
+2026-04-03 00:11:33,763 WARNING Failed to parse CME row: could not convert string to float: ''
+2026-04-03 00:11:33,763 WARNING Failed to parse CME row: could not convert string to float: ''
+2026-04-03 00:11:33,763 INFO Scraped 125 CMEs from scoreboard
+2026-04-03 00:11:34,300 INFO Fetched 0 coronal holes
+2026-04-03 00:11:34,302 INFO Added new CME: CME_2026-04-03T16:50Z
+
+(-6.99h, +8.82h)
+2026-04-03 00:11:34,302 INFO Added new CME: CME_2026-04-05T10:37Z
+
+(-10.84h, +12.67h)
+2026-04-03 00:11:34,302 INFO Added new CME: CME_2026-04-04T00:13Z
+
+(-9.35h, +10.66h)
+2026-04-03 00:11:34,302 INFO Added new CME: CME_2026-04-04T05:29Z
+2026-04-03 00:11:34,302 INFO Added new CME: CME_2026-04-04T00:13Z
+2026-04-03 00:11:34,302 INFO Added new CME: CME_Predicted Shock Arrival Time
+Difference (hrs)
+Confidence (%)
+Submitted On
+Lead Time (hrs)
+Predicted Geomagnetic Storm Parameter(s)
+Method
+Submitted By
+
+
+
+
+2026-03-31T10:40Z
+
+(-7.0h, +7.0h)
+
+
+
+
+
+
+
+-24.82
+
+
+
+
+----
+
+
+
+2026-03-30T04:45Z
+
+54.73
+
+
+
+
+Max Kp Range: 7.0 - 9.0
+
+
+
+  
+  
+	WSA-ENLIL + Cone (NASA M2M) 
+  
+
+
+Carina Alden (M2M SWAO)
+
+ Detail
+
+
+2026-03-31T11:00Z
+
+
+
+
+
+
+
+-24.48
+
+
+
+
+----
+
+
+
+2026-03-30T06:00Z
+
+53.48
+
+
+
+----
+
+
+
+
+
+
+
+
+WSA-ENLIL + Cone (KSWC) 
+
+RWC KSWC (KASA)
+
+ Detail
+
+
+2026-04-01T04:24Z
+
+(-30.3h, +30.3h)
+
+
+
+
+
+
+
+-7.08
+
+
+
+
+
+80.0
+
+
+2026-03-30T06:00Z
+
+53.48
+
+
+
+
+Max Kp Range: 5.0 - 7.0
+
+
+IZMIRAN 
+
+Nataly Shlyk (IZMIRAN)
+
+ Detail
+
+
+2026-03-31T12:17Z
+
+(-6.17h, +6.17h)
+
+
+
+
+
+
+
+-23.20
+
+
+
+
+
+99.0
+
+
+2026-03-30T11:51Z
+
+47.63
+
+
+
+----
+
+
+
+
+
+
+
+
+
+  
+  
+	ELEvo 
+  
+
+
+Hannah Ruedisser (ASWO)
+
+ Detail
+
+
+2026-03-31T16:09Z
+
+(-3.25h, +3.91h)
+
+
+
+
+
+
+
+-19.33
+
+
+
+
+
+90.0
+
+
+2026-03-30T12:05Z
+
+47.40
+
+
+
+----
+
+
+
+
+
+
+
+
+CMEFM v.0.1 
+
+Garrett Imhoff (Other)
+
+ Detail
+
+
+2026-03-31T21:00Z
+
+
+
+
+
+
+
+-14.48
+
+
+
+
+
+70.0
+
+
+2026-03-30T12:09Z
+
+47.33
+
+
+
+
+Max Kp Range: 6.0 - 8.0
+
+
+
+  
+  
+	Cone + HAF (SEPC, NSSC, CAS) 
+  
+
+
+Jingjing Wang (NSSC SEPC)
+
+ Detail
+
+
+2026-03-31T15:07Z
+
+(-7.0h, +7.0h)
+
+
+
+
+
+
+
+-20.37
+
+
+
+
+----
+
+
+
+2026-03-30T12:37Z
+
+46.87
+
+
+
+
+Max Kp Range: 6.0 - 8.0
+
+
+
+  
+  
+	WSA-ENLIL + Cone (NASA M2M) 
+  
+
+
+Anna Chulaki (M2M SWAO)
+
+ Detail
+
+
+2026-03-31T12:00Z
+
+(-5.0h, +12.0h)
+
+
+
+
+
+
+
+-23.48
+
+
+
+
+----
+
+
+
+2026-03-30T18:30Z
+
+40.98
+
+
+
+
+Max Kp Range: 5.0 - 7.0
+
+
+WSA-ENLIL + Cone (Met Office) 
+
+Met Office (Met Office)
+
+ Detail
+
+
+2026-03-31T12:00Z
+
+(-12.0h, +12.0h)
+
+
+
+
+
+
+
+-23.48
+
+
+
+
+
+85.0
+
+
+2026-03-30T20:44Z
+
+38.75
+
+
+
+
+Max Kp Range: 6.0 - 8.0
+
+
+Other (SIDC) 
+
+Melissa Kane (M2M SWAO)
+
+ Detail
+
+
+2026-03-31T16:09Z
+
+(-6.21h, +6.3h)
+
+
+
+
+
+
+
+-19.33
+
+
+
+
+
+92.0
+
+
+2026-03-30T20:46Z
+
+38.72
+
+
+
+
+Max Kp Range: 5.0 - 7.0
+
+
+
+  
+  
+	Ensemble WSA-ENLIL + Cone (NASA M2M) 
+  
+
+
+Melissa Kane (M2M SWAO)
+
+ Detail
+
+
+2026-03-31T16:00Z
+
+
+
+
+
+
+
+-19.48
+
+
+
+
+
+100.0
+
+
+2026-03-31T02:00Z
+
+33.48
+
+
+
+
+Max Kp Range: 7.0 - 8.0
+
+
+WSA-ENLIL + Cone (BoM) 
+
+Duty Forecaster (ASWFC)
+
+ Detail
+
+
+2026-03-31T16:44Z
+
+
+
+
+
+
+
+-18.75
+
+
+
+
+
+88.0
+
+
+---
+---
+
+
+
+Max Kp Range: 5.875 - 7.75
+
+
+
+  
+  
+	Average of all Methods 
+  
+
+
+Auto Generated (CCMC)
+
+ Detail
+
+
+2026-03-31T15:33Z
+
+
+
+
+
+
+
+-19.93
+
+
+
+
+
+90.0
+
+
+---
+---
+
+
+
+Max Kp Range: 6.0 - 8.0
+
+
+
+  
+  
+	Median of all Methods 
+  
+
+
+Auto Generated (CCMC)
+
+ Detail
+
+
+2026-04-01T06:04Z
+
+
+
+
+
+
+
+-5.42
+
+
+
+
+----
+
+
+
+2026-03-31T19:11Z
+
+16.30
+
+
+
+----
+
+
+
+
+
+
+
+
+CMEFM v.0.1 
+
+Garrett Imhoff (Other)
+
+ Detail
+2026-04-03 00:11:34,302 INFO Added new CME: CME_2026-04-01T04:24Z
+
+(-30.3h, +30.3h)
+2026-04-03 00:11:34,302 INFO Added new CME: CME_2026-03-31T12:17Z
+
+(-6.17h, +6.17h)
+2026-04-03 00:11:34,302 INFO Added new CME: CME_2026-03-31T16:09Z
+
+(-3.25h, +3.91h)
+2026-04-03 00:11:34,302 INFO Added new CME: CME_2026-03-31T21:00Z
+2026-04-03 00:11:34,302 INFO Added new CME: CME_2026-03-31T12:00Z
+
+(-12.0h, +12.0h)
+2026-04-03 00:11:34,303 INFO Added new CME: CME_2026-03-31T16:09Z
+
+(-6.21h, +6.3h)
+2026-04-03 00:11:34,303 INFO Added new CME: CME_2026-03-31T16:00Z
+2026-04-03 00:11:34,303 INFO Added new CME: CME_2026-03-31T16:44Z
+2026-04-03 00:11:34,303 INFO Added new CME: CME_2026-03-31T15:33Z
+2026-04-03 00:11:34,303 INFO Added new CME: CME_2026-03-27T01:00Z
+
+(-12.0h, +12.0h)
+2026-04-03 00:11:34,303 INFO Added new CME: CME_2026-03-27T01:00Z
+2026-04-03 00:11:34,303 INFO Added new CME: CME_2026-03-27T01:00Z
+2026-04-03 00:11:34,303 INFO Added new CME: CME_2026-03-26T07:00Z
+
+(-12.0h, +12.0h)
+2026-04-03 00:11:34,303 INFO Added new CME: CME_2026-03-26T07:00Z
+2026-04-03 00:11:34,303 INFO Added new CME: CME_2026-03-26T07:00Z
+2026-04-03 00:11:34,303 INFO Added new CME: CME_Predicted Shock Arrival Time
+Difference (hrs)
+Confidence (%)
+Submitted On
+Lead Time (hrs)
+Predicted Geomagnetic Storm Parameter(s)
+Method
+Submitted By
+
+
+
+
+2026-03-25T16:00Z
+
+(-7.0h, +7.0h)
+
+
+
+
+
+
+
+10.12
+
+
+
+
+----
+
+
+
+2026-03-22T19:10Z
+
+58.72
+
+
+
+
+Max Kp Range: 3.0 - 4.0
+
+
+
+  
+  
+	WSA-ENLIL + Cone (NASA M2M) 
+  
+
+
+Carina Alden (M2M SWAO)
+
+ Detail
+
+
+2026-03-26T14:00Z
+
+
+
+
+
+
+
+32.12
+
+
+
+
+----
+
+
+
+2026-03-22T20:58Z
+
+56.92
+
+
+
+
+Max Kp Range: 2.67 - 3.67
+
+
+WSA-ENLIL + Cone (NOAA/SWPC) 
+
+Tony Iampietro (M2M SWAO)
+
+ Detail
+
+
+2026-03-25T22:55Z
+
+(-10.62h, +11.23h)
+
+
+
+
+
+
+
+17.03
+
+
+
+
+
+25.0
+
+
+2026-03-22T23:58Z
+
+53.92
+
+
+
+----
+
+
+
+
+
+
+
+
+CMEFM v.0.1 
+
+Garrett Imhoff (Other)
+
+ Detail
+
+
+2026-03-25T08:55Z
+
+(-7.0h, +7.0h)
+
+
+
+
+
+
+
+3.03
+
+
+
+
+----
+
+
+
+2026-03-23T00:08Z
+
+53.75
+
+
+
+
+Max Kp Range: 3.0 - 5.0
+
+
+
+  
+  
+	WSA-ENLIL + Cone (NASA M2M) 
+  
+
+
+Anna Chulaki (M2M SWAO)
+
+ Detail
+
+
+2026-03-24T17:30Z
+
+(-7.0h, +7.0h)
+
+
+
+
+
+
+
+-12.38
+
+
+
+
+----
+
+
+
+2026-03-23T00:14Z
+
+53.65
+
+
+
+
+Max Kp Range: 6.0 - 8.0
+
+
+
+  
+  
+	WSA-ENLIL + Cone (NASA M2M) 
+  
+
+
+Anna Chulaki (M2M SWAO)
+
+ Detail
+
+
+2026-03-25T09:37Z
+
+
+
+
+
+
+
+3.73
+
+
+
+
+----
+
+
+
+2026-03-23T02:21Z
+
+51.53
+
+
+
+
+Max Kp Range: 3.0 - 5.0
+
+
+SARM 
+
+Marlon Nunez (UMA)
+
+ Detail
+
+
+2026-03-25T05:31Z
+
+(-3.767h, +4.867h)
+
+
+
+
+
+
+
+-0.37
+
+
+
+
+
+19.0
+
+
+2026-03-23T11:11Z
+
+42.70
+
+
+
+
+Max Kp Range: 3.0 - 5.0
+
+
+
+  
+  
+	Ensemble WSA-ENLIL + Cone (NASA M2M) 
+  
+
+
+Tony Iampietro (M2M SWAO)
+
+ Detail
+
+
+2026-03-25T07:27Z
+
+(-7.83h, +7.83h)
+
+
+
+
+
+
+
+1.57
+
+
+
+
+
+100.0
+
+
+2026-03-23T12:20Z
+
+41.55
+
+
+
+----
+
+
+
+
+
+
+
+
+
+  
+  
+	ELEvo 
+  
+
+
+Christian Moestl (ASWO)
+
+ Detail
+
+
+2026-03-25T01:00Z
+
+
+
+
+
+
+
+-4.88
+
+
+
+
+----
+
+
+
+2026-03-23T14:35Z
+
+39.30
+
+
+
+
+Max Kp Range: 4.0 - 6.0
+
+
+WSA-ENLIL + Cone (Met Office) 
+
+Met Office (Met Office)
+
+ Detail
+
+
+2026-03-25T11:26Z
+
+
+
+
+
+
+
+5.55
+
+
+
+
+
+48.0
+
+
+---
+---
+
+
+
+Max Kp Range: 3.52429 - 5.23857
+
+
+
+  
+  
+	Average of all Methods 
+  
+
+
+Auto Generated (CCMC)
+
+ Detail
+
+
+2026-03-25T08:55Z
+
+
+
+
+
+
+
+3.03
+
+
+
+
+
+25.0
+
+
+---
+---
+
+
+
+Max Kp Range: 3.0 - 5.0
+
+
+
+  
+  
+	Median of all Methods 
+  
+
+
+Auto Generated (CCMC)
+
+ Detail
+2026-04-03 00:11:34,303 INFO Added new CME: CME_2026-03-25T22:55Z
+
+(-10.62h, +11.23h)
+2026-04-03 00:11:34,303 INFO Added new CME: CME_2026-03-25T05:31Z
+
+(-3.767h, +4.867h)
+2026-04-03 00:11:34,303 INFO Added new CME: CME_2026-03-25T07:27Z
+
+(-7.83h, +7.83h)
+2026-04-03 00:11:34,303 INFO Added new CME: CME_2026-03-25T11:26Z
+2026-04-03 00:11:34,303 INFO Added new CME: CME_2026-03-25T08:55Z
+2026-04-03 00:11:34,303 INFO Added new CME: CME_Predicted Shock Arrival Time
+Difference (hrs)
+Confidence (%)
+Submitted On
+Lead Time (hrs)
+Predicted Geomagnetic Storm Parameter(s)
+Method
+Submitted By
+
+
+
+
+2026-03-20T17:24Z
+
+(-7.0h, +7.0h)
+
+
+
+
+
+
+
+-2.88
+
+
+
+
+----
+
+
+
+2026-03-18T13:48Z
+
+54.48
+
+
+
+
+Max Kp Range: 5.0 - 7.0
+
+
+
+  
+  
+	WSA-ENLIL + Cone (NASA M2M) 
+  
+
+
+Melissa Kane (M2M SWAO)
+
+ Detail
+
+
+2026-03-21T01:00Z
+
+(-8.0h, +8.0h)
+
+
+
+
+
+
+
+4.72
+
+
+
+
+
+60.0
+
+
+2026-03-18T15:40Z
+
+52.62
+
+
+
+
+Max Kp Range: 5.0 - 7.0
+
+
+WSA-ENLIL + Cone (Met Office) 
+
+Met Office (Met Office)
+
+ Detail
+
+
+2026-03-20T15:51Z
+
+(-6.167h, +5.9h)
+
+
+
+
+
+
+
+-4.43
+
+
+
+
+
+97.0
+
+
+2026-03-18T17:16Z
+
+51.02
+
+
+
+
+Max Kp Range: 5.0 - 7.0
+
+
+
+  
+  
+	Ensemble WSA-ENLIL + Cone (NASA M2M) 
+  
+
+
+Elizabeth Juelfs (LASSOS)
+
+ Detail
+
+
+2026-03-21T10:58Z
+
+(-6.44h, +7.69h)
+
+
+
+
+
+
+
+14.68
+
+
+
+
+
+25.0
+
+
+2026-03-18T22:46Z
+
+45.52
+
+
+
+----
+
+
+
+
+
+
+
+
+CMEFM v.0.1 
+
+Garrett Imhoff (Other)
+
+ Detail
+
+
+2026-03-20T21:00Z
+
+
+
+
+
+
+
+0.72
+
+
+
+
+----
+
+
+
+2026-03-19T01:40Z
+
+42.62
+
+
+
+----
+
+
+
+
+
+
+
+
+WSA-ENLIL + Cone (KSWC) 
+
+RWC KSWC (KASA)
+
+ Detail
+
+
+2026-03-20T17:00Z
+
+(-6.0h, +6.0h)
+
+
+
+
+
+
+
+-3.28
+
+
+
+
+
+65.0
+
+
+2026-03-19T04:38Z
+
+39.65
+
+
+
+
+Max Kp Range: 5.0 - 6.0
+
+
+WSA-ENLIL + Cone (BoM) 
+
+Duty Forecaster (ASWFC)
+
+ Detail
+
+
+2026-03-20T23:30Z
+
+(-12.0h, +12.0h)
+
+
+
+
+
+
+
+3.22
+
+
+
+
+
+60.0
+
+
+2026-03-19T10:53Z
+
+33.40
+
+
+
+
+Max Kp Range: 5.0 - 7.0
+
+
+Other (SIDC) 
+
+Melissa Kane (M2M SWAO)
+
+ Detail
+
+
+2026-03-21T02:41Z
+
+(-8.25h, +8.25h)
+
+
+
+
+
+
+
+6.40
+
+
+
+
+
+90.0
+
+
+2026-03-19T13:02Z
+
+31.25
+
+
+
+----
+
+
+
+
+
+
+
+
+
+  
+  
+	ELEvo 
+  
+
+
+Eva Weiler (ASWO)
+
+ Detail
+
+
+2026-03-21T00:02Z
+
+
+
+
+
+
+
+3.75
+
+
+
+
+----
+
+
+
+2026-03-19T14:12Z
+
+30.08
+
+
+
+
+Max Kp Range: 4.0 - 6.0
+
+
+SARM 
+
+Marlon Nunez (UMA)
+
+ Detail
+
+
+2026-03-20T22:49Z
+
+
+
+
+
+
+
+2.53
+
+
+
+
+
+66.1667
+
+
+---
+---
+
+
+
+Max Kp Range: 4.83333 - 6.66667
+
+
+
+  
+  
+	Average of all Methods 
+  
+
+
+Auto Generated (CCMC)
+
+ Detail
+
+
+2026-03-20T23:30Z
+
+
+
+
+
+
+
+3.22
+
+
+
+
+
+62.5
+
+
+---
+---
+
+
+
+Max Kp Range: 5.0 - 7.0
+
+
+
+  
+  
+	Median of all Methods 
+  
+
+
+Auto Generated (CCMC)
+
+ Detail
+2026-04-03 00:11:34,303 INFO Added new CME: CME_2026-03-21T01:00Z
+
+(-8.0h, +8.0h)
+2026-04-03 00:11:34,303 INFO Added new CME: CME_2026-03-20T15:51Z
+
+(-6.167h, +5.9h)
+2026-04-03 00:11:34,303 INFO Added new CME: CME_2026-03-21T10:58Z
+
+(-6.44h, +7.69h)
+2026-04-03 00:11:34,303 INFO Added new CME: CME_2026-03-20T17:00Z
+
+(-6.0h, +6.0h)
+2026-04-03 00:11:34,303 INFO Added new CME: CME_2026-03-20T23:30Z
+
+(-12.0h, +12.0h)
+2026-04-03 00:11:34,303 INFO Added new CME: CME_2026-03-21T02:41Z
+
+(-8.25h, +8.25h)
+2026-04-03 00:11:34,303 INFO Added new CME: CME_2026-03-20T22:49Z
+2026-04-03 00:11:34,303 INFO Added new CME: CME_2026-03-20T23:30Z
+2026-04-03 00:11:34,303 INFO Added new CME: CME_Predicted Shock Arrival Time
+Difference (hrs)
+Confidence (%)
+Submitted On
+Lead Time (hrs)
+Predicted Geomagnetic Storm Parameter(s)
+Method
+Submitted By
+
+
+
+
+2026-03-20T18:00Z
+
+(-7.0h, +7.0h)
+
+
+
+
+
+
+
+16.48
+
+
+
+
+----
+
+
+
+2026-03-17T16:46Z
+
+56.75
+
+
+
+
+Max Kp Range: 3.0 - 5.0
+
+
+
+  
+  
+	WSA-ENLIL + Cone (NASA M2M) 
+  
+
+
+Mary Aronne (M2M SWAO)
+
+ Detail
+
+
+2026-03-20T06:00Z
+
+(-7.0h, +7.0h)
+
+
+
+
+
+
+
+4.48
+
+
+
+
+----
+
+
+
+2026-03-17T17:24Z
+
+56.12
+
+
+
+
+Max Kp Range: 3.0 - 5.0
+
+
+
+  
+  
+	WSA-ENLIL + Cone (NASA M2M) 
+  
+
+
+Mary Aronne (M2M SWAO)
+
+ Detail
+
+
+2026-03-21T03:00Z
+
+
+
+
+
+
+
+25.48
+
+
+
+
+
+30.0
+
+
+2026-03-18T13:20Z
+
+36.18
+
+
+
+
+Max Kp Range: 4.0 - 6.0
+
+
+WSA-ENLIL + Cone (Met Office) 
+
+Met Office (Met Office)
+
+ Detail
+
+
+2026-03-20T17:00Z
+
+
+
+
+
+
+
+15.48
+
+
+
+
+
+30.0
+
+
+---
+---
+
+
+
+Max Kp Range: 3.33333 - 5.33333
+
+
+
+  
+  
+	Average of all Methods 
+  
+
+
+Auto Generated (CCMC)
+
+ Detail
+
+
+2026-03-20T18:00Z
+
+
+
+
+
+
+
+16.48
+
+
+
+
+
+30.0
+
+
+---
+---
+
+
+
+Max Kp Range: 3.0 - 5.0
+
+
+
+  
+  
+	Median of all Methods 
+  
+
+
+Auto Generated (CCMC)
+
+ Detail
+2026-04-03 00:11:34,303 INFO Added new CME: CME_2026-03-21T03:00Z
+2026-04-03 00:11:34,303 INFO Added new CME: CME_2026-03-20T17:00Z
+2026-04-03 00:11:34,303 INFO Added new CME: CME_2026-03-20T18:00Z
+2026-04-03 00:11:34,303 INFO Added new CME: CME_Predicted Shock Arrival Time
+Difference (hrs)
+Confidence (%)
+Submitted On
+Lead Time (hrs)
+Predicted Geomagnetic Storm Parameter(s)
+Method
+Submitted By
+
+
+
+
+2026-03-20T08:00Z
+
+(-7.0h, +7.0h)
+
+
+
+
+
+
+
+6.48
+
+
+
+
+----
+
+
+
+2026-03-17T13:17Z
+
+60.23
+
+
+
+
+Max Kp Range: 3.0 - 5.0
+
+
+
+  
+  
+	WSA-ENLIL + Cone (NASA M2M) 
+  
+
+
+Mary Aronne (M2M SWAO)
+
+ Detail
+
+
+2026-03-20T06:00Z
+
+(-7.0h, +7.0h)
+
+
+
+
+
+
+
+4.48
+
+
+
+
+----
+
+
+
+2026-03-17T16:09Z
+
+57.37
+
+
+
+
+Max Kp Range: 3.0 - 5.0
+
+
+
+  
+  
+	WSA-ENLIL + Cone (NASA M2M) 
+  
+
+
+Mary Aronne (M2M SWAO)
+
+ Detail
+
+
+2026-03-20T06:00Z
+
+(-7.0h, +7.0h)
+
+
+
+
+
+
+
+4.48
+
+
+
+
+----
+
+
+
+2026-03-17T16:09Z
+
+57.37
+
+
+
+
+Max Kp Range: 3.0 - 5.0
+
+
+
+  
+  
+	WSA-ENLIL + Cone (NASA M2M) 
+  
+
+
+Mary Aronne (M2M SWAO)
+
+ Detail
+
+
+2026-03-20T06:00Z
+
+(-7.0h, +7.0h)
+
+
+
+
+
+
+
+4.48
+
+
+
+
+----
+
+
+
+2026-03-17T16:09Z
+
+57.37
+
+
+
+
+Max Kp Range: 3.0 - 5.0
+
+
+
+  
+  
+	WSA-ENLIL + Cone (NASA M2M) 
+  
+
+
+Melissa Kane (M2M SWAO)
+
+ Detail
+
+
+2026-03-20T06:00Z
+
+(-7.0h, +7.0h)
+
+
+
+
+
+
+
+4.48
+
+
+
+
+----
+
+
+
+2026-03-17T17:24Z
+
+56.12
+
+
+
+
+Max Kp Range: 3.0 - 5.0
+
+
+
+  
+  
+	WSA-ENLIL + Cone (NASA M2M) 
+  
+
+
+Mary Aronne (M2M SWAO)
+
+ Detail
+
+
+2026-03-20T06:00Z
+
+(-7.0h, +7.0h)
+
+
+
+
+
+
+
+4.48
+
+
+
+
+----
+
+
+
+2026-03-17T17:24Z
+
+56.12
+
+
+
+
+Max Kp Range: 3.0 - 5.0
+
+
+
+  
+  
+	WSA-ENLIL + Cone (NASA M2M) 
+  
+
+
+Mary Aronne (M2M SWAO)
+
+ Detail
+
+
+2026-03-20T19:00Z
+
+(-12.0h, +12.0h)
+
+
+
+
+
+
+
+17.48
+
+
+
+
+
+30.0
+
+
+2026-03-19T12:42Z
+
+12.82
+
+
+
+
+Max Kp Range: 4.0 - 6.0
+
+
+Other (SIDC) 
+
+Melissa Kane (M2M SWAO)
+
+ Detail
+
+
+2026-03-21T12:38Z
+
+(-19.42h, +19.42h)
+
+
+
+
+
+
+
+35.12
+
+
+
+
+
+67.0
+
+
+2026-03-19T13:08Z
+
+12.38
+
+
+
+----
+
+
+
+
+
+
+
+
+
+  
+  
+	ELEvo 
+  
+
+
+Eva Weiler (ASWO)
+
+ Detail
+
+
+2026-03-20T11:42Z
+
+
+
+
+
+
+
+10.18
+
+
+
+
+
+48.5
+
+
+---
+---
+
+
+
+Max Kp Range: 3.14286 - 5.14286
+
+
+
+  
+  
+	Average of all Methods 
+  
+
+
+Auto Generated (CCMC)
+
+ Detail
+
+
+2026-03-20T06:00Z
+
+
+
+
+
+
+
+4.48
+
+
+
+
+
+48.5
+
+
+---
+---
+
+
+
+Max Kp Range: 3.0 - 5.0
+
+
+
+  
+  
+	Median of all Methods 
+  
+
+
+Auto Generated (CCMC)
+
+ Detail
+2026-04-03 00:11:34,304 INFO Added new CME: CME_2026-03-20T19:00Z
+
+(-12.0h, +12.0h)
+2026-04-03 00:11:34,304 INFO Added new CME: CME_2026-03-21T12:38Z
+
+(-19.42h, +19.42h)
+2026-04-03 00:11:34,304 INFO Added new CME: CME_2026-03-20T11:42Z
+2026-04-03 00:11:34,304 INFO Added new CME: CME_2026-03-20T06:00Z
+2026-04-03 00:11:34,304 INFO Added new CME: CME_Predicted Shock Arrival Time
+Difference (hrs)
+Confidence (%)
+Submitted On
+Lead Time (hrs)
+Predicted Geomagnetic Storm Parameter(s)
+Method
+Submitted By
+
+
+
+
+2026-03-20T06:00Z
+
+(-7.0h, +7.0h)
+
+
+
+
+
+
+
+4.48
+
+
+
+
+----
+
+
+
+2026-03-17T16:09Z
+
+57.37
+
+
+
+
+Max Kp Range: 3.0 - 5.0
+
+
+
+  
+  
+	WSA-ENLIL + Cone (NASA M2M) 
+  
+
+
+Melissa Kane (M2M SWAO)
+
+ Detail
+
+
+2026-03-20T06:00Z
+
+
+
+
+
+
+
+4.48
+
+
+
+
+----
+
+
+
+---
+---
+
+
+
+Max Kp Range: 3.0 - 5.0
+
+
+
+  
+  
+	Average of all Methods 
+  
+
+
+Auto Generated (CCMC)
+
+ Detail
+
+
+2026-03-20T06:00Z
+
+
+
+
+
+
+
+4.48
+
+
+
+
+----
+
+
+
+---
+---
+
+
+
+Max Kp Range: 3.0 - 5.0
+
+
+
+  
+  
+	Median of all Methods 
+  
+
+
+Auto Generated (CCMC)
+
+ Detail
+2026-04-03 00:11:34,304 INFO Added new CME: CME_Predicted Shock Arrival Time
+Difference (hrs)
+Confidence (%)
+Submitted On
+Lead Time (hrs)
+Predicted Geomagnetic Storm Parameter(s)
+Method
+Submitted By
+
+
+
+
+2026-03-20T08:00Z
+
+(-7.0h, +7.0h)
+
+
+
+
+
+
+
+6.48
+
+
+
+
+----
+
+
+
+2026-03-17T13:17Z
+
+60.23
+
+
+
+
+Max Kp Range: 3.0 - 5.0
+
+
+
+  
+  
+	WSA-ENLIL + Cone (NASA M2M) 
+  
+
+
+Mary Aronne (M2M SWAO)
+
+ Detail
+
+
+2026-03-20T06:00Z
+
+(-7.0h, +7.0h)
+
+
+
+
+
+
+
+4.48
+
+
+
+
+----
+
+
+
+2026-03-17T16:09Z
+
+57.37
+
+
+
+
+Max Kp Range: 3.0 - 5.0
+
+
+
+  
+  
+	WSA-ENLIL + Cone (NASA M2M) 
+  
+
+
+Mary Aronne (M2M SWAO)
+
+ Detail
+
+
+2026-03-20T06:00Z
+
+(-7.0h, +7.0h)
+
+
+
+
+
+
+
+4.48
+
+
+
+
+----
+
+
+
+2026-03-17T16:09Z
+
+57.37
+
+
+
+
+Max Kp Range: 3.0 - 5.0
+
+
+
+  
+  
+	WSA-ENLIL + Cone (NASA M2M) 
+  
+
+
+Melissa Kane (M2M SWAO)
+
+ Detail
+
+
+2026-03-20T06:00Z
+
+(-7.0h, +7.0h)
+
+
+
+
+
+
+
+4.48
+
+
+
+
+----
+
+
+
+2026-03-17T17:24Z
+
+56.12
+
+
+
+
+Max Kp Range: 3.0 - 5.0
+
+
+
+  
+  
+	WSA-ENLIL + Cone (NASA M2M) 
+  
+
+
+Mary Aronne (M2M SWAO)
+
+ Detail
+
+
+2026-03-20T12:00Z
+
+(-9.0h, +9.0h)
+
+
+
+
+
+
+
+10.48
+
+
+
+
+
+40.0
+
+
+2026-03-18T13:20Z
+
+36.18
+
+
+
+
+Max Kp Range: 4.0 - 6.0
+
+
+WSA-ENLIL + Cone (Met Office) 
+
+Met Office (Met Office)
+
+ Detail
+
+
+2026-03-20T07:36Z
+
+
+
+
+
+
+
+6.08
+
+
+
+
+
+40.0
+
+
+---
+---
+
+
+
+Max Kp Range: 3.2 - 5.2
+
+
+
+  
+  
+	Average of all Methods 
+  
+
+
+Auto Generated (CCMC)
+
+ Detail
+
+
+2026-03-20T06:00Z
+
+
+
+
+
+
+
+4.48
+
+
+
+
+
+40.0
+
+
+---
+---
+
+
+
+Max Kp Range: 3.0 - 5.0
+
+
+
+  
+  
+	Median of all Methods 
+  
+
+
+Auto Generated (CCMC)
+
+ Detail
+2026-04-03 00:11:34,304 INFO Added new CME: CME_2026-03-20T12:00Z
+
+(-9.0h, +9.0h)
+2026-04-03 00:11:34,304 INFO Added new CME: CME_2026-03-20T07:36Z
+2026-04-03 00:11:34,304 INFO Added new CME: CME_2026-03-20T06:00Z
+2026-04-03 00:11:34,304 INFO Added new CME: CME_2026-03-19T11:34Z
+
+(-8.36h, +5.53h)
+2026-04-03 00:11:34,304 INFO Added new CME: CME_2026-03-20T05:36Z
+
+(-14.22h, +11.26h)
+2026-04-03 00:11:34,304 INFO Added new CME: CME_2026-03-19T18:00Z
+
+(-7.0h, +7.0h)
+2026-04-03 00:11:34,304 INFO Added new CME: CME_2026-03-19T18:00Z
+
+(-12.0h, +12.0h)
+2026-04-03 00:11:34,304 INFO Added new CME: CME_2026-03-19T23:31Z
+
+(-8.07h, +5.28h)
+2026-04-03 00:11:34,304 INFO Added new CME: CME_2026-03-19T16:57Z
+2026-04-03 00:11:34,304 INFO Added new CME: CME_2026-03-19T17:30Z
+2026-04-03 00:11:34,304 INFO Added new CME: CME_2026-03-10T03:52Z
+2026-04-03 00:11:34,304 INFO Added new CME: CME_2026-03-10T03:52Z
+2026-04-03 00:11:34,304 INFO Added new CME: CME_2026-03-10T03:44Z
+
+(-11.76h, +9.89h)
+2026-04-03 00:11:34,304 INFO Added new CME: CME_2026-02-28T22:45Z
+2026-04-03 00:11:34,304 INFO Added new CME: CME_2026-02-28T21:00Z
+2026-04-03 00:11:34,304 INFO Added new CME: CME_2026-03-01T16:00Z
+
+(-10.0h, +10.0h)
+2026-04-03 00:11:34,304 INFO Added new CME: CME_Predicted Shock Arrival Time
+Difference (hrs)
+Confidence (%)
+Submitted On
+Lead Time (hrs)
+Predicted Geomagnetic Storm Parameter(s)
+Method
+Submitted By
+
+
+
+
+2026-02-19T11:00Z
+
+(-7.0h, +7.0h)
+
+
+
+
+
+
+
+-35.58
+
+
+
+
+----
+
+
+
+2026-02-16T20:52Z
+
+97.72
+
+
+
+
+Max Kp Range: 3.0 - 5.0
+
+
+
+  
+  
+	WSA-ENLIL + Cone (NASA M2M) 
+  
+
+
+Melissa Kane (M2M SWAO)
+
+ Detail
+
+
+2026-02-19T11:00Z
+
+
+
+
+
+
+
+-35.58
+
+
+
+
+----
+
+
+
+---
+---
+
+
+
+Max Kp Range: 3.0 - 5.0
+
+
+
+  
+  
+	Average of all Methods 
+  
+
+
+Auto Generated (CCMC)
+
+ Detail
+
+
+2026-02-19T11:00Z
+
+
+
+
+
+
+
+-35.58
+
+
+
+
+----
+
+
+
+---
+---
+
+
+
+Max Kp Range: 3.0 - 5.0
+
+
+
+  
+  
+	Median of all Methods 
+  
+
+
+Auto Generated (CCMC)
+
+ Detail
+2026-04-03 00:11:34,304 INFO Added new CME: CME_2026-02-18T11:14Z
+
+(-6.15h, +4.08h)
+2026-04-03 00:11:34,304 INFO Added new CME: CME_2026-02-18T19:00Z
+
+(-8.0h, +8.0h)
+2026-04-03 00:11:34,304 INFO Added new CME: CME_2026-02-19T00:52Z
+
+(-8.22h, +4.89h)
+2026-04-03 00:11:34,304 INFO Added new CME: CME_2026-02-19T20:00Z
+
+(-12.0h, +12.0h)
+2026-04-03 00:11:34,304 INFO Added new CME: CME_2026-02-18T21:34Z
+2026-04-03 00:11:34,304 INFO Added new CME: CME_2026-02-18T19:21Z
+2026-04-03 00:11:34,304 INFO Added new CME: CME_2026-02-18T04:00Z
+
+(-12.0h, +12.0h)
+2026-04-03 00:11:34,304 INFO Added new CME: CME_2026-02-19T03:16Z
+2026-04-03 00:11:34,304 INFO Added new CME: CME_2026-02-19T03:16Z
+2026-04-03 00:11:34,304 INFO Added new CME: CME_2026-02-16T00:26Z
+
+(-12.0h, +12.0h)
+2026-04-03 00:11:34,304 INFO Added new CME: CME_2026-02-16T01:22Z
+2026-04-03 00:11:34,304 INFO Added new CME: CME_2026-02-16T00:26Z
+2026-04-03 00:11:34,304 INFO Added new CME: CME_2026-02-16T05:40Z
+
+(-6.66h, +6.44h)
+2026-04-03 00:11:34,304 INFO Added new CME: CME_2026-02-05T17:55Z
+2026-04-03 00:11:34,304 INFO Added new CME: CME_2026-02-05T17:55Z
+2026-04-03 00:11:34,304 INFO Added new CME: CME_2026-02-05T11:50Z
+
+(-4.62h, +7.35h)
+2026-04-03 00:11:34,304 INFO Added new CME: CME_Predicted Shock Arrival Time
+Difference (hrs)
+Confidence (%)
+Submitted On
+Lead Time (hrs)
+Predicted Geomagnetic Storm Parameter(s)
+Method
+Submitted By
+
+
+
+
+2026-02-05T23:00Z
+
+(-7.0h, +7.0h)
+
+
+
+
+
+
+
+32.67
+
+
+
+
+----
+
+
+
+2026-02-02T03:47Z
+
+58.55
+
+
+
+
+Max Kp Range: 3.0 - 4.0
+
+
+
+  
+  
+	WSA-ENLIL + Cone (NASA M2M) 
+  
+
+
+Melissa Kane (M2M SWAO)
+
+ Detail
+
+
+2026-02-05T12:00Z
+
+
+
+
+
+
+
+21.67
+
+
+
+
+----
+
+
+
+2026-02-02T08:55Z
+
+53.42
+
+
+
+----
+
+
+
+
+
+
+
+
+WSA-ENLIL + Cone (NOAA/SWPC) 
+
+Tony Iampietro (M2M SWAO)
+
+ Detail
+
+
+2026-02-05T09:00Z
+
+(-9.0h, +9.0h)
+
+
+
+
+
+
+
+18.67
+
+
+
+
+----
+
+
+
+2026-02-02T12:24Z
+
+49.93
+
+
+
+
+Max Kp Range: 4.0 - 6.0
+
+
+WSA-ENLIL + Cone (Met Office) 
+
+Met Office (Met Office)
+
+ Detail
+
+
+2026-02-05T06:00Z
+
+(-12.0h, +12.0h)
+
+
+
+
+
+
+
+15.67
+
+
+
+
+
+75.0
+
+
+2026-02-02T14:25Z
+
+47.92
+
+
+
+
+Max Kp Range: 4.0 - 6.0
+
+
+Other (SIDC) 
+
+Tony Iampietro (M2M SWAO)
+
+ Detail
+
+
+2026-02-04T20:31Z
+
+
+
+
+
+
+
+6.18
+
+
+
+
+----
+
+
+
+2026-02-02T14:30Z
+
+47.83
+
+
+
+
+Max Kp Range: 3.0 - 5.0
+
+
+SARM 
+
+Marlon Nunez (UMA)
+
+ Detail
+
+
+2026-02-04T21:32Z
+
+(-7.0h, +7.0h)
+
+
+
+
+
+
+
+7.20
+
+
+
+
+----
+
+
+
+2026-02-02T14:50Z
+
+47.50
+
+
+
+
+Max Kp Range: 5.0 - 7.0
+
+
+
+  
+  
+	WSA-ENLIL + Cone (NASA M2M) 
+  
+
+
+Tony Iampietro (M2M SWAO)
+
+ Detail
+
+
+2026-02-05T01:09Z
+
+(-6.15h, +13.267h)
+
+
+
+
+
+
+
+10.82
+
+
+
+
+
+86.0
+
+
+2026-02-02T23:51Z
+
+38.48
+
+
+
+
+Max Kp Range: 4.0 - 6.0
+
+
+
+  
+  
+	Ensemble WSA-ENLIL + Cone (NASA M2M) 
+  
+
+
+Carina Alden (M2M SWAO)
+
+ Detail
+
+
+2026-02-05T15:00Z
+
+(-12.0h, +12.0h)
+
+
+
+
+
+
+
+24.67
+
+
+
+
+----
+
+
+
+2026-02-03T04:20Z
+
+34.00
+
+
+
+
+Max Kp Range: 3.0 - 5.0
+
+
+WSA-ENLIL + Cone (BoM) 
+
+Duty Forecaster (ASWFC)
+
+ Detail
+
+
+2026-02-05T06:15Z
+
+
+
+
+
+
+
+15.92
+
+
+
+
+
+62.0
+
+
+---
+---
+
+
+
+Max Kp Range: 3.71429 - 5.57143
+
+
+
+  
+  
+	Average of all Methods 
+  
+
+
+Auto Generated (CCMC)
+
+ Detail
+
+
+2026-02-05T06:00Z
+
+
+
+
+
+
+
+15.67
+
+
+
+
+
+75.0
+
+
+---
+---
+
+
+
+Max Kp Range: 4.0 - 6.0
+
+
+
+  
+  
+	Median of all Methods 
+  
+
+
+Auto Generated (CCMC)
+
+ Detail
+
+
+2026-02-04T20:11Z
+
+(-8.25h, +6.99h)
+
+
+
+
+
+
+
+5.85
+
+
+
+
+
+25.0
+
+
+2026-02-03T13:57Z
+
+24.38
+
+
+
+----
+
+
+
+
+
+
+
+
+CMEFM v.0.1 
+
+Garrett Imhoff (Other)
+
+ Detail
+2026-04-03 00:11:34,304 INFO Added new CME: CME_2026-02-05T06:00Z
+
+(-12.0h, +12.0h)
+2026-04-03 00:11:34,305 INFO Added new CME: CME_2026-02-05T01:09Z
+
+(-6.15h, +13.267h)
+2026-04-03 00:11:34,305 INFO Added new CME: CME_2026-02-05T06:15Z
+2026-04-03 00:11:34,305 INFO Added new CME: CME_2026-02-05T06:00Z
+2026-04-03 00:11:34,305 INFO Added new CME: CME_2026-02-04T20:11Z
+
+(-8.25h, +6.99h)
+2026-04-03 00:11:34,305 INFO Added new CME: CME_Predicted Shock Arrival Time
+Difference (hrs)
+Confidence (%)
+Submitted On
+Lead Time (hrs)
+Predicted Geomagnetic Storm Parameter(s)
+Method
+Submitted By
+
+
+
+
+2026-01-20T02:38Z
+
+(-7.0h, +7.0h)
+
+
+
+
+
+
+
+7.72
+
+
+
+
+----
+
+
+
+2026-01-18T21:39Z
+
+21.27
+
+
+
+
+Max Kp Range: 8.0 - 9.0
+
+
+
+  
+  
+	WSA-ENLIL + Cone (NASA M2M) 
+  
+
+
+Anna Chulaki (M2M SWAO)
+
+ Detail
+
+
+2026-01-19T22:32Z
+
+(-7.73h, +5.44h)
+
+
+
+
+
+
+
+3.62
+
+
+
+
+
+66.0
+
+
+2026-01-18T21:48Z
+
+21.12
+
+
+
+----
+
+
+
+
+
+
+
+
+CMEFM v.0.1 
+
+Garrett Imhoff (Other)
+
+ Detail
+
+
+2026-01-19T17:35Z
+
+(-6.48h, +4.22h)
+
+
+
+
+
+
+
+-1.33
+
+
+
+
+
+33.0
+
+
+2026-01-18T21:48Z
+
+21.12
+
+
+
+----
+
+
+
+
+
+
+
+
+CMEFM v.0.1 
+
+Garrett Imhoff (Other)
+
+ Detail
+
+
+2026-01-19T19:53Z
+
+(-2.5h, +7.5h)
+
+
+
+
+
+
+
+0.97
+
+
+
+
+----
+
+
+
+2026-01-18T23:50Z
+
+19.08
+
+
+
+----
+
+
+
+
+
+
+
+
+
+  
+  
+	EAM (Effective Acceleration Model) 
+  
+
+
+Evangelos Paouris (JHUAPL)
+
+ Detail
+
+
+2026-01-19T20:59Z
+
+(-4.99h, +3.69h)
+
+
+
+
+
+
+
+2.07
+
+
+
+
+
+66.0
+
+
+2026-01-19T00:19Z
+
+18.60
+
+
+
+----
+
+
+
+
+
+
+
+
+CMEFM v.0.1 
+
+Garrett Imhoff (Other)
+
+ Detail
+
+
+2026-01-19T16:17Z
+
+(-4.13h, +2.83h)
+
+
+
+
+
+
+
+-2.63
+
+
+
+
+
+33.0
+
+
+2026-01-19T00:19Z
+
+18.60
+
+
+
+----
+
+
+
+
+
+
+
+
+CMEFM v.0.1 
+
+Garrett Imhoff (Other)
+
+ Detail
+
+
+2026-01-19T22:00Z
+
+
+
+
+
+
+
+3.08
+
+
+
+
+
+80.0
+
+
+2026-01-19T02:22Z
+
+16.55
+
+
+
+
+Max Kp Range: 7.0 - 9.0
+
+
+
+  
+  
+	Cone + HAF (SEPC, NSSC, CAS) 
+  
+
+
+Jingjing Wang (NSSC SEPC)
+
+ Detail
+
+
+2026-01-20T05:00Z
+
+
+
+
+
+
+
+10.08
+
+
+
+
+----
+
+
+
+2026-01-19T02:49Z
+
+16.10
+
+
+
+----
+
+
+
+
+
+
+
+
+WSA-ENLIL + Cone (KSWC) 
+
+RWC KSWC (KASA)
+
+ Detail
+
+
+2026-01-20T01:22Z
+
+(-7.0h, +7.0h)
+
+
+
+
+
+
+
+6.45
+
+
+
+
+----
+
+
+
+2026-01-19T06:06Z
+
+12.82
+
+
+
+
+Max Kp Range: 9.0 - 9.0
+
+
+
+  
+  
+	WSA-ENLIL + Cone (NASA M2M) 
+  
+
+
+Anna Chulaki (M2M SWAO)
+
+ Detail
+
+
+2026-01-20T04:00Z
+
+(-6.0h, +6.0h)
+
+
+
+
+
+
+
+9.08
+
+
+
+
+
+60.0
+
+
+2026-01-19T06:35Z
+
+12.33
+
+
+
+
+Max Kp Range: 7.0 - 8.0
+
+
+WSA-ENLIL + Cone (Met Office) 
+
+Met Office (Met Office)
+
+ Detail
+
+
+2026-01-20T15:31Z
+
+
+
+
+
+
+
+20.60
+
+
+
+
+----
+
+
+
+2026-01-19T08:35Z
+
+10.33
+
+
+
+
+Max Kp Range: 7.0 - 9.0
+
+
+SARM 
+
+Marlon Nunez (UMA)
+
+ Detail
+
+
+2026-01-20T02:46Z
+
+(-5.3h, +5.3h)
+
+
+
+
+
+
+
+7.85
+
+
+
+
+
+100.0
+
+
+2026-01-19T09:28Z
+
+9.45
+
+
+
+----
+
+
+
+
+
+
+
+
+
+  
+  
+	ELEvo 
+  
+
+
+Maike Bauer (ASWO)
+
+ Detail
+
+
+2026-01-20T01:00Z
+
+
+
+
+
+
+
+6.08
+
+
+
+
+----
+
+
+
+2026-01-19T10:51Z
+
+8.07
+
+
+
+
+Max Kp Range: 5.0 - 8.0
+
+
+WSA-ENLIL + Cone (NOAA/SWPC) 
+
+Tony Iampietro (M2M SWAO)
+
+ Detail
+
+
+2026-01-20T01:50Z
+
+(-1.71h, +1.95h)
+
+
+
+
+
+
+
+6.92
+
+
+
+
+
+100.0
+
+
+2026-01-19T11:30Z
+
+7.42
+
+
+
+
+Max Kp Range: 8.0 - 8.0
+
+
+
+  
+  
+	Ensemble WSA-ENLIL + Cone (NASA M2M) 
+  
+
+
+Tony Iampietro (M2M SWAO)
+
+ Detail
+
+
+2026-01-20T07:11Z
+
+(-12.0h, +12.0h)
+
+
+
+
+
+
+
+12.27
+
+
+
+
+
+85.0
+
+
+2026-01-19T14:42Z
+
+4.22
+
+
+
+
+Max Kp Range: 6.0 - 8.0
+
+
+Other (SIDC) 
+
+Tony Iampietro (M2M SWAO)
+
+ Detail
+
+
+2026-01-20T01:22Z
+
+
+
+
+
+
+
+6.45
+
+
+
+
+
+66.0
+
+
+---
+---
+
+
+
+Max Kp Range: 7.0 - 8.5
+
+
+
+  
+  
+	Median of all Methods 
+  
+
+
+Auto Generated (CCMC)
+
+ Detail
+
+
+2026-01-20T01:06Z
+
+
+
+
+
+
+
+6.18
+
+
+
+
+
+69.2222
+
+
+---
+---
+
+
+
+Max Kp Range: 7.125 - 8.5
+
+
+
+  
+  
+	Average of all Methods 
+  
+
+
+Auto Generated (CCMC)
+
+ Detail
+2026-04-03 00:11:34,305 INFO Added new CME: CME_2026-01-19T22:32Z
+
+(-7.73h, +5.44h)
+2026-04-03 00:11:34,305 INFO Added new CME: CME_2026-01-19T17:35Z
+
+(-6.48h, +4.22h)
+2026-04-03 00:11:34,305 INFO Added new CME: CME_2026-01-19T20:59Z
+
+(-4.99h, +3.69h)
+2026-04-03 00:11:34,305 INFO Added new CME: CME_2026-01-19T16:17Z
+
+(-4.13h, +2.83h)
+2026-04-03 00:11:34,305 INFO Added new CME: CME_2026-01-19T22:00Z
+2026-04-03 00:11:34,305 INFO Added new CME: CME_2026-01-20T04:00Z
+
+(-6.0h, +6.0h)
+2026-04-03 00:11:34,305 INFO Added new CME: CME_2026-01-20T02:46Z
+
+(-5.3h, +5.3h)
+2026-04-03 00:11:34,305 INFO Added new CME: CME_2026-01-20T01:50Z
+
+(-1.71h, +1.95h)
+2026-04-03 00:11:34,305 INFO Added new CME: CME_2026-01-20T07:11Z
+
+(-12.0h, +12.0h)
+2026-04-03 00:11:34,305 INFO Added new CME: CME_2026-01-20T01:22Z
+2026-04-03 00:11:34,305 INFO Added new CME: CME_2026-01-20T01:06Z
+2026-04-03 00:11:34,305 INFO Added new CME: CME_Predicted Shock Arrival Time
+Difference (hrs)
+Confidence (%)
+Submitted On
+Lead Time (hrs)
+Predicted Geomagnetic Storm Parameter(s)
+Method
+Submitted By
+
+
+
+
+2026-01-13T16:00Z
+
+(-7.0h, +7.0h)
+
+
+
+
+
+
+
+2.28
+
+
+
+
+----
+
+
+
+2026-01-11T01:10Z
+
+60.55
+
+
+
+
+Max Kp Range: 3.0 - 5.0
+
+
+
+  
+  
+	WSA-ENLIL + Cone (NASA M2M) 
+  
+
+
+Tony Iampietro (M2M SWAO)
+
+ Detail
+
+
+2026-01-13T13:11Z
+
+(-7.0h, +7.0h)
+
+
+
+
+
+
+
+-0.53
+
+
+
+
+----
+
+
+
+2026-01-12T16:53Z
+
+20.83
+
+
+
+
+Max Kp Range: 3.0 - 5.0
+
+
+
+  
+  
+	WSA-ENLIL + Cone (NASA M2M) 
+  
+
+
+Tony Iampietro (M2M SWAO)
+
+ Detail
+
+
+2026-01-13T14:35Z
+
+
+
+
+
+
+
+0.87
+
+
+
+
+----
+
+
+
+---
+---
+
+
+
+Max Kp Range: 3.0 - 5.0
+
+
+
+  
+  
+	Average of all Methods 
+  
+
+
+Auto Generated (CCMC)
+
+ Detail
+
+
+2026-01-13T14:35Z
+
+
+
+
+
+
+
+0.87
+
+
+
+
+----
+
+
+
+---
+---
+
+
+
+Max Kp Range: 3.0 - 5.0
+
+
+
+  
+  
+	Median of all Methods 
+  
+
+
+Auto Generated (CCMC)
+
+ Detail
+2026-04-03 00:11:34,305 INFO Added new CME: CME_Predicted Shock Arrival Time
+Difference (hrs)
+Confidence (%)
+Submitted On
+Lead Time (hrs)
+Predicted Geomagnetic Storm Parameter(s)
+Method
+Submitted By
+
+
+
+
+2026-01-13T13:11Z
+
+(-7.0h, +7.0h)
+
+
+
+
+
+
+
+-0.53
+
+
+
+
+----
+
+
+
+2026-01-12T16:53Z
+
+20.83
+
+
+
+
+Max Kp Range: 3.0 - 5.0
+
+
+
+  
+  
+	WSA-ENLIL + Cone (NASA M2M) 
+  
+
+
+Tony Iampietro (M2M SWAO)
+
+ Detail
+
+
+2026-01-13T13:11Z
+
+
+
+
+
+
+
+-0.53
+
+
+
+
+----
+
+
+
+---
+---
+
+
+
+Max Kp Range: 3.0 - 5.0
+
+
+
+  
+  
+	Average of all Methods 
+  
+
+
+Auto Generated (CCMC)
+
+ Detail
+
+
+2026-01-13T13:11Z
+
+
+
+
+
+
+
+-0.53
+
+
+
+
+----
+
+
+
+---
+---
+
+
+
+Max Kp Range: 3.0 - 5.0
+
+
+
+  
+  
+	Median of all Methods 
+  
+
+
+Auto Generated (CCMC)
+
+ Detail
+2026-04-03 00:11:34,305 INFO Added new CME: CME_Predicted Shock Arrival Time
+Difference (hrs)
+Confidence (%)
+Submitted On
+Lead Time (hrs)
+Predicted Geomagnetic Storm Parameter(s)
+Method
+Submitted By
+
+
+
+
+2026-01-10T20:22Z
+
+(-7.0h, +7.0h)
+
+
+
+
+
+
+
+0.77
+
+
+
+
+----
+
+
+
+2026-01-09T00:00Z
+
+43.60
+
+
+
+
+Max Kp Range: 6.0 - 8.0
+
+
+
+  
+  
+	WSA-ENLIL + Cone (NASA M2M) 
+  
+
+
+Anna Chulaki (M2M SWAO)
+
+ Detail
+
+
+2026-01-11T18:42Z
+
+(-10.57h, +8.14h)
+
+
+
+
+
+
+
+23.10
+
+
+
+
+
+25.0
+
+
+2026-01-09T02:00Z
+
+41.60
+
+
+
+----
+
+
+
+
+
+
+
+
+CMEFM v.0.1 
+
+Garrett Imhoff (Other)
+
+ Detail
+
+
+2026-01-11T03:15Z
+
+
+
+
+
+
+
+7.65
+
+
+
+
+----
+
+
+
+2026-01-09T03:10Z
+
+40.43
+
+
+
+
+Max Kp Range: 5.0 - 7.0
+
+
+SARM 
+
+Marlon Nunez (UMA)
+
+ Detail
+
+
+2026-01-10T17:37Z
+
+(-6.0h, +6.0h)
+
+
+
+
+
+
+
+-1.98
+
+
+
+
+----
+
+
+
+2026-01-09T10:21Z
+
+33.25
+
+
+
+----
+
+
+
+
+
+
+
+
+
+  
+  
+	ELEvo 
+  
+
+
+Christian Moestl (ASWO)
+
+ Detail
+
+
+2026-01-11T04:00Z
+
+(-12.0h, +12.0h)
+
+
+
+
+
+
+
+8.40
+
+
+
+
+
+70.0
+
+
+2026-01-09T10:35Z
+
+33.02
+
+
+
+
+Max Kp Range: 5.0 - 7.0
+
+
+Other (SIDC) 
+
+Carina Alden (M2M SWAO)
+
+ Detail
+
+
+2026-01-11T04:40Z
+
+(-6.09h, +4.26h)
+
+
+
+
+
+
+
+9.07
+
+
+
+
+
+50.0
+
+
+2026-01-09T16:53Z
+
+26.72
+
+
+
+----
+
+
+
+
+
+
+
+
+CMEFM v.0.1 
+
+Garrett Imhoff (Other)
+
+ Detail
+
+
+2026-01-10T21:19Z
+
+(-7.0h, +7.0h)
+
+
+
+
+
+
+
+1.72
+
+
+
+
+----
+
+
+
+2026-01-09T17:42Z
+
+25.90
+
+
+
+
+Max Kp Range: 5.0 - 7.0
+
+
+
+  
+  
+	WSA-ENLIL + Cone (NASA M2M) 
+  
+
+
+Carina Alden (M2M SWAO)
+
+ Detail
+
+
+2026-01-10T21:19Z
+
+(-7.0h, +7.0h)
+
+
+
+
+
+
+
+1.72
+
+
+
+
+----
+
+
+
+2026-01-09T17:42Z
+
+25.90
+
+
+
+
+Max Kp Range: 5.0 - 7.0
+
+
+
+  
+  
+	WSA-ENLIL + Cone (NASA M2M) 
+  
+
+
+Carina Alden (M2M SWAO)
+
+ Detail
+
+
+2026-01-11T06:00Z
+
+(-8.0h, +8.0h)
+
+
+
+
+
+
+
+10.40
+
+
+
+
+
+70.0
+
+
+2026-01-10T01:15Z
+
+18.35
+
+
+
+
+Max Kp Range: 3.0 - 6.0
+
+
+WSA-ENLIL + Cone (Met Office) 
+
+Met Office (Met Office)
+
+ Detail
+
+
+2026-01-11T02:21Z
+
+
+
+
+
+
+
+6.75
+
+
+
+
+
+53.75
+
+
+---
+---
+
+
+
+Max Kp Range: 4.83333 - 7.0
+
+
+
+  
+  
+	Average of all Methods 
+  
+
+
+Auto Generated (CCMC)
+
+ Detail
+
+
+2026-01-11T03:15Z
+
+
+
+
+
+
+
+7.65
+
+
+
+
+
+60.0
+
+
+---
+---
+
+
+
+Max Kp Range: 5.0 - 7.0
+
+
+
+  
+  
+	Median of all Methods 
+  
+
+
+Auto Generated (CCMC)
+
+ Detail
+2026-04-03 00:11:34,305 INFO Added new CME: CME_2026-01-11T18:42Z
+
+(-10.57h, +8.14h)
+2026-04-03 00:11:34,305 INFO Added new CME: CME_2026-01-11T04:00Z
+
+(-12.0h, +12.0h)
+2026-04-03 00:11:34,305 INFO Added new CME: CME_2026-01-11T04:40Z
+
+(-6.09h, +4.26h)
+2026-04-03 00:11:34,305 INFO Added new CME: CME_2026-01-11T06:00Z
+
+(-8.0h, +8.0h)
+2026-04-03 00:11:34,305 INFO Added new CME: CME_2026-01-11T02:21Z
+2026-04-03 00:11:34,305 INFO Added new CME: CME_2026-01-11T03:15Z
+2026-04-03 00:11:34,305 INFO Added new CME: CME_Predicted Shock Arrival Time
+Difference (hrs)
+Confidence (%)
+Submitted On
+Lead Time (hrs)
+Predicted Geomagnetic Storm Parameter(s)
+Method
+Submitted By
+
+
+
+
+2026-01-11T10:00Z
+
+(-7.0h, +7.0h)
+
+
+
+
+
+
+
+14.40
+
+
+
+
+----
+
+
+
+2026-01-09T02:52Z
+
+40.73
+
+
+
+
+Max Kp Range: 3.0 - 5.0
+
+
+
+  
+  
+	WSA-ENLIL + Cone (NASA M2M) 
+  
+
+
+Carina Alden (M2M SWAO)
+
+ Detail
+
+
+2026-01-10T21:19Z
+
+(-7.0h, +7.0h)
+
+
+
+
+
+
+
+1.72
+
+
+
+
+----
+
+
+
+2026-01-09T17:42Z
+
+25.90
+
+
+
+
+Max Kp Range: 5.0 - 7.0
+
+
+
+  
+  
+	WSA-ENLIL + Cone (NASA M2M) 
+  
+
+
+Carina Alden (M2M SWAO)
+
+ Detail
+
+
+2026-01-11T03:39Z
+
+
+
+
+
+
+
+8.05
+
+
+
+
+----
+
+
+
+---
+---
+
+
+
+Max Kp Range: 4.0 - 6.0
+
+
+
+  
+  
+	Average of all Methods 
+  
+
+
+Auto Generated (CCMC)
+
+ Detail
+
+
+2026-01-11T03:39Z
+
+
+
+
+
+
+
+8.05
+
+
+
+
+----
+
+
+
+---
+---
+
+
+
+Max Kp Range: 4.0 - 6.0
+
+
+
+  
+  
+	Median of all Methods 
+  
+
+
+Auto Generated (CCMC)
+
+ Detail
+2026-04-03 00:11:34,305 INFO Added new CME: CME_Predicted Shock Arrival Time
+Difference (hrs)
+Confidence (%)
+Submitted On
+Lead Time (hrs)
+Predicted Geomagnetic Storm Parameter(s)
+Method
+Submitted By
+
+
+
+
+2026-01-10T10:15Z
+
+(-7.0h, +7.0h)
+
+
+
+
+
+
+
+-9.35
+
+
+
+
+----
+
+
+
+2026-01-08T13:45Z
+
+53.85
+
+
+
+
+Max Kp Range: 5.0 - 7.0
+
+
+
+  
+  
+	WSA-ENLIL + Cone (NASA M2M) 
+  
+
+
+Mattie Anastopulos (M2M SWAO)
+
+ Detail
+
+
+2026-01-10T09:55Z
+
+(-6.0h, +10.0h)
+
+
+
+
+
+
+
+-9.68
+
+
+
+
+
+93.0
+
+
+2026-01-08T19:32Z
+
+48.07
+
+
+
+
+Max Kp Range: 5.0 - 7.0
+
+
+
+  
+  
+	Ensemble WSA-ENLIL + Cone (NASA M2M) 
+  
+
+
+Anna Chulaki (M2M SWAO)
+
+ Detail
+
+
+2026-01-10T18:00Z
+
+(-12.0h, +12.0h)
+
+
+
+
+
+
+
+-1.60
+
+
+
+
+
+30.0
+
+
+2026-01-09T10:19Z
+
+33.28
+
+
+
+
+Max Kp Range: 4.0 - 6.0
+
+
+Other (SIDC) 
+
+Carina Alden (M2M SWAO)
+
+ Detail
+
+
+2026-01-10T04:59Z
+
+(-6.0h, +6.0h)
+
+
+
+
+
+
+
+-14.62
+
+
+
+
+----
+
+
+
+2026-01-09T10:24Z
+
+33.20
+
+
+
+----
+
+
+
+
+
+
+
+
+
+  
+  
+	ELEvo 
+  
+
+
+Christian Moestl (ASWO)
+
+ Detail
+
+
+2026-01-10T10:47Z
+
+
+
+
+
+
+
+-8.82
+
+
+
+
+
+61.5
+
+
+---
+---
+
+
+
+Max Kp Range: 4.66667 - 6.66667
+
+
+
+  
+  
+	Average of all Methods 
+  
+
+
+Auto Generated (CCMC)
+
+ Detail
+
+
+2026-01-10T10:05Z
+
+
+
+
+
+
+
+-9.52
+
+
+
+
+
+61.5
+
+
+---
+---
+
+
+
+Max Kp Range: 5.0 - 7.0
+
+
+
+  
+  
+	Median of all Methods 
+  
+
+
+Auto Generated (CCMC)
+
+ Detail
+2026-04-03 00:11:34,305 INFO Added new CME: CME_2026-01-10T09:55Z
+
+(-6.0h, +10.0h)
+2026-04-03 00:11:34,305 INFO Added new CME: CME_2026-01-10T18:00Z
+
+(-12.0h, +12.0h)
+2026-04-03 00:11:34,305 INFO Added new CME: CME_2026-01-10T10:47Z
+2026-04-03 00:11:34,305 INFO Added new CME: CME_2026-01-10T10:05Z
+2026-04-03 00:11:34,305 INFO Added new CME: CME_Predicted Shock Arrival Time
+Difference (hrs)
+Confidence (%)
+Submitted On
+Lead Time (hrs)
+Predicted Geomagnetic Storm Parameter(s)
+Method
+Submitted By
+
+
+
+
+2026-01-08T09:00Z
+
+(-7.0h, +7.0h)
+
+
+
+
+
+
+
+4.05
+
+
+
+
+----
+
+
+
+2026-01-06T15:03Z
+
+37.90
+
+
+
+
+Max Kp Range: 4.0 - 6.0
+
+
+
+  
+  
+	WSA-ENLIL + Cone (NASA M2M) 
+  
+
+
+Melissa Kane (M2M SWAO)
+
+ Detail
+
+
+2026-01-09T15:11Z
+
+(-7.04h, +8.21h)
+
+
+
+
+
+
+
+34.23
+
+
+
+
+
+50.0
+
+
+2026-01-07T02:35Z
+
+26.37
+
+
+
+----
+
+
+
+
+
+
+
+
+CMEFM v.0.1 
+
+Garrett Imhoff (Other)
+
+ Detail
+
+
+2026-01-08T11:46Z
+
+
+
+
+
+
+
+6.82
+
+
+
+
+----
+
+
+
+2026-01-07T04:00Z
+
+24.95
+
+
+
+
+Max Kp Range: 4.0 - 6.0
+
+
+SARM 
+
+Marlon Nunez (UMA)
+
+ Detail
+
+
+2026-01-09T08:00Z
+
+(-12.0h, +12.0h)
+
+
+
+
+
+
+
+27.05
+
+
+
+
+
+50.0
+
+
+2026-01-07T09:32Z
+
+19.42
+
+
+
+
+Max Kp Range: 4.0 - 6.0
+
+
+Other (SIDC) 
+
+Melissa Kane (M2M SWAO)
+
+ Detail
+
+
+2026-01-08T22:59Z
+
+
+
+
+
+
+
+18.03
+
+
+
+
+
+50.0
+
+
+---
+---
+
+
+
+Max Kp Range: 4.0 - 6.0
+
+
+
+  
+  
+	Average of all Methods 
+  
+
+
+Auto Generated (CCMC)
+
+ Detail
+
+
+2026-01-08T21:53Z
+
+
+
+
+
+
+
+16.93
+
+
+
+
+
+50.0
+
+
+---
+---
+
+
+
+Max Kp Range: 4.0 - 6.0
+
+
+
+  
+  
+	Median of all Methods 
+  
+
+
+Auto Generated (CCMC)
+
+ Detail
+2026-04-03 00:11:34,305 INFO Added new CME: CME_2026-01-09T15:11Z
+
+(-7.04h, +8.21h)
+2026-04-03 00:11:34,305 INFO Added new CME: CME_2026-01-09T08:00Z
+
+(-12.0h, +12.0h)
+2026-04-03 00:11:34,305 INFO Added new CME: CME_2026-01-08T22:59Z
+2026-04-03 00:11:34,305 INFO Added new CME: CME_2026-01-08T21:53Z
+2026-04-03 00:11:34,305 INFO Added new CME: CME_Predicted Shock Arrival Time
+Difference (hrs)
+Confidence (%)
+Submitted On
+Lead Time (hrs)
+Predicted Geomagnetic Storm Parameter(s)
+Method
+Submitted By
+
+
+
+
+2026-01-04T15:17Z
+
+(-7.0h, +7.0h)
+
+
+
+
+
+
+
+-5.40
+
+
+
+
+----
+
+
+
+2026-01-01T22:31Z
+
+70.17
+
+
+
+
+Max Kp Range: 4.0 - 6.0
+
+
+
+  
+  
+	WSA-ENLIL + Cone (NASA M2M) 
+  
+
+
+Melissa Kane (M2M SWAO)
+
+ Detail
+
+
+2026-01-04T21:23Z
+
+(-13.68h, +10.93h)
+
+
+
+
+
+
+
+0.70
+
+
+
+
+
+50.0
+
+
+2026-01-02T01:36Z
+
+67.08
+
+
+
+----
+
+
+
+
+
+
+
+
+CMEFM v.0.1 
+
+Garrett Imhoff (Other)
+
+ Detail
+
+
+2026-01-04T14:09Z
+
+(-9.0h, +8.0h)
+
+
+
+
+
+
+
+-6.53
+
+
+
+
+
+87.0
+
+
+2026-01-02T01:47Z
+
+66.90
+
+
+
+
+Max Kp Range: 4.0 - 6.0
+
+
+
+  
+  
+	Ensemble WSA-ENLIL + Cone (NASA M2M) 
+  
+
+
+Anna Chulaki (M2M SWAO)
+
+ Detail
+
+
+2026-01-05T01:00Z
+
+(-12.0h, +12.0h)
+
+
+
+
+
+
+
+4.32
+
+
+
+
+
+35.0
+
+
+2026-01-02T10:47Z
+
+57.90
+
+
+
+
+Max Kp Range: 4.0 - 6.0
+
+
+Other (SIDC) 
+
+Elizabeth Juelfs (LASSOS)
+
+ Detail
+
+
+2026-01-04T12:00Z
+
+(-6.0h, +6.0h)
+
+
+
+
+
+
+
+-8.68
+
+
+
+
+
+50.0
+
+
+2026-01-02T17:18Z
+
+51.38
+
+
+
+
+Max Kp Range: 4.0 - 6.0
+
+
+WSA-ENLIL + Cone (Met Office) 
+
+Met Office (Met Office)
+
+ Detail
+
+
+2026-01-04T15:23Z
+
+
+
+
+
+
+
+-5.30
+
+
+
+
+----
+
+
+
+2026-01-02T18:00Z
+
+50.68
+
+
+
+
+Max Kp Range: 4.0 - 6.0
+
+
+SARM 
+
+Marlon Nunez (UMA)
+
+ Detail
+
+
+2026-01-04T17:12Z
+
+
+
+
+
+
+
+-3.48
+
+
+
+
+
+55.5
+
+
+---
+---
+
+
+
+Max Kp Range: 4.0 - 6.0
+
+
+
+  
+  
+	Average of all Methods 
+  
+
+
+Auto Generated (CCMC)
+
+ Detail
+
+
+2026-01-04T15:20Z
+
+
+
+
+
+
+
+-5.35
+
+
+
+
+
+50.0
+
+
+---
+---
+
+
+
+Max Kp Range: 4.0 - 6.0
+
+
+
+  
+  
+	Median of all Methods 
+  
+
+
+Auto Generated (CCMC)
+
+ Detail
+2026-04-03 00:11:34,305 INFO Added new CME: CME_2026-01-04T21:23Z
+
+(-13.68h, +10.93h)
+2026-04-03 00:11:34,306 INFO Added new CME: CME_2026-01-04T14:09Z
+
+(-9.0h, +8.0h)
+2026-04-03 00:11:34,306 INFO Added new CME: CME_2026-01-05T01:00Z
+
+(-12.0h, +12.0h)
+2026-04-03 00:11:34,306 INFO Added new CME: CME_2026-01-04T12:00Z
+
+(-6.0h, +6.0h)
+2026-04-03 00:11:34,306 INFO Added new CME: CME_2026-01-04T17:12Z
+2026-04-03 00:11:34,306 INFO Added new CME: CME_2026-01-04T15:20Z
+2026-04-03 00:11:34,306 ERROR CME Pipeline failed: slice(-30, None, None)
+2026-04-03 00:11:34,307 INFO CME pipeline complete
+2026-04-03 00:11:34,307 INFO Fetching cloud cover grid (HRRR)...
+2026-04-03 00:11:34,322 INFO Cloud grid: 11489 points (ocean masked)
+2026-04-03 00:11:34,323 WARNING HRRR: missing dependency (No module named 'eccodes')
+2026-04-03 00:11:34,323 WARNING HRRR failed — keeping existing cloud_cover.json from last successful run
+2026-04-03 00:11:34,323 INFO cloud_cover.json unchanged (HRRR unavailable)
