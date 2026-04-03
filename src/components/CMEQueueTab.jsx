@@ -39,7 +39,17 @@ export default function CMEQueueTab({ cmes, positions }) {
 
   return (
     <div className="cme-queue-tab">
-      {/* Top 60% - CME Cards */}
+      {/* Top 20% - Position Visualization */}
+      <div className="cme-viz-container">
+        <CMEPositionViz 
+          cmes={cmes} 
+          positions={positions}
+          cmeColors={CME_COLORS}
+          onCMEClick={setSelectedCME}
+        />
+      </div>
+
+      {/* Bottom 80% - CME Cards */}
       <div className="cme-cards-container">
         {cmes.map((cme, idx) => {
           const cmeColor = CME_COLORS[idx % CME_COLORS.length];
@@ -106,16 +116,6 @@ export default function CMEQueueTab({ cmes, positions }) {
             </div>
           );
         })}
-      </div>
-
-      {/* Bottom 40% - Position Visualization */}
-      <div className="cme-viz-container">
-        <CMEPositionViz 
-          cmes={cmes} 
-          positions={positions}
-          cmeColors={CME_COLORS}
-          onCMEClick={setSelectedCME}
-        />
       </div>
 
       {/* Detail Popup */}

@@ -1,30 +1,41 @@
-/* Dark Neon Theme for Queue Tab */
+/* Queue Tab - Viz Top 20%, Cards 80% */
 .cme-queue-tab {
   height: 100%;
   display: flex;
   flex-direction: column;
-  gap: 1rem;
+  gap: 0.75rem;
 }
 
 .cme-queue-empty {
   text-align: center;
-  padding: 3rem;
+  padding: 2rem;
   color: #7a8a90;
-  font-size: 1.1rem;
+  font-size: 0.95rem;
 }
 
-/* Top 60% - Cards Container */
+/* Top 20% - Visualization */
+.cme-viz-container {
+  flex: 0 0 20%;
+  background: #0f1419;
+  border-radius: 6px;
+  padding: 0.75rem;
+  border: 1px solid #1a3a40;
+  overflow: hidden;
+  min-height: 180px;
+}
+
+/* Bottom 80% - Cards Container */
 .cme-cards-container {
-  flex: 0 0 60%;
+  flex: 1;
   overflow-y: auto;
   display: flex;
   flex-direction: column;
-  gap: 0.75rem;
+  gap: 0.5rem;
   padding-right: 0.5rem;
 }
 
 .cme-cards-container::-webkit-scrollbar {
-  width: 8px;
+  width: 6px;
 }
 
 .cme-cards-container::-webkit-scrollbar-track {
@@ -33,58 +44,58 @@
 
 .cme-cards-container::-webkit-scrollbar-thumb {
   background: #1a3a40;
-  border-radius: 4px;
+  border-radius: 3px;
 }
 
 .cme-cards-container::-webkit-scrollbar-thumb:hover {
   background: #00FFF0;
 }
 
-/* Compact CME Card - Dark Neon */
+/* Compact CME Card */
 .cme-card {
   background: #0f1419;
-  border: 2px solid;
-  border-radius: 8px;
-  padding: 0.75rem 1rem;
+  border: 1px solid;
+  border-radius: 6px;
+  padding: 0.5rem 0.75rem;
   cursor: pointer;
-  transition: all 0.3s ease;
+  transition: all 0.2s ease;
 }
 
 .cme-card:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 0 20px currentColor;
+  transform: translateY(-1px);
+  box-shadow: 0 0 15px currentColor;
 }
 
 .card-header {
   display: flex;
   align-items: center;
-  gap: 0.75rem;
-  margin-bottom: 0.5rem;
-  padding-bottom: 0.5rem;
+  gap: 0.5rem;
+  margin-bottom: 0.4rem;
+  padding-bottom: 0.4rem;
   border-bottom: 1px solid #1a3a40;
 }
 
 .cme-number {
-  font-size: 1.5rem;
+  font-size: 1.2rem;
   font-weight: bold;
-  min-width: 30px;
+  min-width: 25px;
   text-align: center;
 }
 
 .cme-id {
   font-family: monospace;
-  font-size: 0.85rem;
+  font-size: 0.7rem;
   color: #7a8a90;
   flex: 1;
 }
 
 .cme-state {
-  padding: 0.3rem 0.8rem;
-  border-radius: 4px;
-  font-size: 0.75rem;
+  padding: 0.2rem 0.6rem;
+  border-radius: 3px;
+  font-size: 0.65rem;
   font-weight: 700;
   text-transform: uppercase;
-  letter-spacing: 0.5px;
+  letter-spacing: 0.3px;
 }
 
 .cme-state.quiet {
@@ -95,88 +106,79 @@
 .cme-state.watch {
   background: #FFA500;
   color: #000;
-  box-shadow: 0 0 10px #FFA50066;
+  box-shadow: 0 0 8px #FFA50066;
 }
 
 .cme-state.inbound {
   background: #FF6B00;
   color: #fff;
-  box-shadow: 0 0 10px #FF6B0066;
+  box-shadow: 0 0 8px #FF6B0066;
 }
 
 .cme-state.imminent {
   background: #FF0080;
   color: #fff;
-  box-shadow: 0 0 10px #FF008066;
+  box-shadow: 0 0 8px #FF008066;
 }
 
 .cme-state.arrived {
   background: #00FF00;
   color: #000;
-  box-shadow: 0 0 10px #00FF0066;
+  box-shadow: 0 0 8px #00FF0066;
 }
 
 .card-details {
   display: flex;
   flex-direction: column;
-  gap: 0.4rem;
+  gap: 0.3rem;
 }
 
 .detail-row {
   display: flex;
   align-items: center;
-  gap: 0.5rem;
-  font-size: 0.85rem;
+  gap: 0.4rem;
+  font-size: 0.75rem;
 }
 
 .detail-row .label {
   color: #7a8a90;
   font-weight: 600;
-  min-width: 65px;
+  min-width: 55px;
   text-transform: uppercase;
-  font-size: 0.75rem;
-  letter-spacing: 0.5px;
+  font-size: 0.65rem;
+  letter-spacing: 0.3px;
 }
 
 .detail-row .value {
   color: #e0e6ed;
   font-weight: 400;
+  font-size: 0.75rem;
 }
 
 .detail-row .value.progress-bar {
   display: flex;
   align-items: center;
-  gap: 0.5rem;
+  gap: 0.4rem;
   flex: 1;
 }
 
 .progress-track {
   flex: 1;
-  height: 10px;
+  height: 8px;
   background: #0a0e1a;
-  border-radius: 5px;
+  border-radius: 4px;
   overflow: hidden;
   border: 1px solid #1a3a40;
 }
 
 .progress-fill {
   height: 100%;
-  border-radius: 5px;
+  border-radius: 4px;
   transition: width 0.5s ease;
 }
 
 .progress-text {
-  font-size: 0.75rem;
+  font-size: 0.65rem;
   color: #7a8a90;
   white-space: nowrap;
-}
-
-/* Bottom 40% - Visualization Container */
-.cme-viz-container {
-  flex: 0 0 40%;
-  background: #0f1419;
-  border-radius: 8px;
-  padding: 1rem;
-  border: 2px solid #1a3a40;
-  overflow: hidden;
 }
