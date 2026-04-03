@@ -1,6 +1,6 @@
 {
   "metadata": {
-    "last_updated": "2026-04-03T04:24:41.548263+00:00",
+    "last_updated": "2026-04-03T06:07:58.032674+00:00",
     "schema_version": "1.0"
   },
   "active_cme_id": "CME_2026-04-03T16:50Z\r\n\r\n(-6.99h, +8.82h)",
@@ -30,8 +30,7 @@
         "earliest_prediction": null,
         "latest_prediction": null,
         "num_models": 0,
-        "confidence_spread_hours": 0,
-        "scoreboard_url": "https://kauai.ccmc.gsfc.nasa.gov/CMEscoreboard/"
+        "confidence_spread_hours": 0
       },
       "state": {
         "current": "QUIET",
@@ -78,8 +77,7 @@
         "earliest_prediction": null,
         "latest_prediction": null,
         "num_models": 0,
-        "confidence_spread_hours": 0,
-        "scoreboard_url": "https://kauai.ccmc.gsfc.nasa.gov/CMEscoreboard/"
+        "confidence_spread_hours": 0
       },
       "state": {
         "current": "QUIET",
@@ -126,8 +124,7 @@
         "earliest_prediction": null,
         "latest_prediction": null,
         "num_models": 0,
-        "confidence_spread_hours": 0,
-        "scoreboard_url": "https://kauai.ccmc.gsfc.nasa.gov/CMEscoreboard/"
+        "confidence_spread_hours": 0
       },
       "state": {
         "current": "QUIET",
@@ -174,8 +171,7 @@
         "earliest_prediction": null,
         "latest_prediction": null,
         "num_models": 0,
-        "confidence_spread_hours": 0,
-        "scoreboard_url": "https://kauai.ccmc.gsfc.nasa.gov/CMEscoreboard/"
+        "confidence_spread_hours": 0
       },
       "state": {
         "current": "QUIET",
@@ -222,8 +218,7 @@
         "earliest_prediction": null,
         "latest_prediction": null,
         "num_models": 0,
-        "confidence_spread_hours": 0,
-        "scoreboard_url": "https://kauai.ccmc.gsfc.nasa.gov/CMEscoreboard/"
+        "confidence_spread_hours": 0
       },
       "state": {
         "current": "QUIET",
@@ -270,8 +265,7 @@
         "earliest_prediction": null,
         "latest_prediction": null,
         "num_models": 0,
-        "confidence_spread_hours": 0,
-        "scoreboard_url": "https://kauai.ccmc.gsfc.nasa.gov/CMEscoreboard/"
+        "confidence_spread_hours": 0
       },
       "state": {
         "current": "QUIET",
@@ -318,8 +312,7 @@
         "earliest_prediction": null,
         "latest_prediction": null,
         "num_models": 0,
-        "confidence_spread_hours": 0,
-        "scoreboard_url": "https://kauai.ccmc.gsfc.nasa.gov/CMEscoreboard/"
+        "confidence_spread_hours": 0
       },
       "state": {
         "current": "QUIET",
@@ -366,8 +359,7 @@
         "earliest_prediction": null,
         "latest_prediction": null,
         "num_models": 0,
-        "confidence_spread_hours": 0,
-        "scoreboard_url": "https://kauai.ccmc.gsfc.nasa.gov/CMEscoreboard/"
+        "confidence_spread_hours": 0
       },
       "state": {
         "current": "QUIET",
@@ -414,8 +406,7 @@
         "earliest_prediction": null,
         "latest_prediction": null,
         "num_models": 0,
-        "confidence_spread_hours": 0,
-        "scoreboard_url": "https://kauai.ccmc.gsfc.nasa.gov/CMEscoreboard/"
+        "confidence_spread_hours": 0
       },
       "state": {
         "current": "QUIET",
@@ -462,8 +453,7 @@
         "earliest_prediction": null,
         "latest_prediction": null,
         "num_models": 0,
-        "confidence_spread_hours": 0,
-        "scoreboard_url": "https://kauai.ccmc.gsfc.nasa.gov/CMEscoreboard/"
+        "confidence_spread_hours": 0
       },
       "state": {
         "current": "QUIET",
@@ -510,8 +500,7 @@
         "earliest_prediction": null,
         "latest_prediction": null,
         "num_models": 0,
-        "confidence_spread_hours": 0,
-        "scoreboard_url": "https://kauai.ccmc.gsfc.nasa.gov/CMEscoreboard/"
+        "confidence_spread_hours": 0
       },
       "state": {
         "current": "QUIET",
@@ -558,8 +547,7 @@
         "earliest_prediction": null,
         "latest_prediction": null,
         "num_models": 0,
-        "confidence_spread_hours": 0,
-        "scoreboard_url": "https://kauai.ccmc.gsfc.nasa.gov/CMEscoreboard/"
+        "confidence_spread_hours": 0
       },
       "state": {
         "current": "QUIET",
@@ -606,8 +594,7 @@
         "earliest_prediction": null,
         "latest_prediction": null,
         "num_models": 0,
-        "confidence_spread_hours": 0,
-        "scoreboard_url": "https://kauai.ccmc.gsfc.nasa.gov/CMEscoreboard/"
+        "confidence_spread_hours": 0
       },
       "state": {
         "current": "QUIET",
@@ -654,8 +641,7 @@
         "earliest_prediction": null,
         "latest_prediction": null,
         "num_models": 0,
-        "confidence_spread_hours": 0,
-        "scoreboard_url": "https://kauai.ccmc.gsfc.nasa.gov/CMEscoreboard/"
+        "confidence_spread_hours": 0
       },
       "state": {
         "current": "QUIET",
@@ -702,8 +688,7 @@
         "earliest_prediction": null,
         "latest_prediction": null,
         "num_models": 0,
-        "confidence_spread_hours": 0,
-        "scoreboard_url": "https://kauai.ccmc.gsfc.nasa.gov/CMEscoreboard/"
+        "confidence_spread_hours": 0
       },
       "state": {
         "current": "QUIET",
@@ -750,8 +735,7 @@
         "earliest_prediction": null,
         "latest_prediction": null,
         "num_models": 0,
-        "confidence_spread_hours": 0,
-        "scoreboard_url": "https://kauai.ccmc.gsfc.nasa.gov/CMEscoreboard/"
+        "confidence_spread_hours": 0
       },
       "state": {
         "current": "QUIET",
@@ -798,8 +782,7 @@
         "earliest_prediction": null,
         "latest_prediction": null,
         "num_models": 0,
-        "confidence_spread_hours": 0,
-        "scoreboard_url": "https://kauai.ccmc.gsfc.nasa.gov/CMEscoreboard/"
+        "confidence_spread_hours": 0
       },
       "state": {
         "current": "QUIET",
@@ -894,8 +877,7 @@
         "earliest_prediction": null,
         "latest_prediction": null,
         "num_models": 0,
-        "confidence_spread_hours": 0,
-        "scoreboard_url": "https://kauai.ccmc.gsfc.nasa.gov/CMEscoreboard/"
+        "confidence_spread_hours": 0
       },
       "state": {
         "current": "QUIET",
@@ -942,8 +924,7 @@
         "earliest_prediction": null,
         "latest_prediction": null,
         "num_models": 0,
-        "confidence_spread_hours": 0,
-        "scoreboard_url": "https://kauai.ccmc.gsfc.nasa.gov/CMEscoreboard/"
+        "confidence_spread_hours": 0
       },
       "state": {
         "current": "QUIET",
@@ -1038,8 +1019,7 @@
         "earliest_prediction": null,
         "latest_prediction": null,
         "num_models": 0,
-        "confidence_spread_hours": 0,
-        "scoreboard_url": "https://kauai.ccmc.gsfc.nasa.gov/CMEscoreboard/"
+        "confidence_spread_hours": 0
       },
       "state": {
         "current": "QUIET",
@@ -1086,8 +1066,7 @@
         "earliest_prediction": null,
         "latest_prediction": null,
         "num_models": 0,
-        "confidence_spread_hours": 0,
-        "scoreboard_url": "https://kauai.ccmc.gsfc.nasa.gov/CMEscoreboard/"
+        "confidence_spread_hours": 0
       },
       "state": {
         "current": "QUIET",
@@ -1134,8 +1113,7 @@
         "earliest_prediction": null,
         "latest_prediction": null,
         "num_models": 0,
-        "confidence_spread_hours": 0,
-        "scoreboard_url": "https://kauai.ccmc.gsfc.nasa.gov/CMEscoreboard/"
+        "confidence_spread_hours": 0
       },
       "state": {
         "current": "QUIET",
@@ -1182,8 +1160,7 @@
         "earliest_prediction": null,
         "latest_prediction": null,
         "num_models": 0,
-        "confidence_spread_hours": 0,
-        "scoreboard_url": "https://kauai.ccmc.gsfc.nasa.gov/CMEscoreboard/"
+        "confidence_spread_hours": 0
       },
       "state": {
         "current": "QUIET",
@@ -1230,8 +1207,7 @@
         "earliest_prediction": null,
         "latest_prediction": null,
         "num_models": 0,
-        "confidence_spread_hours": 0,
-        "scoreboard_url": "https://kauai.ccmc.gsfc.nasa.gov/CMEscoreboard/"
+        "confidence_spread_hours": 0
       },
       "state": {
         "current": "QUIET",
@@ -1278,8 +1254,7 @@
         "earliest_prediction": null,
         "latest_prediction": null,
         "num_models": 0,
-        "confidence_spread_hours": 0,
-        "scoreboard_url": "https://kauai.ccmc.gsfc.nasa.gov/CMEscoreboard/"
+        "confidence_spread_hours": 0
       },
       "state": {
         "current": "QUIET",
@@ -1326,8 +1301,7 @@
         "earliest_prediction": null,
         "latest_prediction": null,
         "num_models": 0,
-        "confidence_spread_hours": 0,
-        "scoreboard_url": "https://kauai.ccmc.gsfc.nasa.gov/CMEscoreboard/"
+        "confidence_spread_hours": 0
       },
       "state": {
         "current": "QUIET",
@@ -1374,8 +1348,7 @@
         "earliest_prediction": null,
         "latest_prediction": null,
         "num_models": 0,
-        "confidence_spread_hours": 0,
-        "scoreboard_url": "https://kauai.ccmc.gsfc.nasa.gov/CMEscoreboard/"
+        "confidence_spread_hours": 0
       },
       "state": {
         "current": "QUIET",
@@ -1422,8 +1395,7 @@
         "earliest_prediction": null,
         "latest_prediction": null,
         "num_models": 0,
-        "confidence_spread_hours": 0,
-        "scoreboard_url": "https://kauai.ccmc.gsfc.nasa.gov/CMEscoreboard/"
+        "confidence_spread_hours": 0
       },
       "state": {
         "current": "QUIET",
@@ -1470,8 +1442,7 @@
         "earliest_prediction": null,
         "latest_prediction": null,
         "num_models": 0,
-        "confidence_spread_hours": 0,
-        "scoreboard_url": "https://kauai.ccmc.gsfc.nasa.gov/CMEscoreboard/"
+        "confidence_spread_hours": 0
       },
       "state": {
         "current": "QUIET",
@@ -1518,8 +1489,7 @@
         "earliest_prediction": null,
         "latest_prediction": null,
         "num_models": 0,
-        "confidence_spread_hours": 0,
-        "scoreboard_url": "https://kauai.ccmc.gsfc.nasa.gov/CMEscoreboard/"
+        "confidence_spread_hours": 0
       },
       "state": {
         "current": "QUIET",
@@ -1566,8 +1536,7 @@
         "earliest_prediction": null,
         "latest_prediction": null,
         "num_models": 0,
-        "confidence_spread_hours": 0,
-        "scoreboard_url": "https://kauai.ccmc.gsfc.nasa.gov/CMEscoreboard/"
+        "confidence_spread_hours": 0
       },
       "state": {
         "current": "QUIET",
@@ -1614,8 +1583,7 @@
         "earliest_prediction": null,
         "latest_prediction": null,
         "num_models": 0,
-        "confidence_spread_hours": 0,
-        "scoreboard_url": "https://kauai.ccmc.gsfc.nasa.gov/CMEscoreboard/"
+        "confidence_spread_hours": 0
       },
       "state": {
         "current": "QUIET",
@@ -1662,8 +1630,7 @@
         "earliest_prediction": null,
         "latest_prediction": null,
         "num_models": 0,
-        "confidence_spread_hours": 0,
-        "scoreboard_url": "https://kauai.ccmc.gsfc.nasa.gov/CMEscoreboard/"
+        "confidence_spread_hours": 0
       },
       "state": {
         "current": "QUIET",
@@ -1710,8 +1677,7 @@
         "earliest_prediction": null,
         "latest_prediction": null,
         "num_models": 0,
-        "confidence_spread_hours": 0,
-        "scoreboard_url": "https://kauai.ccmc.gsfc.nasa.gov/CMEscoreboard/"
+        "confidence_spread_hours": 0
       },
       "state": {
         "current": "QUIET",
@@ -1758,8 +1724,7 @@
         "earliest_prediction": null,
         "latest_prediction": null,
         "num_models": 0,
-        "confidence_spread_hours": 0,
-        "scoreboard_url": "https://kauai.ccmc.gsfc.nasa.gov/CMEscoreboard/"
+        "confidence_spread_hours": 0
       },
       "state": {
         "current": "QUIET",
@@ -1806,8 +1771,7 @@
         "earliest_prediction": null,
         "latest_prediction": null,
         "num_models": 0,
-        "confidence_spread_hours": 0,
-        "scoreboard_url": "https://kauai.ccmc.gsfc.nasa.gov/CMEscoreboard/"
+        "confidence_spread_hours": 0
       },
       "state": {
         "current": "QUIET",
@@ -1854,8 +1818,7 @@
         "earliest_prediction": null,
         "latest_prediction": null,
         "num_models": 0,
-        "confidence_spread_hours": 0,
-        "scoreboard_url": "https://kauai.ccmc.gsfc.nasa.gov/CMEscoreboard/"
+        "confidence_spread_hours": 0
       },
       "state": {
         "current": "QUIET",
@@ -1902,8 +1865,7 @@
         "earliest_prediction": null,
         "latest_prediction": null,
         "num_models": 0,
-        "confidence_spread_hours": 0,
-        "scoreboard_url": "https://kauai.ccmc.gsfc.nasa.gov/CMEscoreboard/"
+        "confidence_spread_hours": 0
       },
       "state": {
         "current": "QUIET",
@@ -1950,8 +1912,7 @@
         "earliest_prediction": null,
         "latest_prediction": null,
         "num_models": 0,
-        "confidence_spread_hours": 0,
-        "scoreboard_url": "https://kauai.ccmc.gsfc.nasa.gov/CMEscoreboard/"
+        "confidence_spread_hours": 0
       },
       "state": {
         "current": "QUIET",
@@ -1998,8 +1959,7 @@
         "earliest_prediction": null,
         "latest_prediction": null,
         "num_models": 0,
-        "confidence_spread_hours": 0,
-        "scoreboard_url": "https://kauai.ccmc.gsfc.nasa.gov/CMEscoreboard/"
+        "confidence_spread_hours": 0
       },
       "state": {
         "current": "QUIET",
@@ -2046,8 +2006,7 @@
         "earliest_prediction": null,
         "latest_prediction": null,
         "num_models": 0,
-        "confidence_spread_hours": 0,
-        "scoreboard_url": "https://kauai.ccmc.gsfc.nasa.gov/CMEscoreboard/"
+        "confidence_spread_hours": 0
       },
       "state": {
         "current": "QUIET",
@@ -2094,8 +2053,7 @@
         "earliest_prediction": null,
         "latest_prediction": null,
         "num_models": 0,
-        "confidence_spread_hours": 0,
-        "scoreboard_url": "https://kauai.ccmc.gsfc.nasa.gov/CMEscoreboard/"
+        "confidence_spread_hours": 0
       },
       "state": {
         "current": "QUIET",
@@ -2142,8 +2100,7 @@
         "earliest_prediction": null,
         "latest_prediction": null,
         "num_models": 0,
-        "confidence_spread_hours": 0,
-        "scoreboard_url": "https://kauai.ccmc.gsfc.nasa.gov/CMEscoreboard/"
+        "confidence_spread_hours": 0
       },
       "state": {
         "current": "QUIET",
@@ -2190,8 +2147,7 @@
         "earliest_prediction": null,
         "latest_prediction": null,
         "num_models": 0,
-        "confidence_spread_hours": 0,
-        "scoreboard_url": "https://kauai.ccmc.gsfc.nasa.gov/CMEscoreboard/"
+        "confidence_spread_hours": 0
       },
       "state": {
         "current": "QUIET",
@@ -2238,8 +2194,7 @@
         "earliest_prediction": null,
         "latest_prediction": null,
         "num_models": 0,
-        "confidence_spread_hours": 0,
-        "scoreboard_url": "https://kauai.ccmc.gsfc.nasa.gov/CMEscoreboard/"
+        "confidence_spread_hours": 0
       },
       "state": {
         "current": "QUIET",
@@ -2286,8 +2241,7 @@
         "earliest_prediction": null,
         "latest_prediction": null,
         "num_models": 0,
-        "confidence_spread_hours": 0,
-        "scoreboard_url": "https://kauai.ccmc.gsfc.nasa.gov/CMEscoreboard/"
+        "confidence_spread_hours": 0
       },
       "state": {
         "current": "QUIET",
@@ -2334,8 +2288,7 @@
         "earliest_prediction": null,
         "latest_prediction": null,
         "num_models": 0,
-        "confidence_spread_hours": 0,
-        "scoreboard_url": "https://kauai.ccmc.gsfc.nasa.gov/CMEscoreboard/"
+        "confidence_spread_hours": 0
       },
       "state": {
         "current": "QUIET",
@@ -2430,8 +2383,7 @@
         "earliest_prediction": null,
         "latest_prediction": null,
         "num_models": 0,
-        "confidence_spread_hours": 0,
-        "scoreboard_url": "https://kauai.ccmc.gsfc.nasa.gov/CMEscoreboard/"
+        "confidence_spread_hours": 0
       },
       "state": {
         "current": "QUIET",
@@ -2478,8 +2430,7 @@
         "earliest_prediction": null,
         "latest_prediction": null,
         "num_models": 0,
-        "confidence_spread_hours": 0,
-        "scoreboard_url": "https://kauai.ccmc.gsfc.nasa.gov/CMEscoreboard/"
+        "confidence_spread_hours": 0
       },
       "state": {
         "current": "QUIET",
@@ -2526,8 +2477,7 @@
         "earliest_prediction": null,
         "latest_prediction": null,
         "num_models": 0,
-        "confidence_spread_hours": 0,
-        "scoreboard_url": "https://kauai.ccmc.gsfc.nasa.gov/CMEscoreboard/"
+        "confidence_spread_hours": 0
       },
       "state": {
         "current": "QUIET",
@@ -2574,8 +2524,7 @@
         "earliest_prediction": null,
         "latest_prediction": null,
         "num_models": 0,
-        "confidence_spread_hours": 0,
-        "scoreboard_url": "https://kauai.ccmc.gsfc.nasa.gov/CMEscoreboard/"
+        "confidence_spread_hours": 0
       },
       "state": {
         "current": "QUIET",
@@ -2622,8 +2571,7 @@
         "earliest_prediction": null,
         "latest_prediction": null,
         "num_models": 0,
-        "confidence_spread_hours": 0,
-        "scoreboard_url": "https://kauai.ccmc.gsfc.nasa.gov/CMEscoreboard/"
+        "confidence_spread_hours": 0
       },
       "state": {
         "current": "QUIET",
@@ -2670,8 +2618,7 @@
         "earliest_prediction": null,
         "latest_prediction": null,
         "num_models": 0,
-        "confidence_spread_hours": 0,
-        "scoreboard_url": "https://kauai.ccmc.gsfc.nasa.gov/CMEscoreboard/"
+        "confidence_spread_hours": 0
       },
       "state": {
         "current": "QUIET",
@@ -2718,8 +2665,7 @@
         "earliest_prediction": null,
         "latest_prediction": null,
         "num_models": 0,
-        "confidence_spread_hours": 0,
-        "scoreboard_url": "https://kauai.ccmc.gsfc.nasa.gov/CMEscoreboard/"
+        "confidence_spread_hours": 0
       },
       "state": {
         "current": "QUIET",
@@ -2766,8 +2712,7 @@
         "earliest_prediction": null,
         "latest_prediction": null,
         "num_models": 0,
-        "confidence_spread_hours": 0,
-        "scoreboard_url": "https://kauai.ccmc.gsfc.nasa.gov/CMEscoreboard/"
+        "confidence_spread_hours": 0
       },
       "state": {
         "current": "QUIET",
@@ -2862,8 +2807,7 @@
         "earliest_prediction": null,
         "latest_prediction": null,
         "num_models": 0,
-        "confidence_spread_hours": 0,
-        "scoreboard_url": "https://kauai.ccmc.gsfc.nasa.gov/CMEscoreboard/"
+        "confidence_spread_hours": 0
       },
       "state": {
         "current": "QUIET",
@@ -2910,8 +2854,7 @@
         "earliest_prediction": null,
         "latest_prediction": null,
         "num_models": 0,
-        "confidence_spread_hours": 0,
-        "scoreboard_url": "https://kauai.ccmc.gsfc.nasa.gov/CMEscoreboard/"
+        "confidence_spread_hours": 0
       },
       "state": {
         "current": "QUIET",
@@ -2958,8 +2901,7 @@
         "earliest_prediction": null,
         "latest_prediction": null,
         "num_models": 0,
-        "confidence_spread_hours": 0,
-        "scoreboard_url": "https://kauai.ccmc.gsfc.nasa.gov/CMEscoreboard/"
+        "confidence_spread_hours": 0
       },
       "state": {
         "current": "QUIET",
@@ -3006,8 +2948,7 @@
         "earliest_prediction": null,
         "latest_prediction": null,
         "num_models": 0,
-        "confidence_spread_hours": 0,
-        "scoreboard_url": "https://kauai.ccmc.gsfc.nasa.gov/CMEscoreboard/"
+        "confidence_spread_hours": 0
       },
       "state": {
         "current": "QUIET",
@@ -3054,8 +2995,7 @@
         "earliest_prediction": null,
         "latest_prediction": null,
         "num_models": 0,
-        "confidence_spread_hours": 0,
-        "scoreboard_url": "https://kauai.ccmc.gsfc.nasa.gov/CMEscoreboard/"
+        "confidence_spread_hours": 0
       },
       "state": {
         "current": "QUIET",
@@ -3102,8 +3042,7 @@
         "earliest_prediction": null,
         "latest_prediction": null,
         "num_models": 0,
-        "confidence_spread_hours": 0,
-        "scoreboard_url": "https://kauai.ccmc.gsfc.nasa.gov/CMEscoreboard/"
+        "confidence_spread_hours": 0
       },
       "state": {
         "current": "QUIET",
@@ -3150,8 +3089,7 @@
         "earliest_prediction": null,
         "latest_prediction": null,
         "num_models": 0,
-        "confidence_spread_hours": 0,
-        "scoreboard_url": "https://kauai.ccmc.gsfc.nasa.gov/CMEscoreboard/"
+        "confidence_spread_hours": 0
       },
       "state": {
         "current": "QUIET",
@@ -3198,8 +3136,7 @@
         "earliest_prediction": null,
         "latest_prediction": null,
         "num_models": 0,
-        "confidence_spread_hours": 0,
-        "scoreboard_url": "https://kauai.ccmc.gsfc.nasa.gov/CMEscoreboard/"
+        "confidence_spread_hours": 0
       },
       "state": {
         "current": "QUIET",
@@ -3246,8 +3183,7 @@
         "earliest_prediction": null,
         "latest_prediction": null,
         "num_models": 0,
-        "confidence_spread_hours": 0,
-        "scoreboard_url": "https://kauai.ccmc.gsfc.nasa.gov/CMEscoreboard/"
+        "confidence_spread_hours": 0
       },
       "state": {
         "current": "QUIET",
@@ -3294,8 +3230,7 @@
         "earliest_prediction": null,
         "latest_prediction": null,
         "num_models": 0,
-        "confidence_spread_hours": 0,
-        "scoreboard_url": "https://kauai.ccmc.gsfc.nasa.gov/CMEscoreboard/"
+        "confidence_spread_hours": 0
       },
       "state": {
         "current": "QUIET",
@@ -3342,8 +3277,7 @@
         "earliest_prediction": null,
         "latest_prediction": null,
         "num_models": 0,
-        "confidence_spread_hours": 0,
-        "scoreboard_url": "https://kauai.ccmc.gsfc.nasa.gov/CMEscoreboard/"
+        "confidence_spread_hours": 0
       },
       "state": {
         "current": "QUIET",
@@ -3390,8 +3324,7 @@
         "earliest_prediction": null,
         "latest_prediction": null,
         "num_models": 0,
-        "confidence_spread_hours": 0,
-        "scoreboard_url": "https://kauai.ccmc.gsfc.nasa.gov/CMEscoreboard/"
+        "confidence_spread_hours": 0
       },
       "state": {
         "current": "QUIET",
@@ -3438,8 +3371,7 @@
         "earliest_prediction": null,
         "latest_prediction": null,
         "num_models": 0,
-        "confidence_spread_hours": 0,
-        "scoreboard_url": "https://kauai.ccmc.gsfc.nasa.gov/CMEscoreboard/"
+        "confidence_spread_hours": 0
       },
       "state": {
         "current": "QUIET",
@@ -3534,8 +3466,7 @@
         "earliest_prediction": null,
         "latest_prediction": null,
         "num_models": 0,
-        "confidence_spread_hours": 0,
-        "scoreboard_url": "https://kauai.ccmc.gsfc.nasa.gov/CMEscoreboard/"
+        "confidence_spread_hours": 0
       },
       "state": {
         "current": "QUIET",
@@ -3582,8 +3513,7 @@
         "earliest_prediction": null,
         "latest_prediction": null,
         "num_models": 0,
-        "confidence_spread_hours": 0,
-        "scoreboard_url": "https://kauai.ccmc.gsfc.nasa.gov/CMEscoreboard/"
+        "confidence_spread_hours": 0
       },
       "state": {
         "current": "QUIET",
@@ -3630,8 +3560,7 @@
         "earliest_prediction": null,
         "latest_prediction": null,
         "num_models": 0,
-        "confidence_spread_hours": 0,
-        "scoreboard_url": "https://kauai.ccmc.gsfc.nasa.gov/CMEscoreboard/"
+        "confidence_spread_hours": 0
       },
       "state": {
         "current": "QUIET",
@@ -3678,8 +3607,7 @@
         "earliest_prediction": null,
         "latest_prediction": null,
         "num_models": 0,
-        "confidence_spread_hours": 0,
-        "scoreboard_url": "https://kauai.ccmc.gsfc.nasa.gov/CMEscoreboard/"
+        "confidence_spread_hours": 0
       },
       "state": {
         "current": "QUIET",
@@ -3726,8 +3654,7 @@
         "earliest_prediction": null,
         "latest_prediction": null,
         "num_models": 0,
-        "confidence_spread_hours": 0,
-        "scoreboard_url": "https://kauai.ccmc.gsfc.nasa.gov/CMEscoreboard/"
+        "confidence_spread_hours": 0
       },
       "state": {
         "current": "QUIET",
@@ -3822,8 +3749,7 @@
         "earliest_prediction": null,
         "latest_prediction": null,
         "num_models": 0,
-        "confidence_spread_hours": 0,
-        "scoreboard_url": "https://kauai.ccmc.gsfc.nasa.gov/CMEscoreboard/"
+        "confidence_spread_hours": 0
       },
       "state": {
         "current": "QUIET",
@@ -3870,8 +3796,7 @@
         "earliest_prediction": null,
         "latest_prediction": null,
         "num_models": 0,
-        "confidence_spread_hours": 0,
-        "scoreboard_url": "https://kauai.ccmc.gsfc.nasa.gov/CMEscoreboard/"
+        "confidence_spread_hours": 0
       },
       "state": {
         "current": "QUIET",
@@ -3918,8 +3843,7 @@
         "earliest_prediction": null,
         "latest_prediction": null,
         "num_models": 0,
-        "confidence_spread_hours": 0,
-        "scoreboard_url": "https://kauai.ccmc.gsfc.nasa.gov/CMEscoreboard/"
+        "confidence_spread_hours": 0
       },
       "state": {
         "current": "QUIET",
@@ -3966,8 +3890,7 @@
         "earliest_prediction": null,
         "latest_prediction": null,
         "num_models": 0,
-        "confidence_spread_hours": 0,
-        "scoreboard_url": "https://kauai.ccmc.gsfc.nasa.gov/CMEscoreboard/"
+        "confidence_spread_hours": 0
       },
       "state": {
         "current": "QUIET",
@@ -4014,8 +3937,7 @@
         "earliest_prediction": null,
         "latest_prediction": null,
         "num_models": 0,
-        "confidence_spread_hours": 0,
-        "scoreboard_url": "https://kauai.ccmc.gsfc.nasa.gov/CMEscoreboard/"
+        "confidence_spread_hours": 0
       },
       "state": {
         "current": "QUIET",
@@ -4062,8 +3984,7 @@
         "earliest_prediction": null,
         "latest_prediction": null,
         "num_models": 0,
-        "confidence_spread_hours": 0,
-        "scoreboard_url": "https://kauai.ccmc.gsfc.nasa.gov/CMEscoreboard/"
+        "confidence_spread_hours": 0
       },
       "state": {
         "current": "QUIET",
@@ -4110,8 +4031,7 @@
         "earliest_prediction": null,
         "latest_prediction": null,
         "num_models": 0,
-        "confidence_spread_hours": 0,
-        "scoreboard_url": "https://kauai.ccmc.gsfc.nasa.gov/CMEscoreboard/"
+        "confidence_spread_hours": 0
       },
       "state": {
         "current": "QUIET",
@@ -4158,8 +4078,7 @@
         "earliest_prediction": null,
         "latest_prediction": null,
         "num_models": 0,
-        "confidence_spread_hours": 0,
-        "scoreboard_url": "https://kauai.ccmc.gsfc.nasa.gov/CMEscoreboard/"
+        "confidence_spread_hours": 0
       },
       "state": {
         "current": "QUIET",
@@ -4206,8 +4125,7 @@
         "earliest_prediction": null,
         "latest_prediction": null,
         "num_models": 0,
-        "confidence_spread_hours": 0,
-        "scoreboard_url": "https://kauai.ccmc.gsfc.nasa.gov/CMEscoreboard/"
+        "confidence_spread_hours": 0
       },
       "state": {
         "current": "QUIET",
@@ -4254,8 +4172,7 @@
         "earliest_prediction": null,
         "latest_prediction": null,
         "num_models": 0,
-        "confidence_spread_hours": 0,
-        "scoreboard_url": "https://kauai.ccmc.gsfc.nasa.gov/CMEscoreboard/"
+        "confidence_spread_hours": 0
       },
       "state": {
         "current": "QUIET",
@@ -4302,8 +4219,7 @@
         "earliest_prediction": null,
         "latest_prediction": null,
         "num_models": 0,
-        "confidence_spread_hours": 0,
-        "scoreboard_url": "https://kauai.ccmc.gsfc.nasa.gov/CMEscoreboard/"
+        "confidence_spread_hours": 0
       },
       "state": {
         "current": "QUIET",
@@ -4350,8 +4266,7 @@
         "earliest_prediction": null,
         "latest_prediction": null,
         "num_models": 0,
-        "confidence_spread_hours": 0,
-        "scoreboard_url": "https://kauai.ccmc.gsfc.nasa.gov/CMEscoreboard/"
+        "confidence_spread_hours": 0
       },
       "state": {
         "current": "QUIET",
@@ -4398,8 +4313,7 @@
         "earliest_prediction": null,
         "latest_prediction": null,
         "num_models": 0,
-        "confidence_spread_hours": 0,
-        "scoreboard_url": "https://kauai.ccmc.gsfc.nasa.gov/CMEscoreboard/"
+        "confidence_spread_hours": 0
       },
       "state": {
         "current": "QUIET",
@@ -4446,8 +4360,7 @@
         "earliest_prediction": null,
         "latest_prediction": null,
         "num_models": 0,
-        "confidence_spread_hours": 0,
-        "scoreboard_url": "https://kauai.ccmc.gsfc.nasa.gov/CMEscoreboard/"
+        "confidence_spread_hours": 0
       },
       "state": {
         "current": "QUIET",
@@ -4494,8 +4407,7 @@
         "earliest_prediction": null,
         "latest_prediction": null,
         "num_models": 0,
-        "confidence_spread_hours": 0,
-        "scoreboard_url": "https://kauai.ccmc.gsfc.nasa.gov/CMEscoreboard/"
+        "confidence_spread_hours": 0
       },
       "state": {
         "current": "QUIET",
@@ -4542,8 +4454,7 @@
         "earliest_prediction": null,
         "latest_prediction": null,
         "num_models": 0,
-        "confidence_spread_hours": 0,
-        "scoreboard_url": "https://kauai.ccmc.gsfc.nasa.gov/CMEscoreboard/"
+        "confidence_spread_hours": 0
       },
       "state": {
         "current": "QUIET",
@@ -4590,8 +4501,7 @@
         "earliest_prediction": null,
         "latest_prediction": null,
         "num_models": 0,
-        "confidence_spread_hours": 0,
-        "scoreboard_url": "https://kauai.ccmc.gsfc.nasa.gov/CMEscoreboard/"
+        "confidence_spread_hours": 0
       },
       "state": {
         "current": "QUIET",
@@ -4638,8 +4548,7 @@
         "earliest_prediction": null,
         "latest_prediction": null,
         "num_models": 0,
-        "confidence_spread_hours": 0,
-        "scoreboard_url": "https://kauai.ccmc.gsfc.nasa.gov/CMEscoreboard/"
+        "confidence_spread_hours": 0
       },
       "state": {
         "current": "QUIET",
@@ -4686,8 +4595,7 @@
         "earliest_prediction": null,
         "latest_prediction": null,
         "num_models": 0,
-        "confidence_spread_hours": 0,
-        "scoreboard_url": "https://kauai.ccmc.gsfc.nasa.gov/CMEscoreboard/"
+        "confidence_spread_hours": 0
       },
       "state": {
         "current": "QUIET",
@@ -4734,8 +4642,7 @@
         "earliest_prediction": null,
         "latest_prediction": null,
         "num_models": 0,
-        "confidence_spread_hours": 0,
-        "scoreboard_url": "https://kauai.ccmc.gsfc.nasa.gov/CMEscoreboard/"
+        "confidence_spread_hours": 0
       },
       "state": {
         "current": "QUIET",
@@ -4782,8 +4689,7 @@
         "earliest_prediction": null,
         "latest_prediction": null,
         "num_models": 0,
-        "confidence_spread_hours": 0,
-        "scoreboard_url": "https://kauai.ccmc.gsfc.nasa.gov/CMEscoreboard/"
+        "confidence_spread_hours": 0
       },
       "state": {
         "current": "QUIET",
@@ -4830,8 +4736,7 @@
         "earliest_prediction": null,
         "latest_prediction": null,
         "num_models": 0,
-        "confidence_spread_hours": 0,
-        "scoreboard_url": "https://kauai.ccmc.gsfc.nasa.gov/CMEscoreboard/"
+        "confidence_spread_hours": 0
       },
       "state": {
         "current": "QUIET",
@@ -4878,8 +4783,7 @@
         "earliest_prediction": null,
         "latest_prediction": null,
         "num_models": 0,
-        "confidence_spread_hours": 0,
-        "scoreboard_url": "https://kauai.ccmc.gsfc.nasa.gov/CMEscoreboard/"
+        "confidence_spread_hours": 0
       },
       "state": {
         "current": "QUIET",
@@ -4926,8 +4830,7 @@
         "earliest_prediction": null,
         "latest_prediction": null,
         "num_models": 0,
-        "confidence_spread_hours": 0,
-        "scoreboard_url": "https://kauai.ccmc.gsfc.nasa.gov/CMEscoreboard/"
+        "confidence_spread_hours": 0
       },
       "state": {
         "current": "QUIET",
@@ -4974,8 +4877,7 @@
         "earliest_prediction": null,
         "latest_prediction": null,
         "num_models": 0,
-        "confidence_spread_hours": 0,
-        "scoreboard_url": "https://kauai.ccmc.gsfc.nasa.gov/CMEscoreboard/"
+        "confidence_spread_hours": 0
       },
       "state": {
         "current": "QUIET",
@@ -5022,8 +4924,7 @@
         "earliest_prediction": null,
         "latest_prediction": null,
         "num_models": 0,
-        "confidence_spread_hours": 0,
-        "scoreboard_url": "https://kauai.ccmc.gsfc.nasa.gov/CMEscoreboard/"
+        "confidence_spread_hours": 0
       },
       "state": {
         "current": "QUIET",
@@ -5070,8 +4971,7 @@
         "earliest_prediction": null,
         "latest_prediction": null,
         "num_models": 0,
-        "confidence_spread_hours": 0,
-        "scoreboard_url": "https://kauai.ccmc.gsfc.nasa.gov/CMEscoreboard/"
+        "confidence_spread_hours": 0
       },
       "state": {
         "current": "QUIET",
@@ -5118,8 +5018,7 @@
         "earliest_prediction": null,
         "latest_prediction": null,
         "num_models": 0,
-        "confidence_spread_hours": 0,
-        "scoreboard_url": "https://kauai.ccmc.gsfc.nasa.gov/CMEscoreboard/"
+        "confidence_spread_hours": 0
       },
       "state": {
         "current": "QUIET",
@@ -5166,8 +5065,7 @@
         "earliest_prediction": null,
         "latest_prediction": null,
         "num_models": 0,
-        "confidence_spread_hours": 0,
-        "scoreboard_url": "https://kauai.ccmc.gsfc.nasa.gov/CMEscoreboard/"
+        "confidence_spread_hours": 0
       },
       "state": {
         "current": "QUIET",
@@ -5214,8 +5112,7 @@
         "earliest_prediction": null,
         "latest_prediction": null,
         "num_models": 0,
-        "confidence_spread_hours": 0,
-        "scoreboard_url": "https://kauai.ccmc.gsfc.nasa.gov/CMEscoreboard/"
+        "confidence_spread_hours": 0
       },
       "state": {
         "current": "QUIET",
@@ -5262,8 +5159,7 @@
         "earliest_prediction": null,
         "latest_prediction": null,
         "num_models": 0,
-        "confidence_spread_hours": 0,
-        "scoreboard_url": "https://kauai.ccmc.gsfc.nasa.gov/CMEscoreboard/"
+        "confidence_spread_hours": 0
       },
       "state": {
         "current": "QUIET",
@@ -5310,8 +5206,7 @@
         "earliest_prediction": null,
         "latest_prediction": null,
         "num_models": 0,
-        "confidence_spread_hours": 0,
-        "scoreboard_url": "https://kauai.ccmc.gsfc.nasa.gov/CMEscoreboard/"
+        "confidence_spread_hours": 0
       },
       "state": {
         "current": "QUIET",
@@ -5358,8 +5253,7 @@
         "earliest_prediction": null,
         "latest_prediction": null,
         "num_models": 0,
-        "confidence_spread_hours": 0,
-        "scoreboard_url": "https://kauai.ccmc.gsfc.nasa.gov/CMEscoreboard/"
+        "confidence_spread_hours": 0
       },
       "state": {
         "current": "QUIET",
@@ -5406,8 +5300,7 @@
         "earliest_prediction": null,
         "latest_prediction": null,
         "num_models": 0,
-        "confidence_spread_hours": 0,
-        "scoreboard_url": "https://kauai.ccmc.gsfc.nasa.gov/CMEscoreboard/"
+        "confidence_spread_hours": 0
       },
       "state": {
         "current": "QUIET",
@@ -5454,8 +5347,7 @@
         "earliest_prediction": null,
         "latest_prediction": null,
         "num_models": 0,
-        "confidence_spread_hours": 0,
-        "scoreboard_url": "https://kauai.ccmc.gsfc.nasa.gov/CMEscoreboard/"
+        "confidence_spread_hours": 0
       },
       "state": {
         "current": "QUIET",
@@ -5502,8 +5394,7 @@
         "earliest_prediction": null,
         "latest_prediction": null,
         "num_models": 0,
-        "confidence_spread_hours": 0,
-        "scoreboard_url": "https://kauai.ccmc.gsfc.nasa.gov/CMEscoreboard/"
+        "confidence_spread_hours": 0
       },
       "state": {
         "current": "QUIET",
@@ -5550,8 +5441,7 @@
         "earliest_prediction": null,
         "latest_prediction": null,
         "num_models": 0,
-        "confidence_spread_hours": 0,
-        "scoreboard_url": "https://kauai.ccmc.gsfc.nasa.gov/CMEscoreboard/"
+        "confidence_spread_hours": 0
       },
       "state": {
         "current": "QUIET",
@@ -5598,8 +5488,7 @@
         "earliest_prediction": null,
         "latest_prediction": null,
         "num_models": 0,
-        "confidence_spread_hours": 0,
-        "scoreboard_url": "https://kauai.ccmc.gsfc.nasa.gov/CMEscoreboard/"
+        "confidence_spread_hours": 0
       },
       "state": {
         "current": "QUIET",
@@ -5646,8 +5535,7 @@
         "earliest_prediction": null,
         "latest_prediction": null,
         "num_models": 0,
-        "confidence_spread_hours": 0,
-        "scoreboard_url": "https://kauai.ccmc.gsfc.nasa.gov/CMEscoreboard/"
+        "confidence_spread_hours": 0
       },
       "state": {
         "current": "QUIET",
@@ -5694,8 +5582,7 @@
         "earliest_prediction": null,
         "latest_prediction": null,
         "num_models": 0,
-        "confidence_spread_hours": 0,
-        "scoreboard_url": "https://kauai.ccmc.gsfc.nasa.gov/CMEscoreboard/"
+        "confidence_spread_hours": 0
       },
       "state": {
         "current": "QUIET",
@@ -5742,8 +5629,7 @@
         "earliest_prediction": null,
         "latest_prediction": null,
         "num_models": 0,
-        "confidence_spread_hours": 0,
-        "scoreboard_url": "https://kauai.ccmc.gsfc.nasa.gov/CMEscoreboard/"
+        "confidence_spread_hours": 0
       },
       "state": {
         "current": "QUIET",
@@ -5790,8 +5676,7 @@
         "earliest_prediction": null,
         "latest_prediction": null,
         "num_models": 0,
-        "confidence_spread_hours": 0,
-        "scoreboard_url": "https://kauai.ccmc.gsfc.nasa.gov/CMEscoreboard/"
+        "confidence_spread_hours": 0
       },
       "state": {
         "current": "QUIET",
@@ -5838,8 +5723,7 @@
         "earliest_prediction": null,
         "latest_prediction": null,
         "num_models": 0,
-        "confidence_spread_hours": 0,
-        "scoreboard_url": "https://kauai.ccmc.gsfc.nasa.gov/CMEscoreboard/"
+        "confidence_spread_hours": 0
       },
       "state": {
         "current": "QUIET",
@@ -5886,8 +5770,7 @@
         "earliest_prediction": null,
         "latest_prediction": null,
         "num_models": 0,
-        "confidence_spread_hours": 0,
-        "scoreboard_url": "https://kauai.ccmc.gsfc.nasa.gov/CMEscoreboard/"
+        "confidence_spread_hours": 0
       },
       "state": {
         "current": "QUIET",
@@ -5934,8 +5817,7 @@
         "earliest_prediction": null,
         "latest_prediction": null,
         "num_models": 0,
-        "confidence_spread_hours": 0,
-        "scoreboard_url": "https://kauai.ccmc.gsfc.nasa.gov/CMEscoreboard/"
+        "confidence_spread_hours": 0
       },
       "state": {
         "current": "QUIET",
@@ -5982,8 +5864,7 @@
         "earliest_prediction": null,
         "latest_prediction": null,
         "num_models": 0,
-        "confidence_spread_hours": 0,
-        "scoreboard_url": "https://kauai.ccmc.gsfc.nasa.gov/CMEscoreboard/"
+        "confidence_spread_hours": 0
       },
       "state": {
         "current": "QUIET",
