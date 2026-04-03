@@ -1,6 +1,6 @@
 {
   "metadata": {
-    "last_updated": "2026-04-03T11:08:38.869530+00:00"
+    "last_updated": "2026-04-03T11:33:19.263819+00:00"
   },
   "satellites": {
     "l1": {
@@ -16,9 +16,9 @@
     {
       "id": "CME_2026-04-02T20:46Z",
       "position": {
-        "distance_au": 0.166,
-        "distance_rsun": 35.6,
-        "velocity_current": 461.7,
+        "distance_au": 0.17,
+        "distance_rsun": 36.6,
+        "velocity_current": 460.9,
         "acceleration": 0
       },
       "uncertainty": {
@@ -33,8 +33,8 @@
         "w_from_ch": false
       },
       "progress": {
-        "percent_to_l1": 16.6,
-        "eta_hours": 75.1,
+        "percent_to_l1": 17.0,
+        "eta_hours": 74.8,
         "eta_timestamp": null
       },
       "state": "WATCH"
@@ -42,9 +42,9 @@
     {
       "id": "CME_2026-04-01T23:45Z",
       "position": {
-        "distance_au": 0.392,
-        "distance_rsun": 84.2,
-        "velocity_current": 436.1,
+        "distance_au": 0.396,
+        "distance_rsun": 85.1,
+        "velocity_current": 435.8,
         "acceleration": 0
       },
       "uncertainty": {
@@ -59,8 +59,8 @@
         "w_from_ch": false
       },
       "progress": {
-        "percent_to_l1": 39.2,
-        "eta_hours": 58.0,
+        "percent_to_l1": 39.6,
+        "eta_hours": 57.6,
         "eta_timestamp": null
       },
       "state": "WATCH"
@@ -68,9 +68,9 @@
     {
       "id": "CME_2026-04-01T03:00Z",
       "position": {
-        "distance_au": 0.607,
-        "distance_rsun": 130.4,
-        "velocity_current": 426.3,
+        "distance_au": 0.611,
+        "distance_rsun": 131.3,
+        "velocity_current": 426.2,
         "acceleration": 0
       },
       "uncertainty": {
@@ -85,8 +85,8 @@
         "w_from_ch": false
       },
       "progress": {
-        "percent_to_l1": 60.7,
-        "eta_hours": 38.4,
+        "percent_to_l1": 61.1,
+        "eta_hours": 38.0,
         "eta_timestamp": null
       },
       "state": "WATCH"
@@ -94,9 +94,9 @@
     {
       "id": "CME_2026-04-01T00:24Z",
       "position": {
-        "distance_au": 0.633,
-        "distance_rsun": 136.1,
-        "velocity_current": 425.6,
+        "distance_au": 0.637,
+        "distance_rsun": 137.0,
+        "velocity_current": 425.5,
         "acceleration": 0
       },
       "uncertainty": {
@@ -111,8 +111,8 @@
         "w_from_ch": false
       },
       "progress": {
-        "percent_to_l1": 63.3,
-        "eta_hours": 35.8,
+        "percent_to_l1": 63.7,
+        "eta_hours": 35.4,
         "eta_timestamp": null
       },
       "state": "WATCH"
