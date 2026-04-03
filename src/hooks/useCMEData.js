@@ -14,11 +14,11 @@ export function useCMEData() {
   useEffect(() => {
     const fetchData = async () => {
       try {
-        // Fetch all three files in parallel
+        // Fetch all three files in parallel with base path
         const [queueRes, positionsRes, classificationsRes] = await Promise.all([
-          fetch(`/data/cme_queue.json?t=${Date.now()}`),
-          fetch(`/data/cme_positions.json?t=${Date.now()}`),
-          fetch(`/data/cme_classification.json?t=${Date.now()}`)
+          fetch(`/night-watch/data/cme_queue.json?t=${Date.now()}`),
+          fetch(`/night-watch/data/cme_positions.json?t=${Date.now()}`),
+          fetch(`/night-watch/data/cme_classification.json?t=${Date.now()}`)
         ]);
 
         if (!queueRes.ok) throw new Error('Failed to load CME queue');
