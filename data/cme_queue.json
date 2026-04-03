@@ -1,5 +1,224 @@
 {
-  "metadata": {},
-  "active_cme_id": null,
-  "cmes": []
+  "metadata": {
+    "last_updated": "2026-04-03T09:59:12.146275+00:00"
+  },
+  "active_cme_id": "CME_2026-04-02T20:46Z",
+  "cmes": [
+    {
+      "id": "CME_2026-04-02T20:46Z",
+      "source": {
+        "launch_time": "2026-04-02T20:46:00+00:00",
+        "location": {
+          "latitude": 0,
+          "longitude": 0
+        },
+        "associated_flare": null,
+        "coronal_hole": null
+      },
+      "properties": {
+        "speed_initial": 500,
+        "speed_current": 500,
+        "half_angle": 35,
+        "type": "Unknown",
+        "direction_lat": 0,
+        "direction_lon": 0
+      },
+      "arrival": {
+        "average_prediction": 1775419200.0,
+        "median_prediction": 1775419200.0,
+        "earliest_prediction": 1775419200.0,
+        "latest_prediction": 1775419200.0,
+        "num_models": 1,
+        "confidence_spread_hours": 0.0,
+        "scoreboard_url": "https://kauai.ccmc.gsfc.nasa.gov/CMEscoreboard/"
+      },
+      "state": {
+        "current": "WATCH",
+        "entered_at": "2026-04-03T09:59:12.145440+00:00",
+        "history": [
+          {
+            "from": "QUIET",
+            "to": "WATCH",
+            "timestamp": "2026-04-03T09:59:12.145433+00:00"
+          }
+        ]
+      },
+      "classification": {
+        "status": "PENDING",
+        "window_start": null,
+        "window_end": null,
+        "bs_type": null,
+        "confidence": null
+      },
+      "position": {
+        "distance_au": 0.01,
+        "progress_percent": 0,
+        "eta_hours": null
+      },
+      "created_at": "2026-04-03T09:59:12.145235+00:00",
+      "last_updated": "2026-04-03T09:59:12.145237+00:00"
+    },
+    {
+      "id": "CME_2026-04-01T23:45Z",
+      "source": {
+        "launch_time": "2026-04-01T23:45:00+00:00",
+        "location": {
+          "latitude": 0,
+          "longitude": 0
+        },
+        "associated_flare": null,
+        "coronal_hole": null
+      },
+      "properties": {
+        "speed_initial": 500,
+        "speed_current": 500,
+        "half_angle": 35,
+        "type": "Partial Halo",
+        "direction_lat": 0,
+        "direction_lon": 0
+      },
+      "arrival": {
+        "average_prediction": 1775276640.0,
+        "median_prediction": 1775259360.0,
+        "earliest_prediction": 1775259360.0,
+        "latest_prediction": 1775276640.0,
+        "num_models": 6,
+        "confidence_spread_hours": 4.8,
+        "scoreboard_url": "https://kauai.ccmc.gsfc.nasa.gov/CMEscoreboard/"
+      },
+      "state": {
+        "current": "WATCH",
+        "entered_at": "2026-04-03T09:59:12.145452+00:00",
+        "history": [
+          {
+            "from": "QUIET",
+            "to": "WATCH",
+            "timestamp": "2026-04-03T09:59:12.145448+00:00"
+          }
+        ]
+      },
+      "classification": {
+        "status": "PENDING",
+        "window_start": null,
+        "window_end": null,
+        "bs_type": null,
+        "confidence": null
+      },
+      "position": {
+        "distance_au": 0.01,
+        "progress_percent": 0,
+        "eta_hours": null
+      },
+      "created_at": "2026-04-03T09:59:12.145289+00:00",
+      "last_updated": "2026-04-03T09:59:12.145290+00:00"
+    },
+    {
+      "id": "CME_2026-04-01T03:00Z",
+      "source": {
+        "launch_time": "2026-04-01T03:00:00+00:00",
+        "location": {
+          "latitude": 0,
+          "longitude": 0
+        },
+        "associated_flare": null,
+        "coronal_hole": null
+      },
+      "properties": {
+        "speed_initial": 500,
+        "speed_current": 500,
+        "half_angle": 35,
+        "type": "Unknown",
+        "direction_lat": 0,
+        "direction_lon": 0
+      },
+      "arrival": {
+        "average_prediction": 1775282400.0,
+        "median_prediction": 1775282400.0,
+        "earliest_prediction": 1775282400.0,
+        "latest_prediction": 1775282400.0,
+        "num_models": 1,
+        "confidence_spread_hours": 0.0,
+        "scoreboard_url": "https://kauai.ccmc.gsfc.nasa.gov/CMEscoreboard/"
+      },
+      "state": {
+        "current": "WATCH",
+        "entered_at": "2026-04-03T09:59:12.145462+00:00",
+        "history": [
+          {
+            "from": "QUIET",
+            "to": "WATCH",
+            "timestamp": "2026-04-03T09:59:12.145458+00:00"
+          }
+        ]
+      },
+      "classification": {
+        "status": "PENDING",
+        "window_start": null,
+        "window_end": null,
+        "bs_type": null,
+        "confidence": null
+      },
+      "position": {
+        "distance_au": 0.01,
+        "progress_percent": 0,
+        "eta_hours": null
+      },
+      "created_at": "2026-04-03T09:59:12.145324+00:00",
+      "last_updated": "2026-04-03T09:59:12.145326+00:00"
+    },
+    {
+      "id": "CME_2026-04-01T00:24Z",
+      "source": {
+        "launch_time": "2026-04-01T00:24:00+00:00",
+        "location": {
+          "latitude": 0,
+          "longitude": 0
+        },
+        "associated_flare": null,
+        "coronal_hole": null
+      },
+      "properties": {
+        "speed_initial": 500,
+        "speed_current": 500,
+        "half_angle": 35,
+        "type": "Unknown",
+        "direction_lat": 0,
+        "direction_lon": 0
+      },
+      "arrival": {
+        "average_prediction": 1775232000.0,
+        "median_prediction": 1775232000.0,
+        "earliest_prediction": 1775232000.0,
+        "latest_prediction": 1775232000.0,
+        "num_models": 1,
+        "confidence_spread_hours": 0.0,
+        "scoreboard_url": "https://kauai.ccmc.gsfc.nasa.gov/CMEscoreboard/"
+      },
+      "state": {
+        "current": "WATCH",
+        "entered_at": "2026-04-03T09:59:12.145471+00:00",
+        "history": [
+          {
+            "from": "QUIET",
+            "to": "WATCH",
+            "timestamp": "2026-04-03T09:59:12.145468+00:00"
+          }
+        ]
+      },
+      "classification": {
+        "status": "PENDING",
+        "window_start": null,
+        "window_end": null,
+        "bs_type": null,
+        "confidence": null
+      },
+      "position": {
+        "distance_au": 0.01,
+        "progress_percent": 0,
+        "eta_hours": null
+      },
+      "created_at": "2026-04-03T09:59:12.145364+00:00",
+      "last_updated": "2026-04-03T09:59:12.145368+00:00"
+    }
+  ]
 }
