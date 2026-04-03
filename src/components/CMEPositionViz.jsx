@@ -4,19 +4,18 @@ export default function CMEPositionViz({ cmes, positions, cmeColors, onCMEClick 
   if (!cmes || cmes.length === 0) return null;
 
   const width = 1000;
-  const height = 140;  // 30% less (was 200)
+  const height = 140;
   
   const margin = 25;
-  const sunX = margin + 30;
+  const sunX = margin + 35;
   const earthX = width - margin - 25;
   const centerY = height / 2;
   
-  // 2X BIGGER DOTS
-  const sunRadius = 30;    // was 20
-  const earthRadius = 16;  // was 11
-  const cmeRadius = 10;    // was 6
+  // SUN 1.5X BIGGER (was 30, now 45)
+  const sunRadius = 45;
+  const earthRadius = 16;
+  const cmeRadius = 10;
   
-  // Rescale distance to fit
   const distanceScale = (earthX - sunX - sunRadius - earthRadius) / 1.0;
   
   return (
@@ -27,16 +26,19 @@ export default function CMEPositionViz({ cmes, positions, cmeColors, onCMEClick 
       preserveAspectRatio="xMidYMid meet"
       style={{ maxWidth: '100%', maxHeight: '100%' }}
     >
-      {/* PULSE ANIMATION */}
+      {/* INDIVIDUAL CME GLOW PULSE */}
       <style>
         {`
-          @keyframes pulse {
-            0%, 100% { opacity: 0.9; transform: scale(1); }
-            50% { opacity: 1; transform: scale(1.15); }
+          @keyframes cme-glow-pulse {
+            0%, 100% { 
+              filter: drop-shadow(0 0 3px currentColor);
+            }
+            50% { 
+              filter: drop-shadow(0 0 12px currentColor) drop-shadow(0 0 20px currentColor);
+            }
           }
-          .cme-pulse {
-            animation: pulse 2s ease-in-out infinite;
-            transform-origin: center;
+          .cme-glow {
+            animation: cme-glow-pulse 2s ease-in-out infinite;
           }
         `}
       </style>
@@ -51,12 +53,15 @@ export default function CMEPositionViz({ cmes, positions, cmeColors, onCMEClick 
         strokeDasharray="5,3"
       />
       
+      {/* Sun */}
       <circle cx={sunX} cy={centerY} r={sunRadius} fill="url(#sunGradient)" stroke="#ff8800" strokeWidth="2" />
-      <text x={sunX} y={centerY + 5} fill="#fff" fontSize="11" fontFamily={FONT} fontWeight="700" textAnchor="middle">SUN</text>
+      <text x={sunX} y={centerY + 7} fill="#fff" fontSize="22" fontFamily={FONT} fontWeight="700" textAnchor="middle">SUN</text>
       
+      {/* Earth */}
       <circle cx={earthX} cy={centerY} r={earthRadius} fill="url(#earthGradient)" stroke="#4488ff" strokeWidth="2" />
-      <text x={earthX} y={centerY + 4} fill="#fff" fontSize="9" fontFamily={FONT} fontWeight="700" textAnchor="middle">🜨</text>
+      <text x={earthX} y={centerY + 5} fill="#fff" fontSize="18" fontFamily={FONT} fontWeight="700" textAnchor="middle">🜨</text>
       
+      {/* CMEs - INDIVIDUAL GLOW PULSE */}
       {cmes.map((cme, idx) => {
         const distanceAU = cme.position?.distance_au || 0;
         const cmeX = sunX + sunRadius + (distanceAU * distanceScale);
@@ -67,22 +72,25 @@ export default function CMEPositionViz({ cmes, positions, cmeColors, onCMEClick 
           <g key={cme.id}>
             <line x1={sunX + sunRadius} y1={centerY} x2={cmeX} y2={cmeY} stroke={color} strokeWidth="2.5" opacity="0.5" />
             
-            {/* PULSING CME */}
+            {/* INDIVIDUAL GLOWING CME */}
             <circle 
-              className="cme-pulse"
+              className="cme-glow"
               cx={cmeX} 
               cy={cmeY} 
               r={cmeRadius} 
               fill={color} 
               stroke={color} 
-              strokeWidth="2" 
-              style={{ cursor: 'pointer' }} 
+              strokeWidth="2"
+              style={{ 
+                cursor: 'pointer',
+                color: color  // for currentColor in drop-shadow
+              }} 
               onClick={() => onCMEClick?.(cme)} 
             />
             
-            {/* SMALLER TEXT - match card size */}
-            <text x={cmeX} y={cmeY - cmeRadius - 6} fill={color} fontSize="9" fontFamily={FONT} fontWeight="700" textAnchor="middle">{idx + 1}</text>
-            <text x={cmeX} y={cmeY + cmeRadius + 12} fill={color} fontSize="7" fontFamily={FONT} textAnchor="middle" opacity="0.8">{distanceAU.toFixed(2)} AU</text>
+            {/* TEXT 2X BIGGER */}
+            <text x={cmeX} y={cmeY - cmeRadius - 6} fill={color} fontSize="18" fontFamily={FONT} fontWeight="700" textAnchor="middle">{idx + 1}</text>
+            <text x={cmeX} y={cmeY + cmeRadius + 16} fill={color} fontSize="14" fontFamily={FONT} textAnchor="middle" opacity="0.8">{distanceAU.toFixed(2)} AU</text>
           </g>
         );
       })}

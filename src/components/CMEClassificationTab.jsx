@@ -15,6 +15,8 @@ const C = {
   by_pos: '#4488ff',
   phi: '#44aaff',
   crosshair: 'rgba(255,255,255,0.35)',
+  annot_bz5: 'rgba(238,85,119,0.7)',
+  annot_bz10: 'rgba(200,30,60,0.8)',
 };
 
 const CME_COLORS = ['#00FFF0', '#FF00FF', '#00FF00', '#FFFF00', '#FF0080', '#0080FF', '#FF8000', '#80FF00'];
@@ -51,7 +53,7 @@ function parseColumnFile(raw) {
     bx: cols.indexOf('bx'),
     by: cols.indexOf('by'),
     bz: cols.indexOf('bz'),
-    phi: cols.indexOf('phi'),
+    phi: cols.indexOf('phi'),  // RAW PHI from L1
   };
   
   return raw.data.map(row => {
@@ -63,13 +65,57 @@ function parseColumnFile(raw) {
         bx: indices.bx >= 0 ? row[indices.bx] : null,
         by: indices.by >= 0 ? row[indices.by] : null,
         bz: indices.bz >= 0 ? row[indices.bz] : null,
-        phi: indices.phi >= 0 ? row[indices.phi] : null,
+        phi: indices.phi >= 0 ? row[indices.phi] : null,  // USE RAW PHI
       };
     } catch (_) { return null; }
   }).filter(Boolean);
 }
 
-function PlotCanvas({ data, series, yMin, yMax, timeRange, crosshairTime, onCrosshair, zoomMode, symmetric, showLabels, yLabel, phiMode }) {
+// Detect annotations (Bz thresholds)
+function detectAnnotations(magData, timeRange) {
+  const [tMin, tMax] = timeRange;
+  const visData = magData.filter(d => d.time.getTime() >= tMin && d.time.getTime() <= tMax);
+  const annotations = [];
+  
+  const BZ_WIN = 10 * 60000;  // 10 minutes
+  let bzBelow5Start = null;
+  let bzBelow10Start = null;
+  
+  for (const pt of visData) {
+    const bz = pt.bz;
+    if (bz === null) { 
+      bzBelow5Start = null; 
+      bzBelow10Start = null; 
+      continue;
+    }
+    
+    // Bz < -5
+    if (bz < -5) {
+      if (!bzBelow5Start) bzBelow5Start = pt.time.getTime();
+      else if (pt.time.getTime() - bzBelow5Start >= BZ_WIN) {
+        annotations.push({ time: new Date(bzBelow5Start), type: 'bz5', label: 'Bz −5' });
+        bzBelow5Start = null;
+      }
+    } else { 
+      bzBelow5Start = null; 
+    }
+    
+    // Bz < -10
+    if (bz < -10) {
+      if (!bzBelow10Start) bzBelow10Start = pt.time.getTime();
+      else if (pt.time.getTime() - bzBelow10Start >= BZ_WIN) {
+        annotations.push({ time: new Date(bzBelow10Start), type: 'bz10', label: 'Bz −10' });
+        bzBelow10Start = null;
+      }
+    } else { 
+      bzBelow10Start = null; 
+    }
+  }
+  
+  return annotations;
+}
+
+function PlotCanvas({ data, series, yMin, yMax, timeRange, crosshairTime, onCrosshair, zoomMode, symmetric, showLabels, yLabel, phiMode, annotations, showAnnotations }) {
   const canvasRef = useRef(null);
   const dpr = window.devicePixelRatio || 1;
 
@@ -159,13 +205,33 @@ function PlotCanvas({ data, series, yMin, yMax, timeRange, crosshairTime, onCros
       ctx.stroke();
     }
 
+    // ANNOTATIONS
+    if (showAnnotations && annotations && annotations.length > 0) {
+      for (const ann of annotations) {
+        const t = ann.time.getTime();
+        if (t < tMin || t > tMax) continue;
+        const x = tx(t);
+        const color = ann.type === 'bz10' ? C.annot_bz10 : C.annot_bz5;
+        ctx.strokeStyle = color;
+        ctx.lineWidth = 1;
+        ctx.setLineDash([4, 3]);
+        ctx.beginPath();
+        ctx.moveTo(x, PAD_T);
+        ctx.lineTo(x, PAD_T + pH);
+        ctx.stroke();
+        ctx.setLineDash([]);
+        ctx.fillStyle = color;
+        ctx.font = `7px ${FONT}`;
+        ctx.fillText(ann.label, x + 2, PAD_T + 8);
+      }
+    }
+
     const visData = data.filter(p => p.time.getTime() >= tMin && p.time.getTime() <= tMax);
     
     for (const s of series) {
       const pts = visData.filter(p => p[s.key] !== null);
       if (pts.length === 0) continue;
 
-      // PHI MODE: SCATTER DOTS (Space Weather style)
       if (s.scatter || phiMode) {
         for (const pt of pts) {
           const x = tx(pt.time.getTime());
@@ -177,7 +243,6 @@ function PlotCanvas({ data, series, yMin, yMax, timeRange, crosshairTime, onCros
           ctx.fill();
         }
       } else {
-        // LINE MODE (Bz/By)
         ctx.lineWidth = s.width || 1.2;
         let drawing = false;
         let curColor = null;
@@ -215,6 +280,7 @@ function PlotCanvas({ data, series, yMin, yMax, timeRange, crosshairTime, onCros
       }
     }
 
+    // CROSSHAIR WITH TIME LABEL
     if (crosshairTime && !zoomMode) {
       const closest = visData.reduce((prev, curr) =>
         Math.abs(curr.time.getTime() - crosshairTime) < Math.abs(prev.time.getTime() - crosshairTime) ? curr : prev
@@ -230,6 +296,17 @@ function PlotCanvas({ data, series, yMin, yMax, timeRange, crosshairTime, onCros
         ctx.lineTo(x, PAD_T + pH);
         ctx.stroke();
         ctx.setLineDash([]);
+
+        // TIME LABEL at top
+        const timeLabel = closest.time.toLocaleTimeString('en-US', { 
+          hour: '2-digit', 
+          minute: '2-digit',
+          second: '2-digit'
+        });
+        ctx.fillStyle = '#ffffff';
+        ctx.font = `700 9px ${FONT}`;
+        ctx.textAlign = 'center';
+        ctx.fillText(timeLabel, x, PAD_T - 2);
 
         for (const s of series) {
           const v = closest[s.key];
@@ -274,7 +351,7 @@ function PlotCanvas({ data, series, yMin, yMax, timeRange, crosshairTime, onCros
     ctx.lineTo(PAD_L, PAD_T + pH);
     ctx.lineTo(W - PAD_R, PAD_T + pH);
     ctx.stroke();
-  }, [data, series, timeRange, resolvedYMin, resolvedYMax, crosshairTime, zoomMode, showLabels, yLabel, phiMode, dpr]);
+  }, [data, series, timeRange, resolvedYMin, resolvedYMax, crosshairTime, zoomMode, showLabels, yLabel, phiMode, annotations, showAnnotations, dpr]);
 
   useEffect(() => {
     draw();
@@ -329,6 +406,7 @@ export default function CMEClassificationTab({ cmes, classifications }) {
 
   const [bzByExpanded, setBzByExpanded] = useState(true);
   const [phiExpanded, setPhiExpanded] = useState(true);
+  const [showAnnotations, setShowAnnotations] = useState(true);
 
   useEffect(() => {
     const fetchMagData = async () => {
@@ -372,6 +450,8 @@ export default function CMEClassificationTab({ cmes, classifications }) {
 
   const phiSeries = [{ key: 'phi', label: 'Phi', color: C.phi, scatter: true }];
 
+  const annotations = useMemo(() => detectAnnotations(magData, timeRange), [magData, timeRange]);
+
   if (cmes.length === 0) {
     return <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', color: C.text, fontSize: 11 }}>No active CMEs to classify</div>;
   }
@@ -379,6 +459,10 @@ export default function CMEClassificationTab({ cmes, classifications }) {
   const selectedCME = cmes[selectedCMEIndex];
   const selectedColor = CME_COLORS[selectedCMEIndex % CME_COLORS.length];
   const classification = classifications[selectedCME.id];
+
+  // PLOT EXPAND PRIORITY: Calculate flex values
+  const numPlotsExpanded = (bzByExpanded ? 1 : 0) + (phiExpanded ? 1 : 0);
+  const plotFlexGrow = numPlotsExpanded < 2 ? 1 : 0;
 
   return (
     <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
@@ -407,6 +491,13 @@ export default function CMEClassificationTab({ cmes, classifications }) {
             cursor: 'pointer', borderRadius: 2,
           }}>RESET</button>
         )}
+        <button onClick={() => setShowAnnotations(v => !v)} style={{
+          padding: '1px 7px', fontSize: 8, fontFamily: FONT,
+          background: showAnnotations ? '#0d1a2a' : 'transparent',
+          border: `1px solid ${showAnnotations ? '#44ddaa' : '#1a2a3a'}`,
+          color: showAnnotations ? '#44ddaa' : '#2a4a5a',
+          cursor: 'pointer', borderRadius: 2, marginLeft: 4,
+        }}>ANNOT</button>
       </div>
 
       {zoomMode && (
@@ -416,9 +507,9 @@ export default function CMEClassificationTab({ cmes, classifications }) {
         </div>
       )}
 
-      {/* FLEX-GROW: Minimized sections don't leave gaps */}
       <div style={{ flex: 1, display: 'flex', flexDirection: 'column', padding: '8px', gap: 8, overflow: 'hidden' }}>
-        <div style={{ background: C.bg, border: `1px solid ${C.border}`, borderRadius: 4, flexShrink: 0, flexGrow: bzByExpanded ? 0 : 0 }}>
+        {/* PLOTS EXPAND BEFORE CLASSIFICATION */}
+        <div style={{ background: C.bg, border: `1px solid ${C.border}`, borderRadius: 4, flexShrink: 0, flexGrow: bzByExpanded ? plotFlexGrow : 0 }}>
           <div onClick={() => setBzByExpanded(!bzByExpanded)} style={{ 
             padding: '8px 10px', cursor: 'pointer', display: 'flex', justifyContent: 'space-between', alignItems: 'center',
             borderBottom: bzByExpanded ? `1px solid ${C.border}` : 'none'
@@ -436,13 +527,13 @@ export default function CMEClassificationTab({ cmes, classifications }) {
           </div>
           {bzByExpanded && magData.length > 0 && (
             <div style={{ height: 140, padding: '8px' }}>
-              <PlotCanvas data={magData} series={bzBySeries} timeRange={timeRange} crosshairTime={crosshairT} onCrosshair={zoomMode ? handleZoomTap : setCrosshairT} zoomMode={zoomMode} symmetric={true} showLabels={true} yLabel="nT" />
+              <PlotCanvas data={magData} series={bzBySeries} timeRange={timeRange} crosshairTime={crosshairT} onCrosshair={zoomMode ? handleZoomTap : setCrosshairT} zoomMode={zoomMode} symmetric={true} showLabels={true} yLabel="nT" annotations={annotations} showAnnotations={showAnnotations} />
             </div>
           )}
         </div>
 
         {magData.length > 0 && (
-          <div style={{ background: C.bg, border: `1px solid ${C.border}`, borderRadius: 4, flexShrink: 0, flexGrow: phiExpanded ? 0 : 0 }}>
+          <div style={{ background: C.bg, border: `1px solid ${C.border}`, borderRadius: 4, flexShrink: 0, flexGrow: phiExpanded ? plotFlexGrow : 0 }}>
             <div onClick={() => setPhiExpanded(!phiExpanded)} style={{ 
               padding: '8px 10px', cursor: 'pointer', display: 'flex', justifyContent: 'space-between', alignItems: 'center',
               borderBottom: phiExpanded ? `1px solid ${C.border}` : 'none'
@@ -458,16 +549,15 @@ export default function CMEClassificationTab({ cmes, classifications }) {
           </div>
         )}
 
-        {/* FLEX-GROW: Classification expands when plots minimize */}
         <div style={{ flex: 1, background: C.bg, border: `2px solid ${selectedColor}`, borderRadius: 4, padding: '10px', display: 'flex', flexDirection: 'column', minHeight: 0 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8, paddingBottom: 8, borderBottom: `1px solid ${C.border}` }}>
             <span style={{ color: selectedColor, fontSize: 18, fontWeight: 'bold' }}>{selectedCMEIndex + 1}</span>
             <span style={{ color: C.textDim, fontSize: 9, fontFamily: FONT, flex: 1 }}>{selectedCME.id}</span>
             <span style={{
-              background: selectedCME.state.current === 'WATCH' ? '#FFA500' : '#4a6a70',
-              color: selectedCME.state.current === 'WATCH' ? '#000' : '#fff',
+              background: selectedCME.state?.current === 'WATCH' ? '#FFA500' : '#4a6a70',
+              color: selectedCME.state?.current === 'WATCH' ? '#000' : '#fff',
               padding: '3px 10px', borderRadius: 3, fontSize: 8, fontWeight: 700
-            }}>{selectedCME.state.current}</span>
+            }}>{selectedCME.state?.current || 'UNKNOWN'}</span>
           </div>
 
           <div style={{ flex: 1, overflow: 'auto' }}>

@@ -14,20 +14,35 @@ const C = {
 const CME_COLORS = ['#00FFF0', '#FF00FF', '#00FF00', '#FFFF00', '#FF0080', '#0080FF', '#FF8000', '#80FF00'];
 
 function calculateEstimatedSpeed(cme) {
-  if (cme.properties.speed_current) {
+  // Try velocity_current first (from positions data)
+  if (cme.position?.velocity_current) {
+    return { speed: Math.round(cme.position.velocity_current), estimated: false };
+  }
+  
+  // Try speed_current from properties
+  if (cme.properties?.speed_current) {
     return { speed: Math.round(cme.properties.speed_current), estimated: false };
   }
   
-  const launchTime = new Date(cme.source.launch_time).getTime();
+  // Calculate from distance and time
+  const launchTime = cme.source?.launch_time ? new Date(cme.source.launch_time).getTime() : null;
+  if (!launchTime) return { speed: null, estimated: false };
+  
   const now = Date.now();
   const elapsedHours = (now - launchTime) / (1000 * 60 * 60);
   
   if (elapsedHours <= 0) return { speed: null, estimated: false };
   
-  const distanceKm = cme.position.distance_au * 149597870.7;
+  const distanceAU = cme.position?.distance_au || 0;
+  if (distanceAU <= 0) return { speed: null, estimated: false };
+  
+  const distanceKm = distanceAU * 149597870.7;
   const speedKms = distanceKm / (elapsedHours * 3600);
   
-  return { speed: Math.round(speedKms), estimated: true };
+  return {
+    speed: Math.round(speedKms),
+    estimated: true
+  };
 }
 
 export default function CMEQueueTab({ cmes, positions }) {
@@ -54,10 +69,9 @@ export default function CMEQueueTab({ cmes, positions }) {
 
   return (
     <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
-      {/* Visualization - 30% LESS HEIGHT */}
       <div style={{ 
         flexShrink: 0,
-        height: 140,  // was 200
+        height: 140,
         borderBottom: `1px solid ${C.border}`,
         background: C.bg,
         padding: '8px',
@@ -73,7 +87,6 @@ export default function CMEQueueTab({ cmes, positions }) {
         />
       </div>
 
-      {/* CME Cards - 2-column layout */}
       <div style={{ 
         flex: 1, 
         overflowY: 'auto', 
@@ -85,6 +98,22 @@ export default function CMEQueueTab({ cmes, positions }) {
         {cmes.map((cme, idx) => {
           const cmeColor = CME_COLORS[idx % CME_COLORS.length];
           const speedInfo = calculateEstimatedSpeed(cme);
+          
+          // FIXED: Get correct model count from arrival.models array or nasa_scorecard
+          const numModels = cme.arrival?.models?.length 
+            || cme.nasa_scorecard?.ensemble_prediction?.num_models 
+            || cme.arrival?.num_models 
+            || 0;
+          
+          // Get type from properties or nasa_scorecard
+          const cmeType = cme.properties?.type 
+            || cme.nasa_scorecard?.cme_analysis?.type 
+            || 'Unknown';
+          
+          // Get width
+          const cmeWidth = cme.properties?.width 
+            || cme.nasa_scorecard?.cme_analysis?.width 
+            || null;
           
           return (
             <div
@@ -118,17 +147,17 @@ export default function CMEQueueTab({ cmes, positions }) {
                 <span style={{ color: cmeColor, fontSize: 16, fontWeight: 'bold', minWidth: 20 }}>{idx + 1}</span>
                 <span style={{ color: C.textDim, fontSize: 8, fontFamily: FONT, flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{cme.id}</span>
                 <span style={{
-                  background: cme.state.current === 'WATCH' ? '#FFA500' 
-                    : cme.state.current === 'INBOUND' ? '#FF6B00'
-                    : cme.state.current === 'IMMINENT' ? '#FF0080'
+                  background: cme.state?.current === 'WATCH' ? '#FFA500' 
+                    : cme.state?.current === 'INBOUND' ? '#FF6B00'
+                    : cme.state?.current === 'IMMINENT' ? '#FF0080'
                     : '#4a6a70',
-                  color: cme.state.current === 'WATCH' ? '#000' : '#fff',
+                  color: cme.state?.current === 'WATCH' ? '#000' : '#fff',
                   padding: '2px 8px',
                   borderRadius: 2,
                   fontSize: 7,
                   fontWeight: 700,
                   letterSpacing: 0.3,
-                }}>{cme.state.current}</span>
+                }}>{cme.state?.current || 'UNKNOWN'}</span>
               </div>
 
               <div style={{ 
@@ -141,13 +170,13 @@ export default function CMEQueueTab({ cmes, positions }) {
                 <div style={{ display: 'contents' }}>
                   <div style={{ display: 'flex', gap: 6 }}>
                     <span style={{ color: C.textDim }}>TYPE:</span>
-                    <span style={{ color: C.text }}>{cme.properties.type || 'Unknown'}</span>
+                    <span style={{ color: C.text }}>{cmeType}</span>
                   </div>
                   
                   <div style={{ display: 'flex', gap: 6 }}>
                     <span style={{ color: C.textDim }}>DIST:</span>
                     <span style={{ color: C.text }}>
-                      {cme.position.distance_au.toFixed(2)} AU ({cme.position.progress_percent.toFixed(0)}%)
+                      {cme.position?.distance_au?.toFixed(2) || '0.00'} AU ({cme.position?.progress_percent?.toFixed(0) || '0'}%)
                     </span>
                   </div>
                   
@@ -162,7 +191,7 @@ export default function CMEQueueTab({ cmes, positions }) {
                   
                   <div style={{ display: 'flex', gap: 6 }}>
                     <span style={{ color: C.textDim }}>MODELS:</span>
-                    <span style={{ color: C.text }}>{cme.arrival.num_models}</span>
+                    <span style={{ color: C.text }}>{numModels}</span>
                   </div>
                 </div>
 
@@ -170,21 +199,21 @@ export default function CMEQueueTab({ cmes, positions }) {
                   <div style={{ display: 'flex', gap: 6 }}>
                     <span style={{ color: C.textDim }}>LAUNCH:</span>
                     <span style={{ color: C.text, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                      {formatDate(cme.source.launch_time)}
+                      {formatDate(cme.source?.launch_time)}
                     </span>
                   </div>
                   
                   <div style={{ display: 'flex', gap: 6 }}>
                     <span style={{ color: C.textDim }}>ETA:</span>
                     <span style={{ color: C.text }}>
-                      {cme.position.eta_hours ? `${Math.round(cme.position.eta_hours)}h` : 'N/A'}
+                      {cme.position?.eta_hours ? `${Math.round(cme.position.eta_hours)}h` : 'N/A'}
                     </span>
                   </div>
                   
                   <div style={{ display: 'flex', gap: 6 }}>
                     <span style={{ color: C.textDim }}>WIDTH:</span>
                     <span style={{ color: C.text }}>
-                      {cme.properties.width ? `${cme.properties.width}°` : 'Unknown'}
+                      {cmeWidth ? `${cmeWidth}°` : 'Unknown'}
                     </span>
                   </div>
                 </div>
