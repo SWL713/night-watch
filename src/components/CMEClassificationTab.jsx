@@ -195,7 +195,7 @@ function CMEClassificationTab({ activeCME, classification }) {
       {/* Main content area */}
       <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
         {/* Plots area - top 2/3 */}
-        <div style={{ flex: 2, display: 'flex', flexDirection: 'column', gap: 8, padding: '8px 12px 0', minHeight: 0 }}>
+        <div style={{ flex: 2, display: 'flex', flexDirection: 'column', gap: 6, padding: '6px 10px 0', minHeight: 0 }}>
           <BzPlot 
             data={magData} 
             timeRange={actualRange}
@@ -227,7 +227,7 @@ function CMEClassificationTab({ activeCME, classification }) {
         </div>
         
         {/* Classification box - bottom 1/3 */}
-        <div style={{ flex: 1, padding: 12, minHeight: 0, overflow: 'auto' }}>
+        <div style={{ flex: 1, padding: '6px 10px', minHeight: 0, overflow: 'auto' }}>
           <ClassificationBox 
             classData={classData} 
             metadata={classMetadata}
@@ -276,7 +276,7 @@ function BzPlot({ data, timeRange, ejectaStart, crosshairT, onCrosshair, zoomMod
     
     const W = rect.width;
     const H = rect.height;
-    const PAD = { l: 40, r: 15, t: 28, b: 25 };
+    const PAD = { l: 40, r: 10, t: 20, b: 16 };
     const pW = W - PAD.l - PAD.r;
     const pH = H - PAD.t - PAD.b;
     
@@ -596,7 +596,7 @@ function ByPlot({ data, timeRange, ejectaStart, crosshairT, onCrosshair, zoomMod
     
     const W = rect.width;
     const H = rect.height;
-    const PAD = { l: 40, r: 15, t: 28, b: 25 };
+    const PAD = { l: 40, r: 10, t: 20, b: 16 };
     const pW = W - PAD.l - PAD.r;
     const pH = H - PAD.t - PAD.b;
     
@@ -831,7 +831,7 @@ function PhiPlot({ data, timeRange, ejectaStart, crosshairT, onCrosshair, zoomMo
     
     const W = rect.width;
     const H = rect.height;
-    const PAD = { l: 40, r: 15, t: 28, b: 35 };
+    const PAD = { l: 40, r: 10, t: 20, b: 22 };
     const pW = W - PAD.l - PAD.r;
     const pH = H - PAD.t - PAD.b;
     
