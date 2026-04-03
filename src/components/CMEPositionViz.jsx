@@ -3,26 +3,28 @@ const FONT = 'DejaVu Sans Mono, Consolas, monospace';
 export default function CMEPositionViz({ cmes, positions, cmeColors, onCMEClick }) {
   if (!cmes || cmes.length === 0) return null;
 
+  // SVG dimensions
   const width = 1000;
-  const height = 220;
+  const height = 200;
   
-  // Margins
   const margin = 30;
-  const usableWidth = width - (2 * margin);
-  
-  // SMALLER sizes so everything fits
   const sunX = margin + 25;
   const earthX = width - margin - 20;
   const centerY = height / 2;
   
-  const sunRadius = 22;    // was 35, now smaller
-  const earthRadius = 12;  // was 18, now smaller
+  const sunRadius = 20;
+  const earthRadius = 11;
   
   const distanceScale = (earthX - sunX - sunRadius - earthRadius) / 1.0;
   
   return (
-    <svg width={width} height={height} style={{ maxWidth: '100%', height: 'auto' }}>
-      {/* Orbital path */}
+    <svg 
+      width="100%" 
+      height="100%" 
+      viewBox={`0 0 ${width} ${height}`}
+      preserveAspectRatio="xMidYMid meet"
+      style={{ maxWidth: '100%', maxHeight: '100%' }}
+    >
       <line
         x1={sunX + sunRadius}
         y1={centerY}
@@ -33,15 +35,12 @@ export default function CMEPositionViz({ cmes, positions, cmeColors, onCMEClick 
         strokeDasharray="5,3"
       />
       
-      {/* Sun */}
       <circle cx={sunX} cy={centerY} r={sunRadius} fill="url(#sunGradient)" stroke="#ff8800" strokeWidth="1.5" />
       <text x={sunX} y={centerY + 4} fill="#fff" fontSize="10" fontFamily={FONT} fontWeight="700" textAnchor="middle">SUN</text>
       
-      {/* Earth */}
       <circle cx={earthX} cy={centerY} r={earthRadius} fill="url(#earthGradient)" stroke="#4488ff" strokeWidth="1.5" />
       <text x={earthX} y={centerY + 3} fill="#fff" fontSize="8" fontFamily={FONT} fontWeight="700" textAnchor="middle">🜨</text>
       
-      {/* CMEs */}
       {cmes.map((cme, idx) => {
         const distanceAU = cme.position?.distance_au || 0;
         const cmeX = sunX + sunRadius + (distanceAU * distanceScale);

@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 
 const FONT = 'DejaVu Sans Mono, Consolas, monospace';
 const C = {
@@ -6,23 +6,19 @@ const C = {
   plotBg: '#04060d',
   border: '#0d1525',
   grid: 'rgba(30,45,70,0.6)',
-  zero: 'rgba(60,90,120,0.2)',  // MUCH MORE SUBTLE
+  zero: 'rgba(60,90,120,0.5)',
   text: '#e0e6ed',
   textDim: '#44ddaa',
-  bz_pos: '#44ddaa',
   bz_neg: '#ee5577',
-  by_pos: '#4488ff',
+  bz_pos: '#44ddaa',
   by_neg: '#ff8800',
+  by_pos: '#4488ff',
   phi: '#44aaff',
   crosshair: 'rgba(255,255,255,0.35)',
 };
 
-const CME_COLORS = [
-  '#00FFF0', '#FF00FF', '#00FF00', '#FFFF00', 
-  '#FF0080', '#0080FF', '#FF8000', '#80FF00',
-];
+const CME_COLORS = ['#00FFF0', '#FF00FF', '#00FF00', '#FFFF00', '#FF0080', '#0080FF', '#FF8000', '#80FF00'];
 
-// TIME RANGE PRESETS - 24H default, add 12H and 48H
 const PRESETS = [
   { label: '12H', ms: 12 * 3600000 },
   { label: '24H', ms: 24 * 3600000 },
@@ -51,10 +47,12 @@ function parseColumnFile(raw) {
   const ti = cols.indexOf('time');
   if (ti === -1) return [];
   
-  const bxIdx = cols.indexOf('bx');
-  const byIdx = cols.indexOf('by');
-  const bzIdx = cols.indexOf('bz');
-  const phiIdx = cols.indexOf('phi');
+  const indices = {
+    bx: cols.indexOf('bx'),
+    by: cols.indexOf('by'),
+    bz: cols.indexOf('bz'),
+    phi: cols.indexOf('phi'),
+  };
   
   return raw.data.map(row => {
     try {
@@ -62,13 +60,251 @@ function parseColumnFile(raw) {
       if (isNaN(t.getTime())) return null;
       return {
         time: t,
-        bx: bxIdx >= 0 ? row[bxIdx] : null,
-        by: byIdx >= 0 ? row[byIdx] : null,
-        bz: bzIdx >= 0 ? row[bzIdx] : null,
-        phi: phiIdx >= 0 ? row[phiIdx] : null,
+        bx: indices.bx >= 0 ? row[indices.bx] : null,
+        by: indices.by >= 0 ? row[indices.by] : null,
+        bz: indices.bz >= 0 ? row[indices.bz] : null,
+        phi: indices.phi >= 0 ? row[indices.phi] : null,
       };
     } catch (_) { return null; }
   }).filter(Boolean);
+}
+
+// EXACT Space Weather PlotCanvas approach
+function PlotCanvas({ data, series, yMin, yMax, timeRange, crosshairTime, onCrosshair, zoomMode, symmetric, showLabels, yLabel }) {
+  const canvasRef = useRef(null);
+  const dpr = window.devicePixelRatio || 1;
+
+  // AUTO-SCALE Y-axis (Space Weather approach)
+  const [resolvedYMin, resolvedYMax] = useMemo(() => {
+    if (yMin != null && yMax != null) return [yMin, yMax];
+
+    const [tMin, tMax] = timeRange;
+    const visData = (data || []).filter(p => {
+      const t = p.time.getTime();
+      return t >= tMin && t <= tMax;
+    });
+
+    let allVals = [];
+    for (const s of (series || [])) {
+      if (!s || !s.key) continue;
+      visData.forEach(p => {
+        const v = p[s.key];
+        if (v != null && !isNaN(v) && isFinite(v)) allVals.push(v);
+      });
+    }
+
+    if (allVals.length < 2) {
+      return [yMin ?? -10, yMax ?? 10];
+    }
+
+    const dataMin = Math.min(...allVals);
+    const dataMax = Math.max(...allVals);
+
+    if (symmetric) {
+      const absMax = Math.max(Math.abs(dataMin), Math.abs(dataMax), 1) * 1.15;
+      return [yMin ?? -absMax, yMax ?? absMax];
+    } else {
+      const span = Math.max(dataMax - dataMin, 0.1);
+      const pad = span * 0.12;
+      return [yMin ?? dataMin - pad, yMax ?? dataMax + pad];
+    }
+  }, [data, series, yMin, yMax, symmetric, timeRange]);
+
+  const draw = useCallback(() => {
+    const canvas = canvasRef.current;
+    if (!canvas || !data || data.length === 0) return;
+    const W = canvas.clientWidth;
+    const H = canvas.clientHeight;
+    if (W === 0 || H === 0) return;
+    canvas.width = W * dpr;
+    canvas.height = H * dpr;
+    const ctx = canvas.getContext('2d');
+    ctx.scale(dpr, dpr);
+
+    const PAD_L = showLabels ? 36 : 8;
+    const PAD_R = 6;
+    const PAD_T = 4;
+    const PAD_B = showLabels ? 18 : 4;
+    const pW = W - PAD_L - PAD_R;
+    const pH = H - PAD_T - PAD_B;
+
+    const [tMin, tMax] = timeRange;
+    const spanMs = tMax - tMin;
+
+    function tx(t) { return PAD_L + ((t - tMin) / spanMs) * pW; }
+    function vy(v) {
+      if (v === null || v === undefined || isNaN(v)) return null;
+      const y = PAD_T + pH - ((v - resolvedYMin) / (resolvedYMax - resolvedYMin)) * pH;
+      return Math.max(PAD_T, Math.min(PAD_T + pH, y));
+    }
+
+    // Background
+    ctx.fillStyle = C.plotBg;
+    ctx.fillRect(0, 0, W, H);
+
+    // Grid
+    ctx.strokeStyle = C.grid;
+    ctx.lineWidth = 0.5;
+    for (let i = 0; i <= 4; i++) {
+      const y = PAD_T + (i / 4) * pH;
+      ctx.beginPath();
+      ctx.moveTo(PAD_L, y);
+      ctx.lineTo(W - PAD_R, y);
+      ctx.stroke();
+    }
+
+    // Zero line
+    if (resolvedYMin < 0 && resolvedYMax > 0) {
+      const y0 = vy(0);
+      ctx.strokeStyle = C.zero;
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.moveTo(PAD_L, y0);
+      ctx.lineTo(W - PAD_R, y0);
+      ctx.stroke();
+    }
+
+    // Series lines
+    const visData = data.filter(p => p.time.getTime() >= tMin && p.time.getTime() <= tMax);
+    for (const s of series) {
+      const pts = visData.filter(p => p[s.key] !== null);
+      if (pts.length === 0) continue;
+
+      ctx.lineWidth = s.width || 1.2;
+      let drawing = false;
+      let curColor = null;
+
+      for (const pt of pts) {
+        const x = tx(pt.time.getTime());
+        const v = pt[s.key];
+        const y = vy(v);
+        if (y === null) {
+          if (drawing) ctx.stroke();
+          drawing = false;
+          continue;
+        }
+
+        const color = s.colorFn ? s.colorFn(v) : s.color;
+
+        if (!drawing) {
+          ctx.strokeStyle = color;
+          ctx.beginPath();
+          ctx.moveTo(x, y);
+          drawing = true;
+          curColor = color;
+        } else if (color !== curColor) {
+          ctx.lineTo(x, y);
+          ctx.stroke();
+          ctx.strokeStyle = color;
+          ctx.beginPath();
+          ctx.moveTo(x, y);
+          curColor = color;
+        } else {
+          ctx.lineTo(x, y);
+        }
+      }
+      if (drawing) ctx.stroke();
+    }
+
+    // Crosshair
+    if (crosshairTime && !zoomMode) {
+      const closest = visData.reduce((prev, curr) =>
+        Math.abs(curr.time.getTime() - crosshairTime) < Math.abs(prev.time.getTime() - crosshairTime) ? curr : prev
+      , visData[0]);
+
+      if (closest) {
+        const x = tx(closest.time.getTime());
+        ctx.strokeStyle = C.crosshair;
+        ctx.lineWidth = 1;
+        ctx.setLineDash([3, 2]);
+        ctx.beginPath();
+        ctx.moveTo(x, PAD_T);
+        ctx.lineTo(x, PAD_T + pH);
+        ctx.stroke();
+        ctx.setLineDash([]);
+
+        for (const s of series) {
+          const v = closest[s.key];
+          if (v === null || v === undefined) continue;
+          const y = vy(v);
+          if (y === null) continue;
+          const color = s.colorFn ? s.colorFn(v) : s.color;
+          ctx.fillStyle = color;
+          ctx.beginPath();
+          ctx.arc(x, y, 3, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.fillStyle = color;
+          ctx.font = `700 9px ${FONT}`;
+          ctx.textAlign = 'left';
+          ctx.fillText(`${s.label}: ${v.toFixed(1)}`, x + 6, y + 3);
+        }
+      }
+    }
+
+    // Y-axis labels
+    if (showLabels) {
+      ctx.fillStyle = C.textDim;
+      ctx.font = `9px ${FONT}`;
+      ctx.textAlign = 'right';
+      ctx.fillText(resolvedYMax.toFixed(0), PAD_L - 4, PAD_T + 10);
+      ctx.fillText('0', PAD_L - 4, vy(0) + 3);
+      ctx.fillText(resolvedYMin.toFixed(0), PAD_L - 4, PAD_T + pH);
+
+      if (yLabel) {
+        ctx.save();
+        ctx.translate(PAD_L - 28, H / 2);
+        ctx.rotate(-Math.PI / 2);
+        ctx.textAlign = 'center';
+        ctx.fillText(yLabel, 0, 0);
+        ctx.restore();
+      }
+    }
+
+    // Axes
+    ctx.strokeStyle = C.grid;
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.moveTo(PAD_L, PAD_T);
+    ctx.lineTo(PAD_L, PAD_T + pH);
+    ctx.lineTo(W - PAD_R, PAD_T + pH);
+    ctx.stroke();
+  }, [data, series, timeRange, resolvedYMin, resolvedYMax, crosshairTime, zoomMode, showLabels, yLabel, dpr]);
+
+  useEffect(() => {
+    draw();
+  }, [draw]);
+
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const resizeObserver = new ResizeObserver(draw);
+    resizeObserver.observe(canvas);
+    return () => resizeObserver.disconnect();
+  }, [draw]);
+
+  const handleInteraction = (e) => {
+    if (!onCrosshair) return;
+    const canvas = canvasRef.current;
+    const rect = canvas.getBoundingClientRect();
+    const x = e.clientX - rect.left;
+    const PAD_L = showLabels ? 36 : 8;
+    const PAD_R = 6;
+    const pW = canvas.clientWidth - PAD_L - PAD_R;
+    if (x < PAD_L || x > canvas.clientWidth - PAD_R) return;
+    const [tMin, tMax] = timeRange;
+    const t = tMin + ((x - PAD_L) / pW) * (tMax - tMin);
+    onCrosshair(t);
+  };
+
+  return (
+    <canvas
+      ref={canvasRef}
+      style={{ width: '100%', height: '100%', cursor: zoomMode ? 'crosshair' : 'default' }}
+      onMouseMove={(e) => !zoomMode && handleInteraction(e)}
+      onMouseLeave={() => !zoomMode && onCrosshair?.(null)}
+      onClick={zoomMode ? handleInteraction : undefined}
+    />
+  );
 }
 
 export default function CMEClassificationTab({ cmes, classifications }) {
@@ -78,7 +314,7 @@ export default function CMEClassificationTab({ cmes, classifications }) {
   const [loadError, setLoadError] = useState(null);
   const [selectedCMEIndex, setSelectedCMEIndex] = useState(0);
   
-  const [presetMs, setPresetMs] = useState(24 * 3600000); // 24H DEFAULT
+  const [presetMs, setPresetMs] = useState(24 * 3600000);
   const [zoomRange, setZoomRange] = useState(null);
   const [zoomMode, setZoomMode] = useState(false);
   const [zoomStep, setZoomStep] = useState(0);
@@ -124,220 +360,28 @@ export default function CMEClassificationTab({ cmes, classifications }) {
     }
   };
 
-  const renderBzByPlot = () => {
-    if (loadError) {
-      return <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: 140, color: '#ff4444', fontSize: 10 }}>Error: {loadError}</div>;
-    }
-    if (magData.length === 0) {
-      return <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: 140, color: C.textDim, fontSize: 10 }}>Loading...</div>;
-    }
+  const bzBySeries = [];
+  if (showBz) bzBySeries.push({
+    key: 'bz',
+    label: 'Bz',
+    color: C.bz_pos,
+    colorFn: (v) => v >= 0 ? C.bz_pos : C.bz_neg,
+    width: 1.5
+  });
+  if (showBy) bzBySeries.push({
+    key: 'by',
+    label: 'By',
+    color: C.by_pos,
+    colorFn: (v) => v >= 0 ? C.by_pos : C.by_neg,
+    width: 1.5
+  });
 
-    const width = 850, height = 140;
-    const padL = 42, padR = 8, padT = 12, padB = 20;
-    const plotWidth = width - padL - padR;
-    const plotHeight = height - padT - padB;
-
-    const [tMin, tMax] = timeRange;
-    const visibleData = magData.filter(d => d.time.getTime() >= tMin && d.time.getTime() <= tMax);
-    
-    if (visibleData.length === 0) {
-      return <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: 140, color: C.textDim, fontSize: 10 }}>No data</div>;
-    }
-
-    // AUTO-SCALE Y-axis
-    const allVals = visibleData.flatMap(d => [d.bz, d.by]).filter(v => v != null);
-    const dataMin = Math.min(...allVals);
-    const dataMax = Math.max(...allVals);
-    const minVal = Math.min(dataMin, -5);  // Include 0 with some padding
-    const maxVal = Math.max(dataMax, 5);
-
-    const scaleY = (v) => {
-      const norm = (v - minVal) / (maxVal - minVal);
-      return padT + plotHeight - (norm * plotHeight);
-    };
-
-    const scaleX = (t) => padL + ((t - tMin) / (tMax - tMin)) * plotWidth;
-
-    const bzSegments = [];
-    const bySegments = [];
-    let currentBzColor = null;
-    let currentByColor = null;
-    let bzPath = [];
-    let byPath = [];
-
-    visibleData.forEach((d, i) => {
-      const x = scaleX(d.time.getTime());
-      
-      if (d.bz != null) {
-        const bzColor = d.bz >= 0 ? C.bz_pos : C.bz_neg;
-        if (bzColor !== currentBzColor && bzPath.length > 0) {
-          bzSegments.push({ color: currentBzColor, path: bzPath.join(' ') });
-          bzPath = [];
-        }
-        bzPath.push(`${bzPath.length === 0 ? 'M' : 'L'} ${x} ${scaleY(d.bz)}`);
-        currentBzColor = bzColor;
-      }
-      
-      if (d.by != null) {
-        const byColor = d.by >= 0 ? C.by_pos : C.by_neg;
-        if (byColor !== currentByColor && byPath.length > 0) {
-          bySegments.push({ color: currentByColor, path: byPath.join(' ') });
-          byPath = [];
-        }
-        byPath.push(`${byPath.length === 0 ? 'M' : 'L'} ${x} ${scaleY(d.by)}`);
-        currentByColor = byColor;
-      }
-    });
-
-    if (bzPath.length > 0) bzSegments.push({ color: currentBzColor, path: bzPath.join(' ') });
-    if (byPath.length > 0) bySegments.push({ color: currentByColor, path: byPath.join(' ') });
-
-    let crosshairData = null;
-    if (crosshairT && !zoomMode) {
-      crosshairData = visibleData.reduce((prev, curr) => 
-        Math.abs(curr.time.getTime() - crosshairT) < Math.abs(prev.time.getTime() - crosshairT) ? curr : prev
-      );
-    }
-
-    return (
-      <svg width={width} height={height} style={{ background: C.plotBg, borderRadius: 4, cursor: zoomMode ? 'crosshair' : 'default' }}
-        onMouseMove={(e) => {
-          if (zoomMode) return;
-          const rect = e.currentTarget.getBoundingClientRect();
-          const x = e.clientX - rect.left;
-          if (x < padL || x > width - padR) return;
-          const t = tMin + ((x - padL) / plotWidth) * (tMax - tMin);
-          setCrosshairT(t);
-        }}
-        onMouseLeave={() => !zoomMode && setCrosshairT(null)}
-        onClick={(e) => {
-          if (!zoomMode) return;
-          const rect = e.currentTarget.getBoundingClientRect();
-          const x = e.clientX - rect.left;
-          if (x < padL || x > width - padR) return;
-          const t = tMin + ((x - padL) / plotWidth) * (tMax - tMin);
-          handleZoomTap(t);
-        }}
-      >
-        {/* SUBTLE zero line */}
-        <line x1={padL} y1={scaleY(0)} x2={width - padR} y2={scaleY(0)} stroke={C.zero} strokeWidth="1" />
-        {showBz && bzSegments.map((seg, i) => (
-          <path key={`bz${i}`} d={seg.path} fill="none" stroke={seg.color} strokeWidth="2" />
-        ))}
-        {showBy && bySegments.map((seg, i) => (
-          <path key={`by${i}`} d={seg.path} fill="none" stroke={seg.color} strokeWidth="2" />
-        ))}
-        
-        {crosshairData && (
-          <>
-            <line x1={scaleX(crosshairData.time.getTime())} y1={padT} x2={scaleX(crosshairData.time.getTime())} y2={height - padB} stroke={C.crosshair} strokeWidth="1" strokeDasharray="3,2" />
-            {showBz && crosshairData.bz != null && (
-              <g>
-                <circle cx={scaleX(crosshairData.time.getTime())} cy={scaleY(crosshairData.bz)} r="3" fill={crosshairData.bz >= 0 ? C.bz_pos : C.bz_neg} />
-                <text x={scaleX(crosshairData.time.getTime()) + 6} y={scaleY(crosshairData.bz) + 3} fill={crosshairData.bz >= 0 ? C.bz_pos : C.bz_neg} fontSize="9" fontFamily={FONT} fontWeight="700">
-                  Bz: {crosshairData.bz.toFixed(1)}
-                </text>
-              </g>
-            )}
-            {showBy && crosshairData.by != null && (
-              <g>
-                <circle cx={scaleX(crosshairData.time.getTime())} cy={scaleY(crosshairData.by)} r="3" fill={crosshairData.by >= 0 ? C.by_pos : C.by_neg} />
-                <text x={scaleX(crosshairData.time.getTime()) + 6} y={scaleY(crosshairData.by) + 12} fill={crosshairData.by >= 0 ? C.by_pos : C.by_neg} fontSize="9" fontFamily={FONT} fontWeight="700">
-                  By: {crosshairData.by.toFixed(1)}
-                </text>
-              </g>
-            )}
-          </>
-        )}
-        
-        <line x1={padL} y1={padT} x2={padL} y2={height - padB} stroke={C.grid} />
-        <line x1={padL} y1={height - padB} x2={width - padR} y2={height - padB} stroke={C.grid} />
-        <text x={padL - 28} y={scaleY(maxVal) + 3} fill={C.textDim} fontSize="9" fontFamily={FONT}>{maxVal.toFixed(0)}</text>
-        <text x={padL - 28} y={scaleY(0) + 3} fill={C.textDim} fontSize="9" fontFamily={FONT}>0</text>
-        <text x={padL - 28} y={scaleY(minVal) + 3} fill={C.textDim} fontSize="9" fontFamily={FONT}>{minVal.toFixed(0)}</text>
-        <text x={padL - 35} y={height / 2} fill={C.textDim} fontSize="10" fontFamily={FONT} transform={`rotate(-90 ${padL - 35} ${height / 2})`}>nT</text>
-      </svg>
-    );
-  };
-
-  const renderPhiPlot = () => {
-    if (loadError || magData.length === 0) return null;
-
-    const width = 850, height = 120;
-    const padL = 42, padR = 8, padT = 12, padB = 20;
-    const plotWidth = width - padL - padR;
-    const plotHeight = height - padT - padB;
-
-    const [tMin, tMax] = timeRange;
-    const visibleData = magData.filter(d => d.time.getTime() >= tMin && d.time.getTime() <= tMax);
-    if (visibleData.length === 0) return null;
-
-    const scaleY = (angle) => {
-      const norm = (angle + 180) / 360;
-      return padT + plotHeight - (norm * plotHeight);
-    };
-    const scaleX = (t) => padL + ((t - tMin) / (tMax - tMin)) * plotWidth;
-
-    const phiPoints = [];
-    visibleData.forEach((d, i) => {
-      const x = scaleX(d.time.getTime());
-      if (d.phi != null) phiPoints.push(`${i === 0 ? 'M' : 'L'} ${x} ${scaleY(d.phi)}`);
-    });
-    const phiPath = phiPoints.join(' ');
-
-    let crosshairData = null;
-    if (crosshairT && !zoomMode) {
-      crosshairData = visibleData.reduce((prev, curr) => 
-        Math.abs(curr.time.getTime() - crosshairT) < Math.abs(prev.time.getTime() - crosshairT) ? curr : prev
-      );
-    }
-
-    return (
-      <svg width={width} height={height} style={{ background: C.plotBg, borderRadius: 4, cursor: zoomMode ? 'crosshair' : 'default' }}
-        onMouseMove={(e) => {
-          if (zoomMode) return;
-          const rect = e.currentTarget.getBoundingClientRect();
-          const x = e.clientX - rect.left;
-          if (x < padL || x > width - padR) return;
-          const t = tMin + ((x - padL) / plotWidth) * (tMax - tMin);
-          setCrosshairT(t);
-        }}
-        onMouseLeave={() => !zoomMode && setCrosshairT(null)}
-        onClick={(e) => {
-          if (!zoomMode) return;
-          const rect = e.currentTarget.getBoundingClientRect();
-          const x = e.clientX - rect.left;
-          if (x < padL || x > width - padR) return;
-          const t = tMin + ((x - padL) / plotWidth) * (tMax - tMin);
-          handleZoomTap(t);
-        }}
-      >
-        <line x1={padL} y1={scaleY(0)} x2={width - padR} y2={scaleY(0)} stroke={C.zero} strokeWidth="1" />
-        <line x1={padL} y1={scaleY(90)} x2={width - padR} y2={scaleY(90)} stroke={C.grid} strokeDasharray="2,2" />
-        <line x1={padL} y1={scaleY(-90)} x2={width - padR} y2={scaleY(-90)} stroke={C.grid} strokeDasharray="2,2" />
-        {phiPath && <path d={phiPath} fill="none" stroke={C.phi} strokeWidth="2" />}
-        
-        {crosshairData && (
-          <>
-            <line x1={scaleX(crosshairData.time.getTime())} y1={padT} x2={scaleX(crosshairData.time.getTime())} y2={height - padB} stroke={C.crosshair} strokeWidth="1" strokeDasharray="3,2" />
-            {crosshairData.phi != null && (
-              <g>
-                <circle cx={scaleX(crosshairData.time.getTime())} cy={scaleY(crosshairData.phi)} r="3" fill={C.phi} />
-                <text x={scaleX(crosshairData.time.getTime()) + 6} y={scaleY(crosshairData.phi) + 3} fill={C.phi} fontSize="9" fontFamily={FONT} fontWeight="700">{crosshairData.phi.toFixed(0)}°</text>
-              </g>
-            )}
-          </>
-        )}
-        
-        <line x1={padL} y1={padT} x2={padL} y2={height - padB} stroke={C.grid} />
-        <line x1={padL} y1={height - padB} x2={width - padR} y2={height - padB} stroke={C.grid} />
-        <text x={padL - 28} y={scaleY(180) + 3} fill={C.textDim} fontSize="9" fontFamily={FONT}>180°</text>
-        <text x={padL - 28} y={scaleY(0) + 3} fill={C.textDim} fontSize="9" fontFamily={FONT}>0°</text>
-        <text x={padL - 28} y={scaleY(-180) + 3} fill={C.textDim} fontSize="9" fontFamily={FONT}>-180°</text>
-        <text x={padL - 35} y={height / 2} fill={C.textDim} fontSize="10" fontFamily={FONT} transform={`rotate(-90 ${padL - 35} ${height / 2})`}>Phi (deg)</text>
-      </svg>
-    );
-  };
+  const phiSeries = [{
+    key: 'phi',
+    label: 'Phi',
+    color: C.phi,
+    width: 1.5
+  }];
 
   if (cmes.length === 0) {
     return <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', color: C.text, fontSize: 11 }}>No active CMEs to classify</div>;
@@ -349,12 +393,11 @@ export default function CMEClassificationTab({ cmes, classifications }) {
 
   return (
     <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
-      {/* Time range controls - 12H, 24H, 48H */}
       <div style={{ display: 'flex', gap: 3, padding: '3px 8px', borderBottom: `1px solid ${C.border}`, alignItems: 'center', flexShrink: 0 }}>
         <span style={{ color: C.textDim, fontSize: 8, letterSpacing: 1, marginRight: 4 }}>RANGE</span>
         {PRESETS.map(p => (
           <button key={p.label} onClick={() => { setPresetMs(p.ms); setZoomRange(null); }} style={{
-            padding: '1px 7px', fontSize: 8, fontFamily: FONT, letterSpacing: 0.5,
+            padding: '1px 7px', fontSize: 8, fontFamily: FONT,
             background: !zoomRange && presetMs === p.ms ? '#0d1a2a' : 'transparent',
             border: `1px solid ${!zoomRange && presetMs === p.ms ? '#44ddaa' : '#1a2a3a'}`,
             color: !zoomRange && presetMs === p.ms ? '#44ddaa' : '#2a4a5a',
@@ -367,7 +410,7 @@ export default function CMEClassificationTab({ cmes, classifications }) {
           border: `1px solid ${zoomMode ? '#ff8800' : '#1a2a3a'}`,
           color: zoomMode ? '#ff8800' : '#2a4a5a',
           cursor: 'pointer', borderRadius: 2, marginLeft: 4,
-        }}>🔍 ZOOM</button>
+        }}>🔍</button>
         {zoomRange && (
           <button onClick={() => setZoomRange(null)} style={{
             padding: '1px 7px', fontSize: 8, fontFamily: FONT,
@@ -379,7 +422,7 @@ export default function CMEClassificationTab({ cmes, classifications }) {
 
       {zoomMode && (
         <div style={{ padding: '3px 10px', background: '#1a0d00', borderBottom: `1px solid #ff8800`,
-          color: '#ff8800', fontSize: 8, letterSpacing: 0.5, flexShrink: 0, textAlign: 'center' }}>
+          color: '#ff8800', fontSize: 8, flexShrink: 0, textAlign: 'center' }}>
           {zoomStep === 0 ? 'TAP FIRST POINT' : 'TAP SECOND POINT'}
         </div>
       )}
@@ -401,9 +444,19 @@ export default function CMEClassificationTab({ cmes, classifications }) {
               <span style={{ color: C.textDim, fontSize: 12 }}>{bzByExpanded ? '▼' : '▶'}</span>
             </div>
           </div>
-          {bzByExpanded && (
-            <div style={{ padding: '8px', overflowX: 'auto' }}>
-              {renderBzByPlot()}
+          {bzByExpanded && magData.length > 0 && (
+            <div style={{ height: 140, padding: '8px' }}>
+              <PlotCanvas
+                data={magData}
+                series={bzBySeries}
+                timeRange={timeRange}
+                crosshairTime={crosshairT}
+                onCrosshair={zoomMode ? handleZoomTap : setCrosshairT}
+                zoomMode={zoomMode}
+                symmetric={true}
+                showLabels={true}
+                yLabel="nT"
+              />
             </div>
           )}
         </div>
@@ -418,8 +471,19 @@ export default function CMEClassificationTab({ cmes, classifications }) {
               <span style={{ color: C.textDim, fontSize: 12 }}>{phiExpanded ? '▼' : '▶'}</span>
             </div>
             {phiExpanded && (
-              <div style={{ padding: '8px', overflowX: 'auto' }}>
-                {renderPhiPlot()}
+              <div style={{ height: 120, padding: '8px' }}>
+                <PlotCanvas
+                  data={magData}
+                  series={phiSeries}
+                  yMin={-180}
+                  yMax={180}
+                  timeRange={timeRange}
+                  crosshairTime={crosshairT}
+                  onCrosshair={zoomMode ? handleZoomTap : setCrosshairT}
+                  zoomMode={zoomMode}
+                  showLabels={true}
+                  yLabel="deg"
+                />
               </div>
             )}
           </div>

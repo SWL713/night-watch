@@ -11,10 +11,7 @@ const C = {
   text: '#e0e6ed',
 };
 
-const CME_COLORS = [
-  '#00FFF0', '#FF00FF', '#00FF00', '#FFFF00', 
-  '#FF0080', '#0080FF', '#FF8000', '#80FF00',
-];
+const CME_COLORS = ['#00FFF0', '#FF00FF', '#00FF00', '#FFFF00', '#FF0080', '#0080FF', '#FF8000', '#80FF00'];
 
 function calculateEstimatedSpeed(cme) {
   if (cme.properties.speed_current) {
@@ -57,13 +54,13 @@ export default function CMEQueueTab({ cmes, positions }) {
 
   return (
     <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
-      {/* Visualization - Fixed */}
+      {/* Visualization - Fixed at top */}
       <div style={{ 
         flexShrink: 0,
-        height: 220,
+        height: 200,
         borderBottom: `1px solid ${C.border}`,
         background: C.bg,
-        padding: '8px 4px',
+        padding: '10px',
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center'
@@ -76,7 +73,7 @@ export default function CMEQueueTab({ cmes, positions }) {
         />
       </div>
 
-      {/* CME Cards - Scrollable, COMPACT LAYOUT */}
+      {/* CME Cards - 2-COLUMN LAYOUT */}
       <div style={{ 
         flex: 1, 
         overflowY: 'auto', 
@@ -110,7 +107,7 @@ export default function CMEQueueTab({ cmes, positions }) {
                 e.currentTarget.style.transform = 'none';
               }}
             >
-              {/* Header - More compact */}
+              {/* Header */}
               <div style={{ 
                 display: 'flex', 
                 alignItems: 'center', 
@@ -135,43 +132,66 @@ export default function CMEQueueTab({ cmes, positions }) {
                 }}>{cme.state.current}</span>
               </div>
 
-              {/* Details - COMPACT GRID LAYOUT */}
+              {/* 2-COLUMN GRID LAYOUT */}
               <div style={{ 
                 display: 'grid',
-                gridTemplateColumns: 'auto 1fr',
-                gap: '3px 8px',
+                gridTemplateColumns: '1fr 1fr',
+                columnGap: '12px',
+                rowGap: '3px',
                 fontSize: 9
               }}>
-                <span style={{ color: C.textDim }}>TYPE:</span>
-                <span style={{ color: C.text }}>{cme.properties.type || 'Unknown'}</span>
-                
-                <span style={{ color: C.textDim }}>LAUNCH:</span>
-                <span style={{ color: C.text }}>{formatDate(cme.source.launch_time)}</span>
-                
-                <span style={{ color: C.textDim }}>DIST:</span>
-                <span style={{ color: C.text }}>
-                  {cme.position.distance_au.toFixed(3)} AU ({cme.position.progress_percent.toFixed(1)}%)
-                </span>
-                
-                <span style={{ color: C.textDim }}>ETA:</span>
-                <span style={{ color: C.text }}>
-                  {cme.position.eta_hours ? `${Math.round(cme.position.eta_hours)}h` : 'N/A'}
-                </span>
-                
-                <span style={{ color: C.textDim }}>SPEED:</span>
-                <span style={{ color: C.text }}>
-                  {speedInfo.speed 
-                    ? `${speedInfo.speed} km/s${speedInfo.estimated ? ' (est)' : ''}`
-                    : 'Unknown'}
-                </span>
-                
-                <span style={{ color: C.textDim }}>WIDTH:</span>
-                <span style={{ color: C.text }}>
-                  {cme.properties.width ? `${cme.properties.width}°` : 'Unknown'}
-                </span>
-                
-                <span style={{ color: C.textDim }}>MODELS:</span>
-                <span style={{ color: C.text }}>{cme.arrival.num_models}</span>
+                {/* Left column */}
+                <div style={{ display: 'contents' }}>
+                  <div style={{ display: 'flex', gap: 6 }}>
+                    <span style={{ color: C.textDim }}>TYPE:</span>
+                    <span style={{ color: C.text }}>{cme.properties.type || 'Unknown'}</span>
+                  </div>
+                  
+                  <div style={{ display: 'flex', gap: 6 }}>
+                    <span style={{ color: C.textDim }}>DIST:</span>
+                    <span style={{ color: C.text }}>
+                      {cme.position.distance_au.toFixed(2)} AU ({cme.position.progress_percent.toFixed(0)}%)
+                    </span>
+                  </div>
+                  
+                  <div style={{ display: 'flex', gap: 6 }}>
+                    <span style={{ color: C.textDim }}>SPEED:</span>
+                    <span style={{ color: C.text }}>
+                      {speedInfo.speed 
+                        ? `${speedInfo.speed} km/s${speedInfo.estimated ? ' (est)' : ''}`
+                        : 'Unknown'}
+                    </span>
+                  </div>
+                  
+                  <div style={{ display: 'flex', gap: 6 }}>
+                    <span style={{ color: C.textDim }}>MODELS:</span>
+                    <span style={{ color: C.text }}>{cme.arrival.num_models}</span>
+                  </div>
+                </div>
+
+                {/* Right column */}
+                <div style={{ display: 'contents' }}>
+                  <div style={{ display: 'flex', gap: 6 }}>
+                    <span style={{ color: C.textDim }}>LAUNCH:</span>
+                    <span style={{ color: C.text, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                      {formatDate(cme.source.launch_time)}
+                    </span>
+                  </div>
+                  
+                  <div style={{ display: 'flex', gap: 6 }}>
+                    <span style={{ color: C.textDim }}>ETA:</span>
+                    <span style={{ color: C.text }}>
+                      {cme.position.eta_hours ? `${Math.round(cme.position.eta_hours)}h` : 'N/A'}
+                    </span>
+                  </div>
+                  
+                  <div style={{ display: 'flex', gap: 6 }}>
+                    <span style={{ color: C.textDim }}>WIDTH:</span>
+                    <span style={{ color: C.text }}>
+                      {cme.properties.width ? `${cme.properties.width}°` : 'Unknown'}
+                    </span>
+                  </div>
+                </div>
               </div>
             </div>
           );
