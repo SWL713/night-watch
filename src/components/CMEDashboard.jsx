@@ -12,7 +12,10 @@ export default function CMEDashboard() {
     return (
       <div className="cme-dashboard">
         <div className="cme-header">
-          <h2>CME DASHBOARD</h2>
+          <div className="cme-tabs">
+            <button className="cme-tab">Queue</button>
+            <button className="cme-tab">Classification</button>
+          </div>
         </div>
         <div className="cme-loading">Loading CME data...</div>
       </div>
@@ -23,7 +26,10 @@ export default function CMEDashboard() {
     return (
       <div className="cme-dashboard">
         <div className="cme-header">
-          <h2>CME DASHBOARD</h2>
+          <div className="cme-tabs">
+            <button className="cme-tab">Queue</button>
+            <button className="cme-tab">Classification</button>
+          </div>
         </div>
         <div className="cme-error">Error: {error}</div>
       </div>
@@ -32,9 +38,8 @@ export default function CMEDashboard() {
 
   return (
     <div className="cme-dashboard">
-      {/* Header with tabs */}
+      {/* Header with tabs only - NO title */}
       <div className="cme-header">
-        <h2>CME DASHBOARD</h2>
         <div className="cme-tabs">
           <button
             className={`cme-tab ${activeTab === 'queue' ? 'active' : ''}`}
@@ -48,12 +53,6 @@ export default function CMEDashboard() {
           >
             Classification
           </button>
-          <button
-            className={`cme-tab ${activeTab === 'positions' ? 'active' : ''}`}
-            onClick={() => setActiveTab('positions')}
-          >
-            Positions
-          </button>
         </div>
       </div>
 
@@ -64,24 +63,6 @@ export default function CMEDashboard() {
         )}
         {activeTab === 'classification' && (
           <CMEClassificationTab cmes={cmes} classifications={classifications} />
-        )}
-        {activeTab === 'positions' && (
-          <div className="cme-positions-tab">
-            <h3>Detailed Positions</h3>
-            <div className="positions-table">
-              {cmes.map((cme, idx) => (
-                <div key={cme.id} className="position-row">
-                  <span className="cme-number">❶{idx + 1}</span>
-                  <span className="cme-id">{cme.id}</span>
-                  <span className="cme-distance">{cme.position.distance_au.toFixed(2)} AU</span>
-                  <span className="cme-progress">{cme.position.progress_percent.toFixed(1)}%</span>
-                  <span className="cme-eta">
-                    {cme.position.eta_hours ? `${Math.round(cme.position.eta_hours)}h` : 'N/A'}
-                  </span>
-                </div>
-              ))}
-            </div>
-          </div>
         )}
       </div>
     </div>

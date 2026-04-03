@@ -1,3 +1,4 @@
+/* Dark Neon Theme for Queue Tab */
 .cme-queue-tab {
   height: 100%;
   display: flex;
@@ -8,7 +9,7 @@
 .cme-queue-empty {
   text-align: center;
   padding: 3rem;
-  color: #95a5a6;
+  color: #7a8a90;
   font-size: 1.1rem;
 }
 
@@ -27,32 +28,31 @@
 }
 
 .cme-cards-container::-webkit-scrollbar-track {
-  background: #1a1a1a;
+  background: #0a0e1a;
 }
 
 .cme-cards-container::-webkit-scrollbar-thumb {
-  background: #34495e;
+  background: #1a3a40;
   border-radius: 4px;
 }
 
 .cme-cards-container::-webkit-scrollbar-thumb:hover {
-  background: #4a90e2;
+  background: #00FFF0;
 }
 
-/* Compact CME Card */
+/* Compact CME Card - Dark Neon */
 .cme-card {
-  background: linear-gradient(135deg, #2c3e50 0%, #34495e 100%);
-  border: 1px solid #34495e;
+  background: #0f1419;
+  border: 2px solid;
   border-radius: 8px;
   padding: 0.75rem 1rem;
   cursor: pointer;
-  transition: all 0.2s ease;
+  transition: all 0.3s ease;
 }
 
 .cme-card:hover {
-  border-color: #4a90e2;
   transform: translateY(-2px);
-  box-shadow: 0 4px 12px rgba(74, 144, 226, 0.3);
+  box-shadow: 0 0 20px currentColor;
 }
 
 .card-header {
@@ -61,53 +61,59 @@
   gap: 0.75rem;
   margin-bottom: 0.5rem;
   padding-bottom: 0.5rem;
-  border-bottom: 1px solid #3e5266;
+  border-bottom: 1px solid #1a3a40;
 }
 
 .cme-number {
-  font-size: 1.3rem;
+  font-size: 1.5rem;
   font-weight: bold;
+  min-width: 30px;
+  text-align: center;
 }
 
 .cme-id {
   font-family: monospace;
   font-size: 0.85rem;
-  color: #95a5a6;
+  color: #7a8a90;
   flex: 1;
 }
 
 .cme-state {
-  padding: 0.25rem 0.75rem;
-  border-radius: 12px;
+  padding: 0.3rem 0.8rem;
+  border-radius: 4px;
   font-size: 0.75rem;
-  font-weight: 600;
+  font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.5px;
 }
 
 .cme-state.quiet {
-  background: #7f8c8d;
+  background: #4a6a70;
   color: #fff;
 }
 
 .cme-state.watch {
-  background: #f39c12;
-  color: #fff;
+  background: #FFA500;
+  color: #000;
+  box-shadow: 0 0 10px #FFA50066;
 }
 
 .cme-state.inbound {
-  background: #e67e22;
+  background: #FF6B00;
   color: #fff;
+  box-shadow: 0 0 10px #FF6B0066;
 }
 
 .cme-state.imminent {
-  background: #e74c3c;
+  background: #FF0080;
   color: #fff;
+  box-shadow: 0 0 10px #FF008066;
 }
 
 .cme-state.arrived {
-  background: #27ae60;
-  color: #fff;
+  background: #00FF00;
+  color: #000;
+  box-shadow: 0 0 10px #00FF0066;
 }
 
 .card-details {
@@ -124,13 +130,16 @@
 }
 
 .detail-row .label {
-  color: #95a5a6;
-  font-weight: 500;
-  min-width: 60px;
+  color: #7a8a90;
+  font-weight: 600;
+  min-width: 65px;
+  text-transform: uppercase;
+  font-size: 0.75rem;
+  letter-spacing: 0.5px;
 }
 
 .detail-row .value {
-  color: #fff;
+  color: #e0e6ed;
   font-weight: 400;
 }
 
@@ -143,32 +152,31 @@
 
 .progress-track {
   flex: 1;
-  height: 8px;
-  background: #1a252f;
-  border-radius: 4px;
+  height: 10px;
+  background: #0a0e1a;
+  border-radius: 5px;
   overflow: hidden;
-  border: 1px solid #34495e;
+  border: 1px solid #1a3a40;
 }
 
 .progress-fill {
   height: 100%;
-  background: linear-gradient(90deg, #3498db 0%, #2ecc71 100%);
-  border-radius: 4px;
-  transition: width 0.3s ease;
+  border-radius: 5px;
+  transition: width 0.5s ease;
 }
 
 .progress-text {
   font-size: 0.75rem;
-  color: #95a5a6;
+  color: #7a8a90;
   white-space: nowrap;
 }
 
 /* Bottom 40% - Visualization Container */
 .cme-viz-container {
   flex: 0 0 40%;
-  background: #1a252f;
+  background: #0f1419;
   border-radius: 8px;
   padding: 1rem;
-  border: 1px solid #34495e;
+  border: 2px solid #1a3a40;
   overflow: hidden;
 }

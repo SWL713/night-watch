@@ -1,7 +1,7 @@
 import React from 'react';
 import './CMEDetailPopup.css';
 
-export default function CMEDetailPopup({ cme, cmeNumber, onClose }) {
+export default function CMEDetailPopup({ cme, cmeNumber, cmeColor, onClose }) {
   const formatDate = (isoString) => {
     if (!isoString) return 'Unknown';
     const date = new Date(isoString);
@@ -34,10 +34,12 @@ export default function CMEDetailPopup({ cme, cmeNumber, onClose }) {
 
   return (
     <div className="cme-popup-overlay" onClick={onClose}>
-      <div className="cme-popup" onClick={(e) => e.stopPropagation()}>
-        <div className="popup-header">
+      <div className="cme-popup" onClick={(e) => e.stopPropagation()} style={{ borderColor: cmeColor }}>
+        <div className="popup-header" style={{ borderBottomColor: cmeColor }}>
           <h3>
-            <span className="cme-number-large">❶{cmeNumber}</span>
+            <span className="cme-number-large" style={{ color: cmeColor }}>
+              {cmeNumber}
+            </span>
             CME {cme.id}
           </h3>
           <button className="close-btn" onClick={onClose}>✕</button>
@@ -45,7 +47,7 @@ export default function CMEDetailPopup({ cme, cmeNumber, onClose }) {
 
         <div className="popup-body">
           <div className="popup-section">
-            <h4>Source Information</h4>
+            <h4 style={{ color: cmeColor }}>Source Information</h4>
             <div className="info-grid">
               <div className="info-item">
                 <span className="label">Type:</span>
@@ -81,7 +83,7 @@ export default function CMEDetailPopup({ cme, cmeNumber, onClose }) {
           </div>
 
           <div className="popup-section">
-            <h4>Current Position</h4>
+            <h4 style={{ color: cmeColor }}>Current Position</h4>
             <div className="info-grid">
               <div className="info-item">
                 <span className="label">Distance:</span>
@@ -105,7 +107,7 @@ export default function CMEDetailPopup({ cme, cmeNumber, onClose }) {
           </div>
 
           <div className="popup-section">
-            <h4>Arrival Predictions</h4>
+            <h4 style={{ color: cmeColor }}>Arrival Predictions</h4>
             <div className="info-grid">
               <div className="info-item">
                 <span className="label">Model Count:</span>
@@ -146,6 +148,10 @@ export default function CMEDetailPopup({ cme, cmeNumber, onClose }) {
                 target="_blank" 
                 rel="noopener noreferrer"
                 className="scoreboard-link"
+                style={{ 
+                  background: cmeColor,
+                  boxShadow: `0 0 15px ${cmeColor}88`
+                }}
               >
                 View on CCMC Scoreboard →
               </a>
