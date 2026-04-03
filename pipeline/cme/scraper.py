@@ -1,6 +1,6 @@
 """
-CCMC Scoreboard Scraper - Based on Real Structure
-Fetches CME list from https://kauai.ccmc.gsfc.nasa.gov/CMEscoreboard/
+CCMC Scoreboard Scraper - FINAL FIX
+Based on actual scoreboard structure analysis
 """
 
 import requests
@@ -42,9 +42,9 @@ class CCMCTextExtractor(HTMLParser):
 
 def fetch_cme_scoreboard(log):
     """
-    Scrape CCMC CME Scoreboard using proper HTML structure
+    Scrape CCMC CME Scoreboard
     
-    Returns list of CME dicts with: event_id, launch_time, speed, predictions, etc.
+    Returns list of CME dicts
     """
     
     url = 'https://kauai.ccmc.gsfc.nasa.gov/CMEscoreboard/'
@@ -61,7 +61,7 @@ def fetch_cme_scoreboard(log):
         # Split into Active and Past sections
         active_lines, past_lines = split_sections(lines)
         
-        # Parse Active CMEs only (past CMEs are for historical reference)
+        # Parse Active CMEs only
         active_events = parse_cme_blocks(active_lines, log)
         
         log.info(f"Scraped {len(active_events)} CMEs from scoreboard")
@@ -101,22 +101,20 @@ def parse_cme_blocks(section_lines, log):
     """
     Parse CME blocks from text lines
     
-    Structure:
-    CME: 2026-04-03T16:50Z
-    CME Note: Full halo, Earth-directed
-    Predicted Shock Arrival Time...
-    2026-04-05T12:30Z  (prediction timestamp)
-    WSA-ENLIL + Cone (NASA)  (method)
-    ...
-    2026-04-05T10:00Z
-    Average of all Methods  (AVG)
-    2026-04-05T11:00Z
-    Median of all Methods  (MEDIAN)
+    Structure (ACTUAL from scoreboard):
+    CME: 2026-04-02T20:46:00-CME-001
+    CME Note: ...
+    Predicted Shock Arrival Time
+    2026-04-05T20:00Z (-7.0h, +7.0h) ...
+    2026-04-05T20:00Z ...
+    Average of all Methods	Auto Generated (CCMC)	Detail
+    2026-04-05T20:00Z ...
+    Median of all Methods	Auto Generated (CCMC)	Detail
     """
     
     events = []
     current = None
-    pending_prediction_line = None
+    pending_timestamp = None
     in_note = False
     
     for line in section_lines:
@@ -124,7 +122,7 @@ def parse_cme_blocks(section_lines, log):
         if line.startswith("Previous Predictions in ") or line.startswith("CCMC Rules of the Road"):
             break
         
-        # New CME event
+        # New CME event - Format: "CME: 2026-04-02T20:46:00-CME-001"
         if line.startswith("CME: "):
             # Finalize previous event
             if current:
@@ -132,8 +130,11 @@ def parse_cme_blocks(section_lines, log):
                 if finalized:
                     events.append(finalized)
             
-            # Start new event
-            event_id = line.replace("CME: ", "").strip()
+            # Extract event ID and remove -CME-001 suffix
+            raw_id = line.replace("CME: ", "").strip()
+            # Remove -CME-XXX suffix if present
+            event_id = re.sub(r'-CME-\d+$', '', raw_id)
+            
             current = {
                 "raw_event_id": event_id,
                 "note_full": "",
@@ -142,7 +143,7 @@ def parse_cme_blocks(section_lines, log):
                 "models": 0,
                 "not_detected": False,
             }
-            pending_prediction_line = None
+            pending_timestamp = None
             in_note = False
             continue
         
@@ -183,37 +184,36 @@ def parse_cme_blocks(section_lines, log):
                 current["note_full"] += " " + line
                 continue
         
-        # Prediction timestamp row
-        if extract_first_timestamp(line):
-            pending_prediction_line = line
+        # Check if this line has a timestamp
+        timestamp = extract_first_timestamp(line)
+        if timestamp:
+            pending_timestamp = timestamp
             continue
         
-        # Method row (paired with prior timestamp)
-        if pending_prediction_line:
-            ts = extract_first_timestamp(pending_prediction_line)
-            
-            # Average prediction
+        # Check if this is "Average of all Methods" or "Median of all Methods"
+        # These come AFTER the timestamp line
+        if pending_timestamp:
             if "Average of all Methods" in line:
-                current["avg_raw"] = ts
-                pending_prediction_line = None
+                current["avg_raw"] = pending_timestamp
+                pending_timestamp = None
                 continue
             
-            # Median prediction
             if "Median of all Methods" in line:
-                current["median_raw"] = ts
-                pending_prediction_line = None
+                current["median_raw"] = pending_timestamp
+                pending_timestamp = None
                 continue
             
-            # Count actual model submissions
+            # Count actual model submissions (not auto-generated)
             method_markers = [
                 "WSA-ENLIL", "Ensemble", "Other (", "CMEFM",
-                "Met Office", "BoM", "NOAA/SWPC", "SIDC",
+                "Met Office", "BoM", "NOAA/SWPC", "SIDC", "ELEvo",
+                "SARM", "Cone + HAF", "IZMIRAN", "EAM"
             ]
             
             if any(marker in line for marker in method_markers):
                 if "Auto Generated" not in line:
                     current["models"] += 1
-                pending_prediction_line = None
+                pending_timestamp = None
                 continue
     
     # Finalize last event
@@ -235,6 +235,10 @@ def finalize_event(evt):
     """Convert raw parsed event to final CME dict"""
     
     if not evt or not evt["raw_event_id"]:
+        return None
+    
+    # Skip if not detected at Earth
+    if evt.get("not_detected"):
         return None
     
     # Parse launch time
@@ -274,7 +278,7 @@ def finalize_event(evt):
     if speed_match:
         speed = float(speed_match.group(1))
     
-    # Classify type
+    # Classify type from note
     note_lower = note.lower()
     if "full halo" in note_lower:
         cme_type = "Full Halo"
@@ -296,14 +300,14 @@ def finalize_event(evt):
         'arrival_stats': {
             'average': avg_arrival,
             'median': median_arrival,
-            'earliest': median_arrival,  # Use median as earliest estimate
-            'latest': avg_arrival,  # Use avg as latest estimate
+            'earliest': median_arrival,
+            'latest': avg_arrival,
             'num_predictions': evt["models"],
             'spread_hours': spread_hours
         },
         'actual_arrival': None,
         'status': 'ACTIVE',
-        'not_detected': evt.get("not_detected", False)
+        'not_detected': False
     }
 
 
@@ -332,19 +336,8 @@ def parse_scoreboard_time(time_str):
     return None
 
 
-def extract_predictions(row, log):
-    """Extract forecaster predictions from table row (not implemented)"""
-    return []
-
-
 def sync_queue_with_scoreboard(queue, scoreboard, coronal_holes, log):
-    """
-    Sync CME queue with scoreboard
-    
-    - Add new CMEs from scoreboard
-    - Update existing CMEs
-    - Remove old CMEs
-    """
+    """Sync CME queue with scoreboard"""
     
     from datetime import datetime, timezone
     
@@ -353,14 +346,9 @@ def sync_queue_with_scoreboard(queue, scoreboard, coronal_holes, log):
     
     # Add new CMEs
     for sb_cme in scoreboard:
-        # Skip CMEs that were not detected at Earth
-        if sb_cme.get('not_detected'):
-            continue
-        
         cme_id = f"CME_{sb_cme['event_id']}"
         
         if cme_id not in existing_ids:
-            # New CME - create full entry
             new_cme = create_cme_from_scoreboard(sb_cme, coronal_holes, log)
             queue['cmes'].append(new_cme)
             log.info(f"Added new CME: {cme_id}")
@@ -368,7 +356,6 @@ def sync_queue_with_scoreboard(queue, scoreboard, coronal_holes, log):
             # Update existing CME
             for cme in queue['cmes']:
                 if cme['id'] == cme_id:
-                    # Update arrival predictions
                     cme['arrival'] = {
                         'average_prediction': sb_cme['arrival_stats']['average'],
                         'median_prediction': sb_cme['arrival_stats']['median'],
@@ -377,11 +364,10 @@ def sync_queue_with_scoreboard(queue, scoreboard, coronal_holes, log):
                         'num_models': sb_cme['arrival_stats']['num_predictions'],
                         'confidence_spread_hours': sb_cme['arrival_stats']['spread_hours']
                     }
-                    # Update speed
                     cme['properties']['speed_current'] = sb_cme['speed']
                     break
     
-    # Remove CMEs no longer on scoreboard (only if in SUBSIDING state)
+    # Remove CMEs no longer on scoreboard
     queue['cmes'] = [
         cme for cme in queue['cmes']
         if cme['id'] in scoreboard_ids or cme['state']['current'] not in ['QUIET', 'SUBSIDING']
@@ -397,16 +383,13 @@ def create_cme_from_scoreboard(sb_cme, coronal_holes, log):
     
     cme_id = f"CME_{sb_cme['event_id']}"
     
-    # Associate coronal hole (simplified)
-    ch_association = None
-    
     cme = {
         'id': cme_id,
         'source': {
             'launch_time': sb_cme['launch_time'],
             'location': {'latitude': 0, 'longitude': 0},
             'associated_flare': None,
-            'coronal_hole': ch_association
+            'coronal_hole': None
         },
         'properties': {
             'speed_initial': sb_cme['speed'],
@@ -423,7 +406,7 @@ def create_cme_from_scoreboard(sb_cme, coronal_holes, log):
             'latest_prediction': sb_cme['arrival_stats']['latest'],
             'num_models': sb_cme['arrival_stats']['num_predictions'],
             'confidence_spread_hours': sb_cme['arrival_stats']['spread_hours'],
-            'scoreboard_url': f"https://kauai.ccmc.gsfc.nasa.gov/CMEscoreboard/"
+            'scoreboard_url': "https://kauai.ccmc.gsfc.nasa.gov/CMEscoreboard/"
         },
         'state': {
             'current': 'QUIET',
