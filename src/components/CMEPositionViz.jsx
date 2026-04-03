@@ -31,7 +31,7 @@ export default function CMEPositionViz({ cmes, positions, registry, onCMEClick }
           const assignment = registry[cme.id] || { number: 0, color: '#888' };
           const color = assignment.color;
           return (
-            <filter key={`glow-${cme.id}`} id={`glow-${cme.id}`} x="-200%" y="-200%" width="400%" height="400%">
+            <filter key={`glow-${cme.id}`} id={`glow-${cme.id}`} x="-500%" y="-500%" width="1000%" height="1000%">
               <feGaussianBlur in="SourceGraphic" stdDeviation="8" result="blur1"/>
               <feGaussianBlur in="SourceGraphic" stdDeviation="15" result="blur2"/>
               <feGaussianBlur in="SourceGraphic" stdDeviation="25" result="blur3"/>
