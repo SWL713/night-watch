@@ -40,7 +40,7 @@ jobs:
         run: pip install -r pipeline/requirements.txt
 
       - name: Run space weather pipeline
-        run: python pipeline/generate_space_weather.py
+        run: python pipeline/generate_space_weather.py --clouds
         env:
           PYTHONUNBUFFERED: '1'
 
