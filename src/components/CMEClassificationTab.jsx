@@ -52,6 +52,8 @@ const TIME_RANGES = [
 function CMEClassificationTab({ activeCME, classification }) {
   const [timeRange, setTimeRange] = useState(24);
   const [magData, setMagData] = useState([]);
+  const [classData, setClassData] = useState(null);
+  const [classMetadata, setClassMetadata] = useState(null);
   const [loading, setLoading] = useState(true);
   const [crosshairT, setCrosshairT] = useState(null);
   const [zoomMode, setZoomMode] = useState(false);
@@ -59,18 +61,37 @@ function CMEClassificationTab({ activeCME, classification }) {
   const [customRange, setCustomRange] = useState(null);
   const [showAnnotations, setShowAnnotations] = useState(true);
   
-  // Fetch L1 magnetic field data
+  // Fetch L1 magnetic field data AND classification data
   useEffect(() => {
     const fetchData = async () => {
       try {
         const BASE = 'https://raw.githubusercontent.com/SWL713/night-watch/main/data';
-        const res = await fetch(`${BASE}/sw_mag_7day.json?t=${Date.now()}`);
-        if (!res.ok) throw new Error('Failed to load mag data');
-        const data = await res.json();
-        setMagData(parseMagData(data));
+        
+        // Load mag data
+        const magRes = await fetch(`${BASE}/sw_mag_7day.json?t=${Date.now()}`);
+        if (magRes.ok) {
+          const magJson = await magRes.json();
+          setMagData(parseMagData(magJson));
+        }
+        
+        // Load classification data
+        const classRes = await fetch(`${BASE}/cme_classification.json?t=${Date.now()}`);
+        if (classRes.ok) {
+          const classJson = await classRes.json();
+          setClassMetadata(classJson.metadata || null);
+          
+          // Get the active CME's classification
+          const activeCMEId = classJson.metadata?.active_cme_id;
+          if (activeCMEId && classJson.classifications && classJson.classifications[activeCMEId]) {
+            setClassData(classJson.classifications[activeCMEId]);
+          } else {
+            setClassData(null);
+          }
+        }
+        
         setLoading(false);
       } catch (err) {
-        console.error('Failed to load mag data:', err);
+        console.error('Failed to load data:', err);
         setLoading(false);
       }
     };
@@ -100,7 +121,7 @@ function CMEClassificationTab({ activeCME, classification }) {
   // Calculate actual time range
   const actualRange = customRange || [Date.now() - timeRange * 3600000, Date.now()];
   
-  const ejectaStart = classification?.classification_window?.start;
+  const ejectaStart = classData?.classification_window?.start;
   
   if (loading) {
     return (
@@ -207,7 +228,11 @@ function CMEClassificationTab({ activeCME, classification }) {
         
         {/* Classification box - bottom 1/3 */}
         <div style={{ flex: 1, padding: 12, minHeight: 0, overflow: 'auto' }}>
-          <ClassificationBox classData={classification} cmeId={activeCME?.id} />
+          <ClassificationBox 
+            classData={classData} 
+            metadata={classMetadata}
+            cmeId={activeCME?.id || classMetadata?.active_cme_id} 
+          />
         </div>
       </div>
     </div>
@@ -1114,7 +1139,19 @@ function detectPhiChanges(data) {
 }
 
 // Classification Box Component
-function ClassificationBox({ classData, cmeId }) {
+function ClassificationBox({ classData, metadata, cmeId }) {
+  // Determine status message
+  let statusMessage = 'No active CME for classification';
+  let statusColor = C.textDim;
+  
+  if (metadata?.active_cme_id && !classData) {
+    // CME detected but no classification yet
+    statusMessage = `CME detected: ${metadata.active_cme_id}\n\nClassification in progress...\nWaiting for sufficient data (min 1.5hr post-shock)`;
+    statusColor = '#ffaa00';
+  } else if (classData?.notes && classData.notes.length > 0) {
+    statusMessage = classData.notes.join('\n');
+  }
+  
   if (!classData || !classData.active) {
     return (
       <div style={{
@@ -1128,10 +1165,14 @@ function ClassificationBox({ classData, cmeId }) {
         alignItems: 'center',
         justifyContent: 'center',
       }}>
-        <div style={{ fontSize: 11, color: C.textDim, textAlign: 'center' }}>
-          {classData?.notes && classData.notes.length > 0 
-            ? classData.notes[0] 
-            : 'No active CME for classification'}
+        <div style={{ 
+          fontSize: 10, 
+          color: statusColor, 
+          textAlign: 'center',
+          lineHeight: 1.6,
+          whiteSpace: 'pre-line',
+        }}>
+          {statusMessage}
         </div>
       </div>
     );
