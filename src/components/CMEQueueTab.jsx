@@ -35,11 +35,10 @@ function calculateSpeed(cme) {
   }
   
   const launchTime = cme.source?.launch_time ? new Date(cme.source.launch_time).getTime() : null;
-  const ensemble = cme.nasa_scorecard?.ensemble_prediction;
-  const arrivalTime = ensemble?.median_arrival_time || ensemble?.arrival_time;
   
-  if (launchTime && arrivalTime) {
-    const arrivalMs = new Date(arrivalTime).getTime();
+  // Use arrival.median_prediction instead of nasa_scorecard path
+  if (launchTime && cme.arrival?.median_prediction) {
+    const arrivalMs = cme.arrival.median_prediction * 1000;
     const travelTimeHours = (arrivalMs - launchTime) / (1000 * 60 * 60);
     
     if (travelTimeHours > 0) {
@@ -67,55 +66,50 @@ function calculateSpeed(cme) {
 }
 
 function getETAInfo(cme) {
-  const ensemble = cme.nasa_scorecard?.ensemble_prediction;
-  
-  if (ensemble?.median_arrival_time) {
-    const medianTime = new Date(ensemble.median_arrival_time);
+  // Priority 1: Backend arrival.median_prediction (scoreboard median)
+  if (cme.arrival?.median_prediction) {
+    const medianTime = new Date(cme.arrival.median_prediction * 1000);
     const hours = Math.round((medianTime - new Date()) / (1000 * 60 * 60));
     
     let plusMinus = null;
-    if (ensemble.models && ensemble.models.length > 1) {
-      const arrivalTimes = ensemble.models
-        .map(m => m.arrival_time ? new Date(m.arrival_time).getTime() : null)
-        .filter(t => t !== null);
+    if (cme.arrival.earliest_prediction && cme.arrival.latest_prediction) {
+      const minTime = cme.arrival.earliest_prediction * 1000;
+      const maxTime = cme.arrival.latest_prediction * 1000;
+      const medianMs = medianTime.getTime();
       
-      if (arrivalTimes.length > 0) {
-        const minTime = Math.min(...arrivalTimes);
-        const maxTime = Math.max(...arrivalTimes);
-        const medianMs = medianTime.getTime();
-        
-        const minusDiff = Math.round((medianMs - minTime) / (1000 * 60 * 60));
-        const plusDiff = Math.round((maxTime - medianMs) / (1000 * 60 * 60));
-        
-        plusMinus = Math.max(minusDiff, plusDiff);
-      }
+      const minusDiff = Math.round((medianMs - minTime) / (1000 * 60 * 60));
+      const plusDiff = Math.round((maxTime - medianMs) / (1000 * 60 * 60));
+      
+      plusMinus = Math.max(minusDiff, plusDiff);
     }
     
     return {
       timestamp: medianTime,
       hours: hours,
       plusMinus: plusMinus,
-      source: 'median'
+      source: 'scoreboard_median'
     };
   }
   
-  if (ensemble?.arrival_time) {
-    const meanTime = new Date(ensemble.arrival_time);
+  // Priority 2: Backend arrival.average_prediction (scoreboard average)
+  if (cme.arrival?.average_prediction) {
+    const meanTime = new Date(cme.arrival.average_prediction * 1000);
     return {
       timestamp: meanTime,
       hours: Math.round((meanTime - new Date()) / (1000 * 60 * 60)),
       plusMinus: null,
-      source: 'mean'
+      source: 'scoreboard_average'
     };
   }
   
+  // Priority 3: Position calculator (DBM model) - LAST RESORT
   if (cme.position?.eta_hours) {
     const eta = new Date(Date.now() + cme.position.eta_hours * 3600000);
     return {
       timestamp: eta,
       hours: Math.round(cme.position.eta_hours),
       plusMinus: null,
-      source: 'calc'
+      source: 'dbm_calc'
     };
   }
   

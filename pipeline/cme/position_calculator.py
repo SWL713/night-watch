@@ -69,12 +69,31 @@ def calculate_single_cme_position(cme, coronal_holes, log):
     target_au = 1.0  # Distance to L1
     progress_percent = min(100, (distance_au / target_au) * 100)
     
-    # ETA (hours)
-    if v_current > 0:
+    # ETA - PRIORITIZE SCOREBOARD PREDICTION (NASA consensus is ground truth)
+    eta_hours = None
+    eta_timestamp = None
+    eta_source = 'calculated'
+    
+    # Priority 1: Use scoreboard median prediction (TRUTH until shock detected)
+    if cme.get('arrival', {}).get('median_prediction'):
+        scoreboard_arrival = cme['arrival']['median_prediction']
+        eta_hours = (scoreboard_arrival - now.timestamp()) / 3600
+        eta_timestamp = scoreboard_arrival
+        eta_source = 'scoreboard_median'
+    
+    # Priority 2: Use scoreboard average if median not available
+    elif cme.get('arrival', {}).get('average_prediction'):
+        scoreboard_arrival = cme['arrival']['average_prediction']
+        eta_hours = (scoreboard_arrival - now.timestamp()) / 3600
+        eta_timestamp = scoreboard_arrival
+        eta_source = 'scoreboard_average'
+    
+    # Priority 3: DBM calculation (only if scoreboard data missing)
+    elif v_current > 0:
         remaining_km = (target_au - distance_au) * km_per_au
-        eta_hours = remaining_km / v_current / 3600  # Convert seconds to hours
-    else:
-        eta_hours = None
+        eta_hours = remaining_km / v_current / 3600
+        eta_timestamp = now.timestamp() + (eta_hours * 3600)
+        eta_source = 'dbm_model'
     
     return {
         'id': cme['id'],
@@ -98,7 +117,8 @@ def calculate_single_cme_position(cme, coronal_holes, log):
         'progress': {
             'percent_to_l1': round(progress_percent, 1),
             'eta_hours': round(eta_hours, 1) if eta_hours else None,
-            'eta_timestamp': None  # Calculate if needed
+            'eta_timestamp': eta_timestamp,
+            'eta_source': eta_source  # NEW: track data source
         },
         'state': cme['state']['current']
     }

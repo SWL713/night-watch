@@ -326,10 +326,23 @@ class CMEStateMachine:
         return 1.0
     
     def _calculate_eta(self, cme):
-        """Calculate ETA hours from current position"""
-        # Use position calculator's ETA if available
+        """Calculate ETA hours - PRIORITIZE SCOREBOARD (NASA consensus)"""
+        from datetime import datetime, timezone
+        
+        # Priority 1: Scoreboard median prediction (NASA consensus - ground truth)
+        if cme.get('arrival', {}).get('median_prediction'):
+            now = datetime.now(timezone.utc).timestamp()
+            return (cme['arrival']['median_prediction'] - now) / 3600
+        
+        # Priority 2: Scoreboard average prediction
+        if cme.get('arrival', {}).get('average_prediction'):
+            now = datetime.now(timezone.utc).timestamp()
+            return (cme['arrival']['average_prediction'] - now) / 3600
+        
+        # Priority 3: Position calculator's ETA (from DBM model - fallback only)
         if 'position' in cme and 'eta_hours' in cme['position']:
             return cme['position']['eta_hours']
+        
         return None
     
     def determine_active_cme(self, cmes):
