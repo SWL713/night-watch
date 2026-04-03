@@ -1,0 +1,16 @@
+{
+  "metadata": {
+    "last_updated": "2026-04-03T04:24:41.548263+00:00"
+  },
+  "satellites": {
+    "l1": {
+      "distance_au": 0.01,
+      "distance_rsun": 215
+    },
+    "stereo_a": {
+      "distance_au": 1.02,
+      "angle_from_earth_deg": 48
+    }
+  },
+  "cmes": []
+}
