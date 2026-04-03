@@ -1,6 +1,6 @@
 {
   "metadata": {
-    "last_updated": "2026-04-03T20:27:46.395947+00:00"
+    "last_updated": "2026-04-03T21:31:41.816657+00:00"
   },
   "active_cme_id": "CME_2026-04-02T20:46Z",
   "cmes": [
@@ -26,8 +26,8 @@
       "arrival": {
         "average_prediction": 1775419200.0,
         "median_prediction": 1775419200.0,
-        "earliest_prediction": 1775419200.0,
-        "latest_prediction": 1775419200.0,
+        "earliest_prediction": 1775408400.0,
+        "latest_prediction": 1775430000.0,
         "num_models": 1,
         "confidence_spread_hours": 0.0
       },
@@ -79,7 +79,7 @@
       "arrival": {
         "average_prediction": 1775276640.0,
         "median_prediction": 1775259360.0,
-        "earliest_prediction": 1775259360.0,
+        "earliest_prediction": 1775242080.0,
         "latest_prediction": 1775276640.0,
         "num_models": 6,
         "confidence_spread_hours": 4.8
@@ -132,8 +132,8 @@
       "arrival": {
         "average_prediction": 1775282400.0,
         "median_prediction": 1775282400.0,
-        "earliest_prediction": 1775282400.0,
-        "latest_prediction": 1775282400.0,
+        "earliest_prediction": 1775271600.0,
+        "latest_prediction": 1775293200.0,
         "num_models": 1,
         "confidence_spread_hours": 0.0
       },
@@ -185,8 +185,8 @@
       "arrival": {
         "average_prediction": 1775232000.0,
         "median_prediction": 1775232000.0,
-        "earliest_prediction": 1775232000.0,
-        "latest_prediction": 1775232000.0,
+        "earliest_prediction": 1775221200.0,
+        "latest_prediction": 1775242800.0,
         "num_models": 1,
         "confidence_spread_hours": 0.0
       },
