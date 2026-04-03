@@ -71,7 +71,8 @@ def calculate_single_cme_position(cme, coronal_holes, log):
         if total_travel_seconds > 0:
             # Linear interpolation based on time
             progress_fraction = elapsed_seconds / total_travel_seconds
-            distance_au = target_au * progress_fraction
+            # CAP at 1.0 AU when arrived (don't let CME go past Earth!)
+            distance_au = min(target_au, target_au * progress_fraction)
             distance_source = 'scoreboard_aligned'
     
     elif cme.get('arrival', {}).get('average_prediction'):
@@ -81,7 +82,8 @@ def calculate_single_cme_position(cme, coronal_holes, log):
         
         if total_travel_seconds > 0:
             progress_fraction = elapsed_seconds / total_travel_seconds
-            distance_au = target_au * progress_fraction
+            # CAP at 1.0 AU when arrived
+            distance_au = min(target_au, target_au * progress_fraction)
             distance_source = 'scoreboard_aligned'
     
     # Priority 2: Fallback to DBM physics calculation

@@ -224,16 +224,30 @@ def finalize_event(evt):
         if median_time:
             median_arrival = median_time.timestamp()
     
+    # Calculate earliest/latest with proper fallbacks
     if avg_arrival and median_arrival:
+        # Both available - use spread
         spread_hours = abs(avg_arrival - median_arrival) / 3600
-        # Use a more realistic spread: median ± spread, but minimum ±3 hours
-        spread_seconds = max(spread_hours * 3600, 3 * 3600)
+        spread_seconds = max(spread_hours * 3600, 3 * 3600)  # Minimum ±3 hours
         earliest = median_arrival - spread_seconds
         latest = median_arrival + spread_seconds
+    elif median_arrival:
+        # Only median available - use default ±6 hour spread
+        spread_seconds = 6 * 3600
+        earliest = median_arrival - spread_seconds
+        latest = median_arrival + spread_seconds
+        spread_hours = 6.0
+    elif avg_arrival:
+        # Only average available - use default ±6 hour spread
+        spread_seconds = 6 * 3600
+        earliest = avg_arrival - spread_seconds
+        latest = avg_arrival + spread_seconds
+        spread_hours = 6.0
     else:
+        # No data - null everything
         spread_hours = 0
-        earliest = median_arrival
-        latest = median_arrival
+        earliest = None
+        latest = None
     
     # Extract speed from note - FIXED to return None if not found
     speed = None
