@@ -25,7 +25,7 @@ logger = logging.getLogger(__name__)
 
 BZ_SOUTH = -2.0   # nT threshold for "southward"
 BZ_NORTH = +2.0
-MIN_ELAPSED_HRS = 1.5   # minimum post-shock data before classification
+MIN_ELAPSED_HRS = 1.0   # minimum post-shock data before classification (lowered from 1.5 to match CME_Watch)
 
 # Bothmer-Schwenn 8-type templates (L1 GSM coordinates)
 # Format: (bz_early, bz_mid, bz_late, by_rotation, axial_dir)
