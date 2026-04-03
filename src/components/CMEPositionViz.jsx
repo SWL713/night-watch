@@ -2,27 +2,34 @@ import { useEffect, useRef } from 'react';
 
 export default function CMEPositionViz({ cmes, positions, cmeColors, onCMEClick }) {
   const canvasRef = useRef(null);
+  const containerRef = useRef(null);
 
   useEffect(() => {
     const canvas = canvasRef.current;
-    if (!canvas) return;
+    const container = containerRef.current;
+    if (!canvas || !container) return;
 
     const ctx = canvas.getContext('2d');
-    const width = canvas.width;
-    const height = canvas.height;
+    
+    // Fixed dimensions - proper aspect ratio
+    const canvasWidth = 1000;
+    const canvasHeight = 120;
+    
+    canvas.width = canvasWidth;
+    canvas.height = canvasHeight;
 
     let animationFrame;
     let pulsePhase = 0;
 
     const drawVisualization = () => {
-      ctx.clearRect(0, 0, width, height);
+      ctx.clearRect(0, 0, canvasWidth, canvasHeight);
 
       // Positions
       const sunX = 80;
-      const sunY = height / 2;
+      const sunY = canvasHeight / 2;
       const sunRadius = 18;
-      const earthX = width - 100;
-      const earthY = height / 2;
+      const earthX = canvasWidth - 100;
+      const earthY = canvasHeight / 2;
       const earthRadius = 12;
       const distancePixels = earthX - sunX;
 
@@ -182,14 +189,14 @@ export default function CMEPositionViz({ cmes, positions, cmeColors, onCMEClick 
 
     const handleClick = (e) => {
       const rect = canvas.getBoundingClientRect();
-      const scaleX = canvas.width / rect.width;
-      const scaleY = canvas.height / rect.height;
+      const scaleX = canvasWidth / rect.width;
+      const scaleY = canvasHeight / rect.height;
       const x = (e.clientX - rect.left) * scaleX;
       const y = (e.clientY - rect.top) * scaleY;
 
       const sunX = 80;
-      const sunY = height / 2;
-      const earthX = width - 100;
+      const sunY = canvasHeight / 2;
+      const earthX = canvasWidth - 100;
       const distancePixels = earthX - sunX;
 
       cmes.forEach((cme, idx) => {
@@ -212,11 +219,17 @@ export default function CMEPositionViz({ cmes, positions, cmeColors, onCMEClick 
   }, [cmes, cmeColors, onCMEClick]);
 
   return (
-    <canvas
-      ref={canvasRef}
-      width={1000}
-      height={120}
-      style={{ width: '100%', height: '100%', cursor: 'pointer' }}
-    />
+    <div ref={containerRef} style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+      <canvas
+        ref={canvasRef}
+        style={{ 
+          maxWidth: '100%', 
+          maxHeight: '100%',
+          width: 'auto',
+          height: 'auto',
+          cursor: 'pointer'
+        }}
+      />
+    </div>
   );
 }
