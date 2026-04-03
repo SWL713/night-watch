@@ -1,0 +1,174 @@
+.cme-queue-tab {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.cme-queue-empty {
+  text-align: center;
+  padding: 3rem;
+  color: #95a5a6;
+  font-size: 1.1rem;
+}
+
+/* Top 60% - Cards Container */
+.cme-cards-container {
+  flex: 0 0 60%;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  padding-right: 0.5rem;
+}
+
+.cme-cards-container::-webkit-scrollbar {
+  width: 8px;
+}
+
+.cme-cards-container::-webkit-scrollbar-track {
+  background: #1a1a1a;
+}
+
+.cme-cards-container::-webkit-scrollbar-thumb {
+  background: #34495e;
+  border-radius: 4px;
+}
+
+.cme-cards-container::-webkit-scrollbar-thumb:hover {
+  background: #4a90e2;
+}
+
+/* Compact CME Card */
+.cme-card {
+  background: linear-gradient(135deg, #2c3e50 0%, #34495e 100%);
+  border: 1px solid #34495e;
+  border-radius: 8px;
+  padding: 0.75rem 1rem;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.cme-card:hover {
+  border-color: #4a90e2;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(74, 144, 226, 0.3);
+}
+
+.card-header {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin-bottom: 0.5rem;
+  padding-bottom: 0.5rem;
+  border-bottom: 1px solid #3e5266;
+}
+
+.cme-number {
+  font-size: 1.3rem;
+  font-weight: bold;
+}
+
+.cme-id {
+  font-family: monospace;
+  font-size: 0.85rem;
+  color: #95a5a6;
+  flex: 1;
+}
+
+.cme-state {
+  padding: 0.25rem 0.75rem;
+  border-radius: 12px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.cme-state.quiet {
+  background: #7f8c8d;
+  color: #fff;
+}
+
+.cme-state.watch {
+  background: #f39c12;
+  color: #fff;
+}
+
+.cme-state.inbound {
+  background: #e67e22;
+  color: #fff;
+}
+
+.cme-state.imminent {
+  background: #e74c3c;
+  color: #fff;
+}
+
+.cme-state.arrived {
+  background: #27ae60;
+  color: #fff;
+}
+
+.card-details {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+
+.detail-row {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.85rem;
+}
+
+.detail-row .label {
+  color: #95a5a6;
+  font-weight: 500;
+  min-width: 60px;
+}
+
+.detail-row .value {
+  color: #fff;
+  font-weight: 400;
+}
+
+.detail-row .value.progress-bar {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex: 1;
+}
+
+.progress-track {
+  flex: 1;
+  height: 8px;
+  background: #1a252f;
+  border-radius: 4px;
+  overflow: hidden;
+  border: 1px solid #34495e;
+}
+
+.progress-fill {
+  height: 100%;
+  background: linear-gradient(90deg, #3498db 0%, #2ecc71 100%);
+  border-radius: 4px;
+  transition: width 0.3s ease;
+}
+
+.progress-text {
+  font-size: 0.75rem;
+  color: #95a5a6;
+  white-space: nowrap;
+}
+
+/* Bottom 40% - Visualization Container */
+.cme-viz-container {
+  flex: 0 0 40%;
+  background: #1a252f;
+  border-radius: 8px;
+  padding: 1rem;
+  border: 1px solid #34495e;
+  overflow: hidden;
+}

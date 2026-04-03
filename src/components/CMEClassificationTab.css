@@ -1,0 +1,177 @@
+.cme-classification-tab {
+  height: 100%;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+  padding-right: 0.5rem;
+}
+
+.cme-classification-tab::-webkit-scrollbar {
+  width: 8px;
+}
+
+.cme-classification-tab::-webkit-scrollbar-track {
+  background: #1a1a1a;
+}
+
+.cme-classification-tab::-webkit-scrollbar-thumb {
+  background: #34495e;
+  border-radius: 4px;
+}
+
+.plot-section {
+  background: #1a252f;
+  border: 1px solid #34495e;
+  border-radius: 8px;
+  padding: 1.5rem;
+}
+
+.plot-section h3 {
+  margin: 0 0 1rem 0;
+  font-size: 1.1rem;
+  color: #4a90e2;
+  font-weight: 600;
+}
+
+.plot-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1rem;
+}
+
+.plot-controls {
+  display: flex;
+  gap: 1rem;
+}
+
+.toggle-control {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  cursor: pointer;
+  user-select: none;
+}
+
+.toggle-control input[type="checkbox"] {
+  width: 16px;
+  height: 16px;
+  cursor: pointer;
+}
+
+.toggle-control span {
+  font-weight: 600;
+  font-size: 0.9rem;
+}
+
+.plot-container {
+  width: 100%;
+  overflow-x: auto;
+}
+
+.plot-svg {
+  display: block;
+  max-width: 100%;
+}
+
+.plot-empty {
+  text-align: center;
+  padding: 2rem;
+  color: #95a5a6;
+  font-style: italic;
+}
+
+/* Classification Details */
+.classification-details {
+  background: #1a252f;
+  border: 1px solid #34495e;
+  border-radius: 8px;
+  padding: 1.5rem;
+}
+
+.classification-details h3 {
+  margin: 0 0 1rem 0;
+  font-size: 1.1rem;
+  color: #4a90e2;
+  font-weight: 600;
+}
+
+.no-classifications {
+  text-align: center;
+  padding: 2rem;
+  color: #95a5a6;
+  font-style: italic;
+}
+
+.classification-list {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.classification-item {
+  background: #2c3e50;
+  border: 1px solid #34495e;
+  border-radius: 6px;
+  padding: 1rem;
+}
+
+.classification-header {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin-bottom: 0.75rem;
+  padding-bottom: 0.75rem;
+  border-bottom: 1px solid #3e5266;
+}
+
+.classification-header .cme-number {
+  font-size: 1.2rem;
+}
+
+.classification-header .cme-id {
+  font-family: monospace;
+  font-size: 0.85rem;
+  color: #95a5a6;
+  flex: 1;
+}
+
+.classification-info {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.classification-info .info-row {
+  display: grid;
+  grid-template-columns: 180px 1fr;
+  gap: 1rem;
+  font-size: 0.9rem;
+}
+
+.classification-info .label {
+  color: #95a5a6;
+  font-weight: 500;
+}
+
+.classification-info .value {
+  color: #fff;
+  font-weight: 400;
+}
+
+.classification-pending {
+  text-align: center;
+  padding: 1rem;
+  color: #95a5a6;
+}
+
+.classification-pending p {
+  margin: 0.25rem 0;
+}
+
+.classification-pending .hint {
+  font-size: 0.85rem;
+  font-style: italic;
+  color: #7f8c8d;
+}
