@@ -25,21 +25,25 @@ export default function CMEPositionViz({ cmes, positions, cmeColors, onCMEClick 
       preserveAspectRatio="xMidYMid meet"
       style={{ maxWidth: '100%', maxHeight: '100%' }}
     >
-      {/* GLOW PULSE - NO POSITION MOVEMENT */}
+      {/* THROBBING PULSE WITH OUTER GLOW */}
       <style>
         {`
-          @keyframes glow-pulse {
+          @keyframes cme-throb {
             0%, 100% { 
-              filter: drop-shadow(0 0 2px currentColor);
-              opacity: 0.9;
+              transform: scale(1);
+              filter: drop-shadow(0 0 4px currentColor);
+              opacity: 0.85;
             }
             50% { 
-              filter: drop-shadow(0 0 8px currentColor) drop-shadow(0 0 12px currentColor);
+              transform: scale(1.25);
+              filter: drop-shadow(0 0 16px currentColor) drop-shadow(0 0 24px currentColor);
               opacity: 1;
             }
           }
-          .cme-glow {
-            animation: glow-pulse 2s ease-in-out infinite;
+          .cme-pulse {
+            animation: cme-throb 1.8s ease-in-out infinite;
+            transform-origin: center;
+            transform-box: fill-box;
           }
         `}
       </style>
@@ -70,9 +74,9 @@ export default function CMEPositionViz({ cmes, positions, cmeColors, onCMEClick 
           <g key={cme.id}>
             <line x1={sunX + sunRadius} y1={centerY} x2={cmeX} y2={cmeY} stroke={color} strokeWidth="2.5" opacity="0.5" />
             
-            {/* GLOW PULSE - STAYS IN PLACE */}
+            {/* THROBBING CME WITH OUTER GLOW */}
             <circle 
-              className="cme-glow"
+              className="cme-pulse"
               cx={cmeX} 
               cy={cmeY} 
               r={cmeRadius} 
@@ -81,12 +85,12 @@ export default function CMEPositionViz({ cmes, positions, cmeColors, onCMEClick 
               strokeWidth="2"
               style={{ 
                 cursor: 'pointer',
-                color: color  // for currentColor in drop-shadow
+                color: color
               }} 
               onClick={() => onCMEClick?.(cme)} 
             />
             
-            <text x={cmeX} y={cmeY - cmeRadius - 6} fill={color} fontSize="18" fontFamily={FONT} fontWeight="700" textAnchor="middle">{idx + 1}</text>
+            <text x={cmeX} y={cmeY - cmeRadius - 8} fill={color} fontSize="18" fontFamily={FONT} fontWeight="700" textAnchor="middle">{idx + 1}</text>
           </g>
         );
       })}
