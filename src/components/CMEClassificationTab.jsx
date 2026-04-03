@@ -15,8 +15,6 @@ const C = {
   by_pos: '#4488ff',
   phi: '#44aaff',
   crosshair: 'rgba(255,255,255,0.35)',
-  annot_bz5: 'rgba(238,85,119,0.7)',
-  annot_bz10: 'rgba(200,30,60,0.8)',
   annot_sb: 'rgba(200,200,200,0.6)',
   annot_shift: 'rgba(255,180,40,0.7)',
 };
@@ -77,44 +75,13 @@ function isToward(phi) {
   return phi >= 90 && phi < 270;
 }
 
+// ONLY PHI ANNOTATIONS
 function detectAnnotations(magData, timeRange) {
   const [tMin, tMax] = timeRange;
   const visData = magData.filter(d => d.time.getTime() >= tMin && d.time.getTime() <= tMax);
   const annotations = [];
   
-  const BZ_WIN = 10 * 60000;
-  let bzBelow5Start = null;
-  let bzBelow10Start = null;
-  
-  for (const pt of visData) {
-    const bz = pt.bz;
-    if (bz === null) { 
-      bzBelow5Start = null; 
-      bzBelow10Start = null; 
-      continue;
-    }
-    
-    if (bz < -5) {
-      if (!bzBelow5Start) bzBelow5Start = pt.time.getTime();
-      else if (pt.time.getTime() - bzBelow5Start >= BZ_WIN) {
-        annotations.push({ time: new Date(bzBelow5Start), type: 'bz5', label: 'Bz−5' });
-        bzBelow5Start = null;
-      }
-    } else { 
-      bzBelow5Start = null; 
-    }
-    
-    if (bz < -10) {
-      if (!bzBelow10Start) bzBelow10Start = pt.time.getTime();
-      else if (pt.time.getTime() - bzBelow10Start >= BZ_WIN) {
-        annotations.push({ time: new Date(bzBelow10Start), type: 'bz10', label: 'Bz−10' });
-        bzBelow10Start = null;
-      }
-    } else { 
-      bzBelow10Start = null; 
-    }
-  }
-  
+  // Sector boundaries
   let prevSector = null;
   for (const pt of visData) {
     if (pt.phi === null) continue;
@@ -125,6 +92,7 @@ function detectAnnotations(magData, timeRange) {
     prevSector = sector;
   }
   
+  // Structure shifts
   const PHI_SHIFT_THRESHOLD = 60;
   const SHIFT_WIN = 15 * 60000;
   
@@ -150,7 +118,7 @@ function detectAnnotations(magData, timeRange) {
   return annotations.sort((a, b) => a.time - b.time);
 }
 
-function PlotCanvas({ data, series, yMin, yMax, timeRange, crosshairTime, onCrosshair, zoomMode, symmetric, showLabels, yLabel, phiMode, annotations, showBzAnnot, showPhiAnnot }) {
+function PlotCanvas({ data, series, yMin, yMax, timeRange, crosshairTime, onCrosshair, zoomMode, symmetric, showLabels, yLabel, phiMode, annotations, showAnnotations }) {
   const canvasRef = useRef(null);
   const dpr = window.devicePixelRatio || 1;
 
@@ -202,7 +170,7 @@ function PlotCanvas({ data, series, yMin, yMax, timeRange, crosshairTime, onCros
 
     const PAD_L = showLabels ? 36 : 8;
     const PAD_R = 6;
-    const PAD_T = 20;  // MORE TOP PADDING for time labels
+    const PAD_T = 20;
     const PAD_B = showLabels ? 18 : 4;
     const pW = W - PAD_L - PAD_R;
     const pH = H - PAD_T - PAD_B;
@@ -240,23 +208,14 @@ function PlotCanvas({ data, series, yMin, yMax, timeRange, crosshairTime, onCros
       ctx.stroke();
     }
 
-    // ANNOTATIONS - FIX CUTOFF with bounds checking
-    if (annotations && annotations.length > 0) {
+    // ANNOTATIONS - ONLY PHI
+    if (showAnnotations && annotations && annotations.length > 0) {
       for (const ann of annotations) {
         const t = ann.time.getTime();
         if (t < tMin || t > tMax) continue;
         
-        if (ann.type === 'bz5' || ann.type === 'bz10') {
-          if (!showBzAnnot) continue;
-        } else if (ann.type === 'sb' || ann.type === 'shift') {
-          if (!showPhiAnnot) continue;
-        }
-        
         const x = tx(t);
-        const color = ann.type === 'bz10' ? C.annot_bz10 
-          : ann.type === 'bz5' ? C.annot_bz5
-          : ann.type === 'sb' ? C.annot_sb
-          : C.annot_shift;
+        const color = ann.type === 'sb' ? C.annot_sb : C.annot_shift;
         
         ctx.strokeStyle = color;
         ctx.lineWidth = 1;
@@ -267,7 +226,6 @@ function PlotCanvas({ data, series, yMin, yMax, timeRange, crosshairTime, onCros
         ctx.stroke();
         ctx.setLineDash([]);
         
-        // FIX CUTOFF: Check if label fits, otherwise right-align
         ctx.fillStyle = color;
         ctx.font = `7px ${FONT}`;
         const labelWidth = ctx.measureText(ann.label).width;
@@ -399,7 +357,7 @@ function PlotCanvas({ data, series, yMin, yMax, timeRange, crosshairTime, onCros
     ctx.lineTo(PAD_L, PAD_T + pH);
     ctx.lineTo(W - PAD_R, PAD_T + pH);
     ctx.stroke();
-  }, [data, series, timeRange, resolvedYMin, resolvedYMax, crosshairTime, zoomMode, showLabels, yLabel, phiMode, annotations, showBzAnnot, showPhiAnnot, dpr]);
+  }, [data, series, timeRange, resolvedYMin, resolvedYMax, crosshairTime, zoomMode, showLabels, yLabel, phiMode, annotations, showAnnotations, dpr]);
 
   useEffect(() => {
     draw();
@@ -455,8 +413,8 @@ export default function CMEClassificationTab({ cmes, classifications }) {
   const [bzByExpanded, setBzByExpanded] = useState(true);
   const [phiExpanded, setPhiExpanded] = useState(true);
   
-  const [showBzAnnotations, setShowBzAnnotations] = useState(true);
-  const [showPhiAnnotations, setShowPhiAnnotations] = useState(true);
+  // ONLY PHI ANNOTATIONS
+  const [showAnnotations, setShowAnnotations] = useState(true);
 
   useEffect(() => {
     const fetchMagData = async () => {
@@ -510,9 +468,6 @@ export default function CMEClassificationTab({ cmes, classifications }) {
   const selectedColor = CME_COLORS[selectedCMEIndex % CME_COLORS.length];
   const classification = classifications[selectedCME.id];
 
-  const numPlotsExpanded = (bzByExpanded ? 1 : 0) + (phiExpanded ? 1 : 0);
-  const plotFlexGrow = numPlotsExpanded < 2 ? 1 : 0;
-
   return (
     <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
       <div style={{ display: 'flex', gap: 3, padding: '3px 8px', borderBottom: `1px solid ${C.border}`, alignItems: 'center', flexShrink: 0 }}>
@@ -540,20 +495,14 @@ export default function CMEClassificationTab({ cmes, classifications }) {
             cursor: 'pointer', borderRadius: 2,
           }}>RESET</button>
         )}
-        <button onClick={() => setShowBzAnnotations(v => !v)} style={{
+        {/* SINGLE ANNOTATION TOGGLE */}
+        <button onClick={() => setShowAnnotations(v => !v)} style={{
           padding: '1px 7px', fontSize: 8, fontFamily: FONT,
-          background: showBzAnnotations ? '#0d1a2a' : 'transparent',
-          border: `1px solid ${showBzAnnotations ? '#ee5577' : '#1a2a3a'}`,
-          color: showBzAnnotations ? '#ee5577' : '#2a4a5a',
+          background: showAnnotations ? '#0d1a2a' : 'transparent',
+          border: `1px solid ${showAnnotations ? '#44aaff' : '#1a2a3a'}`,
+          color: showAnnotations ? '#44aaff' : '#2a4a5a',
           cursor: 'pointer', borderRadius: 2, marginLeft: 4,
-        }}>Bz</button>
-        <button onClick={() => setShowPhiAnnotations(v => !v)} style={{
-          padding: '1px 7px', fontSize: 8, fontFamily: FONT,
-          background: showPhiAnnotations ? '#0d1a2a' : 'transparent',
-          border: `1px solid ${showPhiAnnotations ? '#44aaff' : '#1a2a3a'}`,
-          color: showPhiAnnotations ? '#44aaff' : '#2a4a5a',
-          cursor: 'pointer', borderRadius: 2,
-        }}>Phi</button>
+        }}>ANNOT</button>
       </div>
 
       {zoomMode && (
@@ -563,12 +512,20 @@ export default function CMEClassificationTab({ cmes, classifications }) {
         </div>
       )}
 
+      {/* FIXED LAYOUT: Set max heights to prevent over-expansion */}
       <div style={{ flex: 1, display: 'flex', flexDirection: 'column', padding: '8px', gap: 8, overflow: 'hidden' }}>
-        {/* PLOT AUTO-RESIZE: Remove hardcoded height, use flex: 1 */}
-        <div style={{ background: C.bg, border: `1px solid ${C.border}`, borderRadius: 4, flexShrink: 0, flexGrow: bzByExpanded ? plotFlexGrow : 0, display: 'flex', flexDirection: 'column', minHeight: bzByExpanded ? 140 : 'auto' }}>
+        <div style={{ 
+          background: C.bg, 
+          border: `1px solid ${C.border}`, 
+          borderRadius: 4, 
+          flexShrink: 0,
+          height: bzByExpanded ? 180 : 'auto',  // FIXED HEIGHT
+          display: 'flex', 
+          flexDirection: 'column'
+        }}>
           <div onClick={() => setBzByExpanded(!bzByExpanded)} style={{ 
             padding: '8px 10px', cursor: 'pointer', display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-            borderBottom: bzByExpanded ? `1px solid ${C.border}` : 'none'
+            borderBottom: bzByExpanded ? `1px solid ${C.border}` : 'none', flexShrink: 0
           }}>
             <span style={{ color: C.textDim, fontSize: 8, letterSpacing: 1 }}>MAGNETIC FIELD (nT)</span>
             <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
@@ -582,31 +539,50 @@ export default function CMEClassificationTab({ cmes, classifications }) {
             </div>
           </div>
           {bzByExpanded && magData.length > 0 && (
-            <div style={{ flex: 1, padding: '8px', minHeight: 140 }}>
-              <PlotCanvas data={magData} series={bzBySeries} timeRange={timeRange} crosshairTime={crosshairT} onCrosshair={zoomMode ? handleZoomTap : setCrosshairT} zoomMode={zoomMode} symmetric={true} showLabels={true} yLabel="nT" annotations={annotations} showBzAnnot={showBzAnnotations} showPhiAnnot={showPhiAnnotations} />
+            <div style={{ flex: 1, padding: '8px' }}>
+              <PlotCanvas data={magData} series={bzBySeries} timeRange={timeRange} crosshairTime={crosshairT} onCrosshair={zoomMode ? handleZoomTap : setCrosshairT} zoomMode={zoomMode} symmetric={true} showLabels={true} yLabel="nT" annotations={annotations} showAnnotations={showAnnotations} />
             </div>
           )}
         </div>
 
         {magData.length > 0 && (
-          <div style={{ background: C.bg, border: `1px solid ${C.border}`, borderRadius: 4, flexShrink: 0, flexGrow: phiExpanded ? plotFlexGrow : 0, display: 'flex', flexDirection: 'column', minHeight: phiExpanded ? 120 : 'auto' }}>
+          <div style={{ 
+            background: C.bg, 
+            border: `1px solid ${C.border}`, 
+            borderRadius: 4, 
+            flexShrink: 0,
+            height: phiExpanded ? 160 : 'auto',  // FIXED HEIGHT
+            display: 'flex', 
+            flexDirection: 'column'
+          }}>
             <div onClick={() => setPhiExpanded(!phiExpanded)} style={{ 
               padding: '8px 10px', cursor: 'pointer', display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-              borderBottom: phiExpanded ? `1px solid ${C.border}` : 'none'
+              borderBottom: phiExpanded ? `1px solid ${C.border}` : 'none', flexShrink: 0
             }}>
               <span style={{ color: C.textDim, fontSize: 8, letterSpacing: 1 }}>IMF PHI GSM (°)</span>
               <span style={{ color: C.textDim, fontSize: 12 }}>{phiExpanded ? '▼' : '▶'}</span>
             </div>
             {phiExpanded && (
-              <div style={{ flex: 1, padding: '8px', minHeight: 120 }}>
-                <PlotCanvas data={magData} series={phiSeries} yMin={-180} yMax={180} timeRange={timeRange} crosshairTime={crosshairT} onCrosshair={zoomMode ? handleZoomTap : setCrosshairT} zoomMode={zoomMode} showLabels={true} yLabel="deg" phiMode={true} annotations={annotations} showBzAnnot={showBzAnnotations} showPhiAnnot={showPhiAnnotations} />
+              <div style={{ flex: 1, padding: '8px' }}>
+                <PlotCanvas data={magData} series={phiSeries} yMin={-180} yMax={180} timeRange={timeRange} crosshairTime={crosshairT} onCrosshair={zoomMode ? handleZoomTap : setCrosshairT} zoomMode={zoomMode} showLabels={true} yLabel="deg" phiMode={true} annotations={annotations} showAnnotations={showAnnotations} />
               </div>
             )}
           </div>
         )}
 
-        <div style={{ flex: 1, background: C.bg, border: `2px solid ${selectedColor}`, borderRadius: 4, padding: '10px', display: 'flex', flexDirection: 'column', minHeight: 0 }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8, paddingBottom: 8, borderBottom: `1px solid ${C.border}` }}>
+        {/* CLASSIFICATION PANEL: Minimum height maintained */}
+        <div style={{ 
+          flex: 1, 
+          background: C.bg, 
+          border: `2px solid ${selectedColor}`, 
+          borderRadius: 4, 
+          padding: '10px', 
+          display: 'flex', 
+          flexDirection: 'column', 
+          minHeight: 180,  // MINIMUM HEIGHT
+          overflow: 'hidden'
+        }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8, paddingBottom: 8, borderBottom: `1px solid ${C.border}`, flexShrink: 0 }}>
             <span style={{ color: selectedColor, fontSize: 18, fontWeight: 'bold' }}>{selectedCMEIndex + 1}</span>
             <span style={{ color: C.textDim, fontSize: 9, fontFamily: FONT, flex: 1 }}>{selectedCME.id}</span>
             <span style={{
@@ -634,7 +610,7 @@ export default function CMEClassificationTab({ cmes, classifications }) {
           </div>
 
           {cmes.length > 1 && (
-            <div style={{ display: 'flex', gap: 4, marginTop: 10, paddingTop: 10, borderTop: `1px solid ${C.border}`, justifyContent: 'center', flexWrap: 'wrap' }}>
+            <div style={{ display: 'flex', gap: 4, marginTop: 10, paddingTop: 10, borderTop: `1px solid ${C.border}`, justifyContent: 'center', flexWrap: 'wrap', flexShrink: 0 }}>
               {cmes.map((cme, idx) => (
                 <button key={cme.id} onClick={() => setSelectedCMEIndex(idx)} style={{
                   background: idx === selectedCMEIndex ? `${CME_COLORS[idx % CME_COLORS.length]}22` : 'transparent',

@@ -25,22 +25,21 @@ export default function CMEPositionViz({ cmes, positions, cmeColors, onCMEClick 
       preserveAspectRatio="xMidYMid meet"
       style={{ maxWidth: '100%', maxHeight: '100%' }}
     >
-      {/* ENERGY PULSING EFFECT */}
+      {/* GLOW PULSE - NO POSITION MOVEMENT */}
       <style>
         {`
-          @keyframes energy-pulse {
+          @keyframes glow-pulse {
             0%, 100% { 
-              opacity: 0.6;
-              transform: scale(1);
+              filter: drop-shadow(0 0 2px currentColor);
+              opacity: 0.9;
             }
             50% { 
+              filter: drop-shadow(0 0 8px currentColor) drop-shadow(0 0 12px currentColor);
               opacity: 1;
-              transform: scale(1.3);
             }
           }
-          .cme-energy {
-            animation: energy-pulse 2s ease-in-out infinite;
-            transform-origin: center;
+          .cme-glow {
+            animation: glow-pulse 2s ease-in-out infinite;
           }
         `}
       </style>
@@ -71,20 +70,22 @@ export default function CMEPositionViz({ cmes, positions, cmeColors, onCMEClick 
           <g key={cme.id}>
             <line x1={sunX + sunRadius} y1={centerY} x2={cmeX} y2={cmeY} stroke={color} strokeWidth="2.5" opacity="0.5" />
             
-            {/* ENERGY PULSE EFFECT */}
+            {/* GLOW PULSE - STAYS IN PLACE */}
             <circle 
-              className="cme-energy"
+              className="cme-glow"
               cx={cmeX} 
               cy={cmeY} 
               r={cmeRadius} 
               fill={color} 
               stroke={color} 
               strokeWidth="2"
-              style={{ cursor: 'pointer' }} 
+              style={{ 
+                cursor: 'pointer',
+                color: color  // for currentColor in drop-shadow
+              }} 
               onClick={() => onCMEClick?.(cme)} 
             />
             
-            {/* TEXT - NO AU LABEL */}
             <text x={cmeX} y={cmeY - cmeRadius - 6} fill={color} fontSize="18" fontFamily={FONT} fontWeight="700" textAnchor="middle">{idx + 1}</text>
           </g>
         );
