@@ -1,27 +1,49 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 
 const FONT = 'DejaVu Sans Mono, Consolas, monospace';
+
+// CME_Watch exact colors from render_aurora_card.py
 const C = {
-  bg: '#04060d',
-  plotBg: '#02040b',
-  border: '#0d1525',
-  grid: 'rgba(30,45,70,0.4)',
-  zero: 'rgba(60,90,120,0.3)',
+  bg: '#06080f',
+  panelBg: '#070b16',
+  grid: '#0d1225',
   text: '#e0e6ed',
-  textDim: '#8a9aaa',
+  textDim: '#445566',
+  textFaint: '#334455',
+  
+  // Bz colors
+  bz_north: '#33ddaa',
   bz_south: '#ee5577',
-  bz_north: '#44ddaa',
-  by_east: '#4488ff',
-  by_west: '#ff8800',
-  phi: '#44aaff',
-  phi_toward: 'rgba(238,85,119,0.12)',
-  phi_away: 'rgba(68,170,255,0.12)',
+  bt: '#6655aa',
+  
+  // By colors  
+  by_dusk: '#ffaa33',
+  by_dawn: '#6699ff',
+  
+  // Phi colors
+  phi: '#aa88ff',
+  phi_label: '#bb88ff',
+  
+  // Reference lines
+  zero: '#2a3a4a',
+  storm_line: '#cc2233',
+  
+  // Shock marker
+  shock: '#ffcc44',
+  
+  // Annotations
+  hcs: '#778899',
+  boundary: '#ff6600',
+  
+  // UI
+  crosshair: 'rgba(255,255,255,0.6)',
   classBox: '#0a0e18',
   progressBar: '#1a2a3a',
   progressFill: '#44aaff',
 };
 
 const TIME_RANGES = [
+  { label: '6H', hours: 6 },
   { label: '12H', hours: 12 },
   { label: '24H', hours: 24 },
   { label: '48H', hours: 48 },
@@ -31,12 +53,18 @@ function CMEClassificationTab({ activeCME, classification }) {
   const [timeRange, setTimeRange] = useState(24);
   const [magData, setMagData] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [crosshairT, setCrosshairT] = useState(null);
+  const [zoomMode, setZoomMode] = useState(false);
+  const [zoomStart, setZoomStart] = useState(null);
+  const [customRange, setCustomRange] = useState(null);
+  const [showAnnotations, setShowAnnotations] = useState(true);
   
   // Fetch L1 magnetic field data
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const res = await fetch(`/night-watch/data/sw_mag_7day.json?t=${Date.now()}`);
+        const BASE = 'https://raw.githubusercontent.com/SWL713/night-watch/main/data';
+        const res = await fetch(`${BASE}/sw_mag_7day.json?t=${Date.now()}`);
         if (!res.ok) throw new Error('Failed to load mag data');
         const data = await res.json();
         setMagData(parseMagData(data));
@@ -51,24 +79,36 @@ function CMEClassificationTab({ activeCME, classification }) {
     return () => clearInterval(interval);
   }, []);
   
+  const handleZoomClick = useCallback((t) => {
+    if (!zoomStart) {
+      setZoomStart(t);
+    } else {
+      const t1 = Math.min(zoomStart, t);
+      const t2 = Math.max(zoomStart, t);
+      setCustomRange([t1, t2]);
+      setZoomStart(null);
+      setZoomMode(false);
+    }
+  }, [zoomStart]);
+  
+  const resetZoom = () => {
+    setCustomRange(null);
+    setZoomStart(null);
+    setZoomMode(false);
+  };
+  
+  // Calculate actual time range
+  const actualRange = customRange || [Date.now() - timeRange * 3600000, Date.now()];
+  
+  const ejectaStart = classification?.classification_window?.start;
+  
   if (loading) {
     return (
-      <div style={{ padding: 20, fontFamily: FONT, color: C.textDim }}>
+      <div style={{ padding: 20, fontFamily: FONT, color: C.textDim, background: C.bg, height: '100%' }}>
         Loading classification data...
       </div>
     );
   }
-  
-  if (!activeCME) {
-    return (
-      <div style={{ padding: 20, fontFamily: FONT, color: C.textDim }}>
-        No active CME for classification
-      </div>
-    );
-  }
-  
-  const classData = classification || {};
-  const isActive = classData.active === true;
   
   return (
     <div style={{
@@ -78,66 +118,130 @@ function CMEClassificationTab({ activeCME, classification }) {
       flexDirection: 'column',
       fontFamily: FONT,
     }}>
-      {/* Header with time range controls */}
+      {/* Header with controls */}
       <div style={{
         padding: '8px 12px',
-        borderBottom: `1px solid ${C.border}`,
+        borderBottom: `1px solid ${C.grid}`,
         display: 'flex',
         justifyContent: 'space-between',
         alignItems: 'center',
+        flexWrap: 'wrap',
+        gap: 8,
       }}>
-        <div style={{ fontSize: 11, color: C.textDim, letterSpacing: 0.5 }}>
-          L1 • DSCOVR + WIND • Aurora forecast • GSM real-time
+        <div style={{ fontSize: 10, color: C.textDim, letterSpacing: 0.5 }}>
+          L1 · DSCOVR + WIND · GSM real-time
         </div>
-        <div style={{ display: 'flex', gap: 4 }}>
-          {TIME_RANGES.map(r => (
-            <button
+        
+        <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap', alignItems: 'center' }}>
+          {/* Annotations toggle */}
+          <ToggleButton
+            label="φ Annotations"
+            active={showAnnotations}
+            onClick={() => setShowAnnotations(!showAnnotations)}
+            color={C.phi}
+          />
+          
+          {/* Time range */}
+          {!customRange && TIME_RANGES.map(r => (
+            <ToggleButton
               key={r.hours}
-              onClick={() => setTimeRange(r.hours)}
-              style={{
-                background: timeRange === r.hours ? 'rgba(255,255,255,0.08)' : 'transparent',
-                border: `1px solid ${timeRange === r.hours ? C.phi : C.border}`,
-                color: timeRange === r.hours ? C.phi : C.textDim,
-                padding: '2px 8px',
-                fontSize: 8,
-                fontFamily: FONT,
-                cursor: 'pointer',
-                borderRadius: 2,
-                letterSpacing: 0.5,
-                fontWeight: timeRange === r.hours ? 700 : 400,
-              }}
-            >
-              {r.label}
-            </button>
+              label={r.label}
+              active={timeRange === r.hours && !zoomMode}
+              onClick={() => { setTimeRange(r.hours); resetZoom(); }}
+              color={C.phi}
+            />
           ))}
+          
+          {/* Zoom controls */}
+          <ToggleButton
+            label="🔍 Zoom"
+            active={zoomMode}
+            onClick={() => { setZoomMode(!zoomMode); setZoomStart(null); }}
+            color="#ffaa33"
+          />
+          
+          {(customRange || zoomMode) && (
+            <ToggleButton
+              label="Reset"
+              active={false}
+              onClick={resetZoom}
+              color="#ee5577"
+            />
+          )}
         </div>
       </div>
       
       {/* Main content area */}
-      <div style={{ flex: 1, display: 'flex', gap: 12, padding: 12, overflow: 'auto' }}>
-        {/* Plots column */}
-        <div style={{ flex: 2, display: 'flex', flexDirection: 'column', gap: 10, minWidth: 0 }}>
-          <BzPlot data={magData} timeRange={timeRange} ejectaStart={classData.classification_window?.start} />
-          <ByPlot data={magData} timeRange={timeRange} ejectaStart={classData.classification_window?.start} />
-          <PhiPlot data={magData} timeRange={timeRange} ejectaStart={classData.classification_window?.start} />
+      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+        {/* Plots area - top 2/3 */}
+        <div style={{ flex: 2, display: 'flex', flexDirection: 'column', gap: 8, padding: '8px 12px 0', minHeight: 0 }}>
+          <BzPlot 
+            data={magData} 
+            timeRange={actualRange}
+            ejectaStart={ejectaStart}
+            crosshairT={zoomMode ? null : crosshairT}
+            onCrosshair={zoomMode ? handleZoomClick : setCrosshairT}
+            zoomMode={zoomMode}
+            zoomStart={zoomStart}
+          />
+          <ByPlot 
+            data={magData} 
+            timeRange={actualRange}
+            ejectaStart={ejectaStart}
+            crosshairT={zoomMode ? null : crosshairT}
+            onCrosshair={zoomMode ? handleZoomClick : setCrosshairT}
+            zoomMode={zoomMode}
+            zoomStart={zoomStart}
+          />
+          <PhiPlot 
+            data={magData} 
+            timeRange={actualRange}
+            ejectaStart={ejectaStart}
+            crosshairT={zoomMode ? null : crosshairT}
+            onCrosshair={zoomMode ? handleZoomClick : setCrosshairT}
+            zoomMode={zoomMode}
+            zoomStart={zoomStart}
+            showAnnotations={showAnnotations}
+          />
         </div>
         
-        {/* Classification box column */}
-        <div style={{ flex: 1, minWidth: 280, maxWidth: 380 }}>
-          <ClassificationBox classData={classData} cmeId={activeCME.id} />
+        {/* Classification box - bottom 1/3 */}
+        <div style={{ flex: 1, padding: 12, minHeight: 0, overflow: 'auto' }}>
+          <ClassificationBox classData={classification} cmeId={activeCME?.id} />
         </div>
       </div>
     </div>
   );
 }
 
-function BzPlot({ data, timeRange, ejectaStart }) {
+function ToggleButton({ label, active, onClick, color }) {
+  return (
+    <button onClick={onClick} style={{
+      background: active ? 'rgba(255,255,255,0.08)' : 'transparent',
+      border: `1px solid ${active ? color : C.grid}`,
+      color: active ? color : C.textDim,
+      padding: '3px 8px',
+      fontSize: 8,
+      fontFamily: FONT,
+      cursor: 'pointer',
+      borderRadius: 2,
+      letterSpacing: 0.5,
+      fontWeight: active ? 700 : 400,
+      transition: 'all 0.15s',
+    }}>
+      {label}
+    </button>
+  );
+}
+
+// Bz Plot Component
+function BzPlot({ data, timeRange, ejectaStart, crosshairT, onCrosshair, zoomMode, zoomStart }) {
   const canvasRef = useRef(null);
   
-  useEffect(() => {
-    if (!canvasRef.current || data.length === 0) return;
-    
+  const draw = useCallback(() => {
     const canvas = canvasRef.current;
+    if (!canvas || data.length === 0) return;
+    
     const ctx = canvas.getContext('2d');
     const dpr = window.devicePixelRatio || 1;
     const rect = canvas.getBoundingClientRect();
@@ -145,39 +249,44 @@ function BzPlot({ data, timeRange, ejectaStart }) {
     canvas.height = rect.height * dpr;
     ctx.scale(dpr, dpr);
     
-    const w = rect.width;
-    const h = rect.height;
-    const pad = { l: 45, r: 15, t: 25, b: 30 };
-    const plotW = w - pad.l - pad.r;
-    const plotH = h - pad.t - pad.b;
+    const W = rect.width;
+    const H = rect.height;
+    const PAD = { l: 40, r: 15, t: 28, b: 25 };
+    const pW = W - PAD.l - PAD.r;
+    const pH = H - PAD.t - PAD.b;
     
     // Clear
-    ctx.fillStyle = C.plotBg;
-    ctx.fillRect(0, 0, w, h);
+    ctx.fillStyle = C.panelBg;
+    ctx.fillRect(0, 0, W, H);
     
     // Filter data to time range
-    const now = Date.now();
-    const cutoff = now - timeRange * 3600000;
-    const visData = data.filter(d => d.time >= cutoff);
+    const [tMin, tMax] = timeRange;
+    const visData = data.filter(d => d.time >= tMin && d.time <= tMax);
     
-    if (visData.length === 0) return;
+    if (visData.length === 0) {
+      ctx.fillStyle = C.textDim;
+      ctx.font = `10px ${FONT}`;
+      ctx.textAlign = 'center';
+      ctx.fillText('No data', W/2, H/2);
+      return;
+    }
     
     // Y scale
-    const bzVals = visData.map(d => d.bz).filter(v => v !== null);
+    const bzVals = visData.map(d => d.bz).filter(v => v !== null && !isNaN(v));
+    const btVals = visData.map(d => d.bt).filter(v => v !== null && !isNaN(v));
     const yMin = Math.min(-20, Math.min(...bzVals) - 2);
-    const yMax = Math.max(20, Math.max(...bzVals) + 2);
-    const yScale = (v) => pad.t + plotH - ((v - yMin) / (yMax - yMin)) * plotH;
-    const xScale = (t) => pad.l + ((t - cutoff) / (now - cutoff)) * plotW;
+    const yMax = Math.max(20, Math.max(...bzVals, ...btVals) + 2);
+    const yScale = (v) => PAD.t + pH - ((v - yMin) / (yMax - yMin)) * pH;
+    const xScale = (t) => PAD.l + ((t - tMin) / (tMax - tMin)) * pW;
     
     // Grid
     ctx.strokeStyle = C.grid;
-    ctx.lineWidth = 0.5;
-    const ySteps = 5;
-    for (let i = 0; i <= ySteps; i++) {
-      const y = pad.t + (plotH * i) / ySteps;
+    ctx.lineWidth = 0.4;
+    for (let i = 0; i <= 5; i++) {
+      const y = PAD.t + (pH * i) / 5;
       ctx.beginPath();
-      ctx.moveTo(pad.l, y);
-      ctx.lineTo(pad.l + plotW, y);
+      ctx.moveTo(PAD.l, y);
+      ctx.lineTo(PAD.l + pW, y);
       ctx.stroke();
     }
     
@@ -185,129 +294,274 @@ function BzPlot({ data, timeRange, ejectaStart }) {
     if (yMin < 0 && yMax > 0) {
       const y0 = yScale(0);
       ctx.strokeStyle = C.zero;
-      ctx.lineWidth = 1;
+      ctx.lineWidth = 0.7;
       ctx.setLineDash([3, 3]);
       ctx.beginPath();
-      ctx.moveTo(pad.l, y0);
-      ctx.lineTo(pad.l + plotW, y0);
+      ctx.moveTo(PAD.l, y0);
+      ctx.lineTo(PAD.l + pW, y0);
       ctx.stroke();
       ctx.setLineDash([]);
     }
     
-    // Ejecta start marker
-    if (ejectaStart) {
-      const ejectaTime = new Date(ejectaStart).getTime();
-      if (ejectaTime >= cutoff && ejectaTime <= now) {
-        const x = xScale(ejectaTime);
-        ctx.strokeStyle = 'rgba(255,200,100,0.5)';
-        ctx.lineWidth = 1.5;
-        ctx.setLineDash([4, 2]);
-        ctx.beginPath();
-        ctx.moveTo(x, pad.t);
-        ctx.lineTo(x, pad.t + plotH);
-        ctx.stroke();
-        ctx.setLineDash([]);
-        
-        ctx.fillStyle = 'rgba(255,200,100,0.8)';
-        ctx.font = '9px ' + FONT;
-        ctx.fillText('EJECTA', x + 3, pad.t + 12);
-      }
+    // -5nT storm threshold
+    if (yMin <= -5) {
+      const y5 = yScale(-5);
+      ctx.strokeStyle = C.storm_line;
+      ctx.lineWidth = 0.6;
+      ctx.setLineDash([2, 4]);
+      ctx.beginPath();
+      ctx.moveTo(PAD.l, y5);
+      ctx.lineTo(PAD.l + pW, y5);
+      ctx.stroke();
+      ctx.setLineDash([]);
+      
+      ctx.fillStyle = '#663333';
+      ctx.font = `8px ${FONT}`;
+      ctx.textAlign = 'right';
+      ctx.fillText('-5 nT storm', W - PAD.r - 2, y5 - 2);
     }
     
-    // Plot Bz line
-    ctx.lineWidth = 1.5;
+    // Bt fill (faint)
+    ctx.fillStyle = C.bt + '1F';  // Very low alpha
     ctx.beginPath();
-    let started = false;
+    let btStarted = false;
     for (const d of visData) {
-      if (d.bz === null) continue;
+      if (d.bt === null || isNaN(d.bt)) continue;
       const x = xScale(d.time);
-      const y = yScale(d.bz);
-      if (!started) {
-        ctx.moveTo(x, y);
-        started = true;
-      } else {
-        ctx.lineTo(x, y);
+      const y = yScale(d.bt);
+      const y0 = yScale(0);
+      if (!btStarted) {
+        ctx.moveTo(x, y0);
+        btStarted = true;
       }
+      ctx.lineTo(x, y);
     }
-    ctx.strokeStyle = C.text;
-    ctx.stroke();
+    if (btStarted) {
+      ctx.lineTo(xScale(visData[visData.length-1].time), yScale(0));
+      ctx.closePath();
+      ctx.fill();
+    }
     
-    // Color code by polarity
+    // South fill
+    ctx.fillStyle = '#2a0a10CC';
+    ctx.beginPath();
+    let southStarted = false;
+    for (const d of visData) {
+      if (d.bz === null || isNaN(d.bz)) continue;
+      const x = xScale(d.time);
+      const y = d.bz <= 0 ? yScale(d.bz) : yScale(0);
+      const y0 = yScale(0);
+      if (!southStarted) {
+        ctx.moveTo(x, y0);
+        southStarted = true;
+      }
+      ctx.lineTo(x, y);
+    }
+    if (southStarted) {
+      ctx.lineTo(xScale(visData[visData.length-1].time), yScale(0));
+      ctx.closePath();
+      ctx.fill();
+    }
+    
+    // Plot Bz with color coding
     for (let i = 0; i < visData.length - 1; i++) {
       const d1 = visData[i];
       const d2 = visData[i + 1];
-      if (d1.bz === null || d2.bz === null) continue;
+      if (d1.bz === null || d2.bz === null || isNaN(d1.bz) || isNaN(d2.bz)) continue;
       
       const x1 = xScale(d1.time);
       const y1 = yScale(d1.bz);
       const x2 = xScale(d2.time);
       const y2 = yScale(d2.bz);
       
-      ctx.lineWidth = 2;
-      ctx.strokeStyle = d1.bz < 0 ? C.bz_south : C.bz_north;
+      const midVal = (d1.bz + d2.bz) / 2;
+      ctx.strokeStyle = midVal < 0 ? C.bz_south : C.bz_north;
+      ctx.lineWidth = 2.2;
+      ctx.lineCap = 'round';
       ctx.beginPath();
       ctx.moveTo(x1, y1);
       ctx.lineTo(x2, y2);
       ctx.stroke();
     }
     
-    // Y axis labels
+    // Ejecta start marker
+    if (ejectaStart) {
+      const ejectaTime = new Date(ejectaStart).getTime();
+      if (ejectaTime >= tMin && ejectaTime <= tMax) {
+        const x = xScale(ejectaTime);
+        ctx.strokeStyle = C.shock;
+        ctx.lineWidth = 2.0;
+        ctx.setLineDash([4, 3]);
+        ctx.beginPath();
+        ctx.moveTo(x, PAD.t);
+        ctx.lineTo(x, PAD.t + pH);
+        ctx.stroke();
+        ctx.setLineDash([]);
+        
+        const shockTime = new Date(ejectaTime);
+        ctx.fillStyle = C.shock;
+        ctx.font = `9px ${FONT}`;
+        ctx.fontWeight = 'bold';
+        ctx.textAlign = 'left';
+        ctx.fillText(`shock ${shockTime.getUTCHours().toString().padStart(2,'0')}:${shockTime.getUTCMinutes().toString().padStart(2,'0')}`, 
+                     x + 3, PAD.t + 12);
+      }
+    }
+    
+    // Zoom preview
+    if (zoomMode && zoomStart) {
+      const x1 = xScale(zoomStart);
+      ctx.fillStyle = 'rgba(68,170,255,0.15)';
+      ctx.fillRect(x1, PAD.t, W - PAD.r - x1, pH);
+    }
+    
+    // Crosshair
+    if (crosshairT && crosshairT >= tMin && crosshairT <= tMax) {
+      const x = xScale(crosshairT);
+      ctx.strokeStyle = C.crosshair;
+      ctx.lineWidth = 1;
+      ctx.setLineDash([3, 3]);
+      ctx.beginPath();
+      ctx.moveTo(x, PAD.t);
+      ctx.lineTo(x, PAD.t + pH);
+      ctx.stroke();
+      ctx.setLineDash([]);
+      
+      // Find nearest point
+      const nearest = visData.reduce((best, p) => {
+        if (p.bz === null || isNaN(p.bz)) return best;
+        return Math.abs(p.time - crosshairT) < Math.abs((best?.time || Infinity) - crosshairT) ? p : best;
+      }, null);
+      
+      if (nearest && nearest.bz !== null && !isNaN(nearest.bz)) {
+        const y = yScale(nearest.bz);
+        const val = nearest.bz.toFixed(1);
+        
+        // Label background
+        ctx.fillStyle = 'rgba(6,8,15,0.9)';
+        const tw = ctx.measureText(val).width;
+        const lx = Math.min(x + 4, W - PAD.r - tw - 4);
+        ctx.fillRect(lx - 2, y - 9, tw + 6, 13);
+        
+        // Label text
+        ctx.fillStyle = nearest.bz < 0 ? C.bz_south : C.bz_north;
+        ctx.font = `8px ${FONT}`;
+        ctx.fillText(val, lx, y);
+        
+        // Dot
+        ctx.fillStyle = nearest.bz < 0 ? C.bz_south : C.bz_north;
+        ctx.beginPath();
+        ctx.arc(x, y, 3, 0, Math.PI * 2);
+        ctx.fill();
+      }
+      
+      // Timestamp at bottom
+      const d = new Date(crosshairT);
+      const timeStr = `${d.getUTCFullYear()}-${(d.getUTCMonth()+1).toString().padStart(2,'0')}-${d.getUTCDate().toString().padStart(2,'0')} ${d.getUTCHours().toString().padStart(2,'0')}:${d.getUTCMinutes().toString().padStart(2,'0')} UTC`;
+      ctx.fillStyle = C.text;
+      ctx.font = `7px ${FONT}`;
+      ctx.textAlign = 'center';
+      ctx.fillText(timeStr, x, H - 2);
+    }
+    
+    // Y-axis labels
     ctx.fillStyle = C.textDim;
-    ctx.font = '10px ' + FONT;
+    ctx.font = `9px ${FONT}`;
     ctx.textAlign = 'right';
-    for (let i = 0; i <= ySteps; i++) {
-      const val = yMin + (yMax - yMin) * (1 - i / ySteps);
-      const y = pad.t + (plotH * i) / ySteps;
-      ctx.fillText(val.toFixed(0), pad.l - 5, y + 4);
+    for (let i = 0; i <= 5; i++) {
+      const val = yMin + (yMax - yMin) * (1 - i / 5);
+      const y = PAD.t + (pH * i) / 5;
+      ctx.fillText(val.toFixed(0), PAD.l - 5, y + 3);
     }
     
     // Title
-    ctx.fillStyle = C.text;
-    ctx.font = 'bold 11px ' + FONT;
+    ctx.fillStyle = '#44bbff';
+    ctx.font = `bold 22px ${FONT}`;
     ctx.textAlign = 'left';
-    ctx.fillText('Bz', pad.l, 15);
+    ctx.fillText('Bz', PAD.l, 20);
     
-    ctx.fillStyle = C.textDim;
-    ctx.font = '9px ' + FONT;
-    ctx.fillText('GSM · nT', pad.l + 25, 15);
+    ctx.fillStyle = C.textFaint;
+    ctx.font = `8.5px ${FONT}`;
+    ctx.fillText('GSM · nT', PAD.l + 35, 20);
     
     // Current value
     const latest = visData[visData.length - 1];
-    if (latest && latest.bz !== null) {
+    if (latest && latest.bz !== null && !isNaN(latest.bz)) {
       const valStr = `${latest.bz > 0 ? '+' : ''}${latest.bz.toFixed(1)} nT`;
-      ctx.font = '10px ' + FONT;
+      ctx.font = `10px ${FONT}`;
       ctx.textAlign = 'right';
       ctx.fillStyle = latest.bz < 0 ? C.bz_south : C.bz_north;
-      ctx.fillText(valStr, w - pad.r, 15);
+      ctx.fillText(valStr, W - PAD.r, 20);
     }
     
-    // Legend
-    ctx.font = '8px ' + FONT;
+    // Labels
+    ctx.font = `8.5px ${FONT}`;
     ctx.textAlign = 'left';
-    ctx.fillStyle = C.bz_south;
-    ctx.fillText('SOUTH = aurora fuel', pad.l, h - 8);
+    ctx.fillStyle = '#225533';
+    ctx.fillText('↑ NORTH', PAD.l + 3, PAD.t + 12);
+    ctx.fillStyle = '#662233';
+    ctx.fillText('↓ SOUTH = aurora fuel', PAD.l + 3, PAD.t + pH - 5);
     
-  }, [data, timeRange, ejectaStart]);
+  }, [data, timeRange, ejectaStart, crosshairT, zoomMode, zoomStart]);
+  
+  useEffect(() => { draw(); }, [draw]);
+  
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const ro = new ResizeObserver(() => draw());
+    ro.observe(canvas);
+    return () => ro.disconnect();
+  }, [draw]);
+  
+  function handlePointer(e) {
+    if (!onCrosshair) return;
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const rect = canvas.getBoundingClientRect();
+    const PAD_L = 40;
+    const PAD_R = 15;
+    const pW = rect.width - PAD_L - PAD_R;
+    const x = e.clientX - rect.left - PAD_L;
+    const frac = Math.max(0, Math.min(1, x / pW));
+    const [tMin, tMax] = timeRange;
+    const t = tMin + frac * (tMax - tMin);
+    if (zoomMode && e.type !== 'pointerdown') return;
+    onCrosshair(t);
+  }
   
   return (
     <div style={{ 
-      background: C.plotBg, 
-      border: `1px solid ${C.border}`, 
+      background: C.panelBg, 
+      border: `1px solid ${C.grid}`, 
       borderRadius: 3,
-      height: 160,
+      flex: 1,
+      minHeight: 0,
     }}>
-      <canvas ref={canvasRef} style={{ width: '100%', height: '100%', display: 'block' }} />
+      <canvas 
+        ref={canvasRef} 
+        onPointerMove={zoomMode ? undefined : handlePointer}
+        onPointerLeave={() => !zoomMode && onCrosshair && onCrosshair(null)}
+        onPointerDown={handlePointer}
+        style={{ 
+          width: '100%', 
+          height: '100%', 
+          display: 'block',
+          cursor: zoomMode ? 'col-resize' : 'crosshair',
+        }} 
+      />
     </div>
   );
 }
 
-function ByPlot({ data, timeRange, ejectaStart }) {
+// By Plot Component  
+function ByPlot({ data, timeRange, ejectaStart, crosshairT, onCrosshair, zoomMode, zoomStart }) {
   const canvasRef = useRef(null);
   
-  useEffect(() => {
-    if (!canvasRef.current || data.length === 0) return;
-    
+  const draw = useCallback(() => {
     const canvas = canvasRef.current;
+    if (!canvas || data.length === 0) return;
+    
     const ctx = canvas.getContext('2d');
     const dpr = window.devicePixelRatio || 1;
     const rect = canvas.getBoundingClientRect();
@@ -315,144 +569,234 @@ function ByPlot({ data, timeRange, ejectaStart }) {
     canvas.height = rect.height * dpr;
     ctx.scale(dpr, dpr);
     
-    const w = rect.width;
-    const h = rect.height;
-    const pad = { l: 45, r: 15, t: 25, b: 30 };
-    const plotW = w - pad.l - pad.r;
-    const plotH = h - pad.t - pad.b;
+    const W = rect.width;
+    const H = rect.height;
+    const PAD = { l: 40, r: 15, t: 28, b: 25 };
+    const pW = W - PAD.l - PAD.r;
+    const pH = H - PAD.t - PAD.b;
     
-    ctx.fillStyle = C.plotBg;
-    ctx.fillRect(0, 0, w, h);
+    ctx.fillStyle = C.panelBg;
+    ctx.fillRect(0, 0, W, H);
     
-    const now = Date.now();
-    const cutoff = now - timeRange * 3600000;
-    const visData = data.filter(d => d.time >= cutoff);
+    const [tMin, tMax] = timeRange;
+    const visData = data.filter(d => d.time >= tMin && d.time <= tMax);
     
     if (visData.length === 0) return;
     
-    const byVals = visData.map(d => d.by).filter(v => v !== null);
+    const byVals = visData.map(d => d.by).filter(v => v !== null && !isNaN(v));
     const yMin = Math.min(-15, Math.min(...byVals) - 2);
     const yMax = Math.max(15, Math.max(...byVals) + 2);
-    const yScale = (v) => pad.t + plotH - ((v - yMin) / (yMax - yMin)) * plotH;
-    const xScale = (t) => pad.l + ((t - cutoff) / (now - cutoff)) * plotW;
+    const yScale = (v) => PAD.t + pH - ((v - yMin) / (yMax - yMin)) * pH;
+    const xScale = (t) => PAD.l + ((t - tMin) / (tMax - tMin)) * pW;
+    
+    // E/W background bands
+    const y0 = yScale(0);
+    ctx.fillStyle = '#0a2a1a80';  // Green tint for dusk/east
+    ctx.fillRect(PAD.l, PAD.t, pW, y0 - PAD.t);
+    
+    ctx.fillStyle = '#2a1a0580';  // Orange tint for dawn/west
+    ctx.fillRect(PAD.l, y0, pW, PAD.t + pH - y0);
     
     // Grid
     ctx.strokeStyle = C.grid;
-    ctx.lineWidth = 0.5;
-    const ySteps = 5;
-    for (let i = 0; i <= ySteps; i++) {
-      const y = pad.t + (plotH * i) / ySteps;
+    ctx.lineWidth = 0.4;
+    for (let i = 0; i <= 5; i++) {
+      const y = PAD.t + (pH * i) / 5;
       ctx.beginPath();
-      ctx.moveTo(pad.l, y);
-      ctx.lineTo(pad.l + plotW, y);
+      ctx.moveTo(PAD.l, y);
+      ctx.lineTo(PAD.l + pW, y);
       ctx.stroke();
     }
     
     // Zero line
-    const y0 = yScale(0);
-    ctx.strokeStyle = C.zero;
-    ctx.lineWidth = 1;
+    ctx.strokeStyle = '#2a4a3a';
+    ctx.lineWidth = 0.8;
     ctx.setLineDash([3, 3]);
     ctx.beginPath();
-    ctx.moveTo(pad.l, y0);
-    ctx.lineTo(pad.l + plotW, y0);
+    ctx.moveTo(PAD.l, y0);
+    ctx.lineTo(PAD.l + pW, y0);
     ctx.stroke();
     ctx.setLineDash([]);
-    
-    // Ejecta marker
-    if (ejectaStart) {
-      const ejectaTime = new Date(ejectaStart).getTime();
-      if (ejectaTime >= cutoff && ejectaTime <= now) {
-        const x = xScale(ejectaTime);
-        ctx.strokeStyle = 'rgba(255,200,100,0.5)';
-        ctx.lineWidth = 1.5;
-        ctx.setLineDash([4, 2]);
-        ctx.beginPath();
-        ctx.moveTo(x, pad.t);
-        ctx.lineTo(x, pad.t + plotH);
-        ctx.stroke();
-        ctx.setLineDash([]);
-      }
-    }
     
     // Plot By with color coding
     for (let i = 0; i < visData.length - 1; i++) {
       const d1 = visData[i];
       const d2 = visData[i + 1];
-      if (d1.by === null || d2.by === null) continue;
+      if (d1.by === null || d2.by === null || isNaN(d1.by) || isNaN(d2.by)) continue;
       
       const x1 = xScale(d1.time);
       const y1 = yScale(d1.by);
       const x2 = xScale(d2.time);
       const y2 = yScale(d2.by);
       
-      ctx.lineWidth = 2;
-      ctx.strokeStyle = d1.by > 0 ? C.by_east : C.by_west;
+      const midVal = (d1.by + d2.by) / 2;
+      ctx.strokeStyle = midVal >= 0 ? C.by_dusk : C.by_dawn;
+      ctx.lineWidth = 1.8;
+      ctx.lineCap = 'round';
       ctx.beginPath();
       ctx.moveTo(x1, y1);
       ctx.lineTo(x2, y2);
       ctx.stroke();
     }
     
-    // Y axis
+    // Ejecta marker
+    if (ejectaStart) {
+      const ejectaTime = new Date(ejectaStart).getTime();
+      if (ejectaTime >= tMin && ejectaTime <= tMax) {
+        const x = xScale(ejectaTime);
+        ctx.strokeStyle = C.shock;
+        ctx.lineWidth = 1.5;
+        ctx.setLineDash([4, 3]);
+        ctx.beginPath();
+        ctx.moveTo(x, PAD.t);
+        ctx.lineTo(x, PAD.t + pH);
+        ctx.stroke();
+        ctx.setLineDash([]);
+      }
+    }
+    
+    // Zoom preview
+    if (zoomMode && zoomStart) {
+      const x1 = xScale(zoomStart);
+      ctx.fillStyle = 'rgba(68,170,255,0.15)';
+      ctx.fillRect(x1, PAD.t, W - PAD.r - x1, pH);
+    }
+    
+    // Crosshair
+    if (crosshairT && crosshairT >= tMin && crosshairT <= tMax) {
+      const x = xScale(crosshairT);
+      ctx.strokeStyle = C.crosshair;
+      ctx.lineWidth = 1;
+      ctx.setLineDash([3, 3]);
+      ctx.beginPath();
+      ctx.moveTo(x, PAD.t);
+      ctx.lineTo(x, PAD.t + pH);
+      ctx.stroke();
+      ctx.setLineDash([]);
+      
+      const nearest = visData.reduce((best, p) => {
+        if (p.by === null || isNaN(p.by)) return best;
+        return Math.abs(p.time - crosshairT) < Math.abs((best?.time || Infinity) - crosshairT) ? p : best;
+      }, null);
+      
+      if (nearest && nearest.by !== null && !isNaN(nearest.by)) {
+        const y = yScale(nearest.by);
+        const val = nearest.by.toFixed(1);
+        
+        ctx.fillStyle = 'rgba(6,8,15,0.9)';
+        const tw = ctx.measureText(val).width;
+        const lx = Math.min(x + 4, W - PAD.r - tw - 4);
+        ctx.fillRect(lx - 2, y - 9, tw + 6, 13);
+        
+        ctx.fillStyle = nearest.by >= 0 ? C.by_dusk : C.by_dawn;
+        ctx.font = `8px ${FONT}`;
+        ctx.fillText(val, lx, y);
+        
+        ctx.fillStyle = nearest.by >= 0 ? C.by_dusk : C.by_dawn;
+        ctx.beginPath();
+        ctx.arc(x, y, 3, 0, Math.PI * 2);
+        ctx.fill();
+      }
+    }
+    
+    // Y-axis
     ctx.fillStyle = C.textDim;
-    ctx.font = '10px ' + FONT;
+    ctx.font = `9px ${FONT}`;
     ctx.textAlign = 'right';
-    for (let i = 0; i <= ySteps; i++) {
-      const val = yMin + (yMax - yMin) * (1 - i / ySteps);
-      const y = pad.t + (plotH * i) / ySteps;
-      ctx.fillText(val.toFixed(0), pad.l - 5, y + 4);
+    for (let i = 0; i <= 5; i++) {
+      const val = yMin + (yMax - yMin) * (1 - i / 5);
+      const y = PAD.t + (pH * i) / 5;
+      ctx.fillText(val.toFixed(0), PAD.l - 5, y + 3);
     }
     
     // Title
-    ctx.fillStyle = C.text;
-    ctx.font = 'bold 11px ' + FONT;
+    ctx.fillStyle = C.by_dusk;
+    ctx.font = `bold 18px ${FONT}`;
     ctx.textAlign = 'left';
-    ctx.fillText('By', pad.l, 15);
+    ctx.fillText('By', PAD.l, 20);
     
-    ctx.fillStyle = C.textDim;
-    ctx.font = '9px ' + FONT;
-    ctx.fillText('GSM · nT', pad.l + 23, 15);
+    ctx.fillStyle = C.textFaint;
+    ctx.font = `8px ${FONT}`;
+    ctx.fillText('GSM · nT', PAD.l + 30, 20);
     
     // Current value
     const latest = visData[visData.length - 1];
-    if (latest && latest.by !== null) {
+    if (latest && latest.by !== null && !isNaN(latest.by)) {
       const valStr = `${latest.by > 0 ? '+' : ''}${latest.by.toFixed(1)} nT`;
-      ctx.font = '10px ' + FONT;
+      ctx.font = `10px ${FONT}`;
       ctx.textAlign = 'right';
-      ctx.fillStyle = latest.by > 0 ? C.by_east : C.by_west;
-      ctx.fillText(valStr, w - pad.r, 15);
+      ctx.fillStyle = latest.by >= 0 ? C.by_dusk : C.by_dawn;
+      ctx.fillText(valStr, W - PAD.r, 20);
     }
     
-    // Legend
-    ctx.font = '8px ' + FONT;
+    // Direction labels
+    ctx.font = `9px ${FONT}`;
     ctx.textAlign = 'left';
-    ctx.fillStyle = C.by_east;
-    ctx.fillText('E DUSK', pad.l, h - 8);
-    ctx.fillStyle = C.by_west;
-    ctx.fillText('W DAWN', pad.l + 60, h - 8);
+    ctx.fillStyle = '#1a5a3a';
+    ctx.fillText('+By  DUSK', PAD.l + pW * 0.03, PAD.t + pH * 0.15);
+    ctx.fillStyle = '#5a3a0a';
+    ctx.fillText('−By  DAWN', PAD.l + pW * 0.03, PAD.t + pH * 0.85);
     
-  }, [data, timeRange, ejectaStart]);
+  }, [data, timeRange, ejectaStart, crosshairT, zoomMode, zoomStart]);
+  
+  useEffect(() => { draw(); }, [draw]);
+  
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const ro = new ResizeObserver(() => draw());
+    ro.observe(canvas);
+    return () => ro.disconnect();
+  }, [draw]);
+  
+  function handlePointer(e) {
+    if (!onCrosshair) return;
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const rect = canvas.getBoundingClientRect();
+    const PAD_L = 40;
+    const PAD_R = 15;
+    const pW = rect.width - PAD_L - PAD_R;
+    const x = e.clientX - rect.left - PAD_L;
+    const frac = Math.max(0, Math.min(1, x / pW));
+    const [tMin, tMax] = timeRange;
+    const t = tMin + frac * (tMax - tMin);
+    if (zoomMode && e.type !== 'pointerdown') return;
+    onCrosshair(t);
+  }
   
   return (
     <div style={{ 
-      background: C.plotBg, 
-      border: `1px solid ${C.border}`, 
+      background: C.panelBg, 
+      border: `1px solid ${C.grid}`, 
       borderRadius: 3,
-      height: 160,
+      flex: 1,
+      minHeight: 0,
     }}>
-      <canvas ref={canvasRef} style={{ width: '100%', height: '100%', display: 'block' }} />
+      <canvas 
+        ref={canvasRef}
+        onPointerMove={zoomMode ? undefined : handlePointer}
+        onPointerLeave={() => !zoomMode && onCrosshair && onCrosshair(null)}
+        onPointerDown={handlePointer}
+        style={{ 
+          width: '100%', 
+          height: '100%', 
+          display: 'block',
+          cursor: zoomMode ? 'col-resize' : 'crosshair',
+        }} 
+      />
     </div>
   );
 }
 
-function PhiPlot({ data, timeRange, ejectaStart }) {
+// Phi Plot Component
+function PhiPlot({ data, timeRange, ejectaStart, crosshairT, onCrosshair, zoomMode, zoomStart, showAnnotations }) {
   const canvasRef = useRef(null);
   
-  useEffect(() => {
-    if (!canvasRef.current || data.length === 0) return;
-    
+  const draw = useCallback(() => {
     const canvas = canvasRef.current;
+    if (!canvas || data.length === 0) return;
+    
     const ctx = canvas.getContext('2d');
     const dpr = window.devicePixelRatio || 1;
     const rect = canvas.getBoundingClientRect();
@@ -460,78 +804,74 @@ function PhiPlot({ data, timeRange, ejectaStart }) {
     canvas.height = rect.height * dpr;
     ctx.scale(dpr, dpr);
     
-    const w = rect.width;
-    const h = rect.height;
-    const pad = { l: 45, r: 15, t: 25, b: 30 };
-    const plotW = w - pad.l - pad.r;
-    const plotH = h - pad.t - pad.b;
+    const W = rect.width;
+    const H = rect.height;
+    const PAD = { l: 40, r: 15, t: 28, b: 35 };
+    const pW = W - PAD.l - PAD.r;
+    const pH = H - PAD.t - PAD.b;
     
-    ctx.fillStyle = C.plotBg;
-    ctx.fillRect(0, 0, w, h);
+    ctx.fillStyle = C.panelBg;
+    ctx.fillRect(0, 0, W, H);
     
-    const now = Date.now();
-    const cutoff = now - timeRange * 3600000;
-    const visData = data.filter(d => d.time >= cutoff);
+    const [tMin, tMax] = timeRange;
+    const visData = data.filter(d => d.time >= tMin && d.time <= tMax);
     
     if (visData.length === 0) return;
     
-    const yMin = 0;
-    const yMax = 360;
-    const yScale = (v) => pad.t + plotH - ((v - yMin) / (yMax - yMin)) * plotH;
-    const xScale = (t) => pad.l + ((t - cutoff) / (now - cutoff)) * plotW;
-    
-    // Sector shading
-    const y180 = yScale(180);
-    ctx.fillStyle = C.phi_toward;
-    ctx.fillRect(pad.l, y180, plotW, yScale(360) - y180);
-    
-    ctx.fillStyle = C.phi_away;
-    ctx.fillRect(pad.l, pad.t, plotW, y180 - pad.t);
+    const yMin = -10;
+    const yMax = 370;
+    const yScale = (v) => PAD.t + pH - ((v - yMin) / (yMax - yMin)) * pH;
+    const xScale = (t) => PAD.l + ((t - tMin) / (tMax - tMin)) * pW;
     
     // Grid
     ctx.strokeStyle = C.grid;
-    ctx.lineWidth = 0.5;
-    for (let deg = 0; deg <= 360; deg += 90) {
+    ctx.lineWidth = 0.4;
+    [0, 90, 180, 270, 360].forEach(deg => {
       const y = yScale(deg);
       ctx.beginPath();
-      ctx.moveTo(pad.l, y);
-      ctx.lineTo(pad.l + plotW, y);
+      ctx.moveTo(PAD.l, y);
+      ctx.lineTo(PAD.l + pW, y);
       ctx.stroke();
-    }
+    });
     
-    // 180° line
-    ctx.strokeStyle = C.zero;
-    ctx.lineWidth = 1;
-    ctx.setLineDash([3, 3]);
+    // 0° north line
+    const y0 = yScale(0);
+    ctx.strokeStyle = '#44cc88';
+    ctx.lineWidth = 0.7;
+    ctx.setLineDash([2, 4]);
     ctx.beginPath();
-    ctx.moveTo(pad.l, y180);
-    ctx.lineTo(pad.l + plotW, y180);
+    ctx.moveTo(PAD.l, y0);
+    ctx.lineTo(PAD.l + pW, y0);
     ctx.stroke();
     ctx.setLineDash([]);
     
-    // Ejecta marker
-    if (ejectaStart) {
-      const ejectaTime = new Date(ejectaStart).getTime();
-      if (ejectaTime >= cutoff && ejectaTime <= now) {
-        const x = xScale(ejectaTime);
-        ctx.strokeStyle = 'rgba(255,200,100,0.5)';
-        ctx.lineWidth = 1.5;
-        ctx.setLineDash([4, 2]);
-        ctx.beginPath();
-        ctx.moveTo(x, pad.t);
-        ctx.lineTo(x, pad.t + plotH);
-        ctx.stroke();
-        ctx.setLineDash([]);
-      }
-    }
+    ctx.fillStyle = '#226633';
+    ctx.font = `8px ${FONT}`;
+    ctx.textAlign = 'right';
+    ctx.fillText('0° north', W - PAD.r - 2, y0 - 2);
+    
+    // 180° south line
+    const y180 = yScale(180);
+    ctx.strokeStyle = C.storm_line;
+    ctx.lineWidth = 0.7;
+    ctx.setLineDash([2, 4]);
+    ctx.beginPath();
+    ctx.moveTo(PAD.l, y180);
+    ctx.lineTo(PAD.l + pW, y180);
+    ctx.stroke();
+    ctx.setLineDash([]);
+    
+    ctx.fillStyle = '#663333';
+    ctx.fillText('180° south', W - PAD.r - 2, y180 - 2);
     
     // Plot phi
-    ctx.lineWidth = 2;
     ctx.strokeStyle = C.phi;
+    ctx.lineWidth = 1.8;
+    ctx.lineCap = 'round';
     ctx.beginPath();
     let started = false;
     for (const d of visData) {
-      if (d.phi === null) continue;
+      if (d.phi === null || isNaN(d.phi)) continue;
       const x = xScale(d.time);
       const y = yScale(d.phi);
       if (!started) {
@@ -543,65 +883,255 @@ function PhiPlot({ data, timeRange, ejectaStart }) {
     }
     ctx.stroke();
     
-    // Y axis
-    ctx.fillStyle = C.textDim;
-    ctx.font = '10px ' + FONT;
+    // Annotations (if enabled)
+    if (showAnnotations) {
+      // Detect rapid phi changes
+      const phiChanges = detectPhiChanges(visData);
+      for (const evt of phiChanges) {
+        const x = xScale(evt.time);
+        ctx.strokeStyle = evt.color;
+        ctx.lineWidth = evt.width;
+        ctx.setLineDash([3, 4]);
+        ctx.beginPath();
+        ctx.moveTo(x, PAD.t);
+        ctx.lineTo(x, PAD.t + pH);
+        ctx.stroke();
+        ctx.setLineDash([]);
+        
+        ctx.fillStyle = evt.textColor;
+        ctx.font = `7px ${FONT}`;
+        ctx.textAlign = 'left';
+        ctx.fillText(evt.label, x + 2, PAD.t + 10);
+      }
+    }
+    
+    // Ejecta marker
+    if (ejectaStart) {
+      const ejectaTime = new Date(ejectaStart).getTime();
+      if (ejectaTime >= tMin && ejectaTime <= tMax) {
+        const x = xScale(ejectaTime);
+        ctx.strokeStyle = C.shock;
+        ctx.lineWidth = 1.5;
+        ctx.setLineDash([4, 3]);
+        ctx.beginPath();
+        ctx.moveTo(x, PAD.t);
+        ctx.lineTo(x, PAD.t + pH);
+        ctx.stroke();
+        ctx.setLineDash([]);
+      }
+    }
+    
+    // Zoom preview
+    if (zoomMode && zoomStart) {
+      const x1 = xScale(zoomStart);
+      ctx.fillStyle = 'rgba(68,170,255,0.15)';
+      ctx.fillRect(x1, PAD.t, W - PAD.r - x1, pH);
+    }
+    
+    // Crosshair
+    if (crosshairT && crosshairT >= tMin && crosshairT <= tMax) {
+      const x = xScale(crosshairT);
+      ctx.strokeStyle = C.crosshair;
+      ctx.lineWidth = 1;
+      ctx.setLineDash([3, 3]);
+      ctx.beginPath();
+      ctx.moveTo(x, PAD.t);
+      ctx.lineTo(x, PAD.t + pH);
+      ctx.stroke();
+      ctx.setLineDash([]);
+      
+      const nearest = visData.reduce((best, p) => {
+        if (p.phi === null || isNaN(p.phi)) return best;
+        return Math.abs(p.time - crosshairT) < Math.abs((best?.time || Infinity) - crosshairT) ? p : best;
+      }, null);
+      
+      if (nearest && nearest.phi !== null && !isNaN(nearest.phi)) {
+        const y = yScale(nearest.phi);
+        const val = nearest.phi.toFixed(0) + '°';
+        
+        ctx.fillStyle = 'rgba(6,8,15,0.9)';
+        const tw = ctx.measureText(val).width;
+        const lx = Math.min(x + 4, W - PAD.r - tw - 4);
+        ctx.fillRect(lx - 2, y - 9, tw + 6, 13);
+        
+        ctx.fillStyle = C.phi;
+        ctx.font = `8px ${FONT}`;
+        ctx.fillText(val, lx, y);
+        
+        ctx.fillStyle = C.phi;
+        ctx.beginPath();
+        ctx.arc(x, y, 3, 0, Math.PI * 2);
+        ctx.fill();
+      }
+    }
+    
+    // Y-axis
+    ctx.fillStyle = C.phi;
+    ctx.font = `8px ${FONT}`;
     ctx.textAlign = 'right';
     [0, 90, 180, 270, 360].forEach(deg => {
       const y = yScale(deg);
-      ctx.fillText(deg + '°', pad.l - 5, y + 4);
+      ctx.fillText(deg + '°', PAD.l - 5, y + 3);
     });
     
     // Title
-    ctx.fillStyle = C.text;
-    ctx.font = 'bold 11px ' + FONT;
+    ctx.fillStyle = C.phi_label;
+    ctx.font = `bold 16px ${FONT}`;
     ctx.textAlign = 'left';
-    ctx.fillText('IMF Phi GSM (°)', pad.l, 15);
+    ctx.fillText('φ', PAD.l, 20);
+    
+    ctx.fillStyle = C.textFaint;
+    ctx.font = `8.5px ${FONT}`;
+    ctx.fillText('clock angle [GSM]', PAD.l + 20, 20);
     
     // Current value
     const latest = visData[visData.length - 1];
-    if (latest && latest.phi !== null) {
-      ctx.font = '10px ' + FONT;
+    if (latest && latest.phi !== null && !isNaN(latest.phi)) {
+      const valStr = latest.phi.toFixed(0) + '°';
+      ctx.font = `10px ${FONT}`;
       ctx.textAlign = 'right';
       ctx.fillStyle = C.phi;
-      ctx.fillText(latest.phi.toFixed(0) + '°', w - pad.r, 15);
+      ctx.fillText(valStr, W - PAD.r, 20);
     }
     
-    // Legend
-    ctx.font = '8px ' + FONT;
+    // Caption
+    ctx.fillStyle = C.textFaint;
+    ctx.font = `8.5px ${FONT}`;
     ctx.textAlign = 'left';
-    ctx.fillStyle = C.textDim;
-    ctx.fillText('360° AWAY', pad.l, h - 18);
-    ctx.fillText('180° TOWARD', pad.l, h - 8);
+    ctx.fillText('0°=north  180°=south  ·  rapid changes annotated', PAD.l + 3, H - 5);
     
-  }, [data, timeRange, ejectaStart]);
+  }, [data, timeRange, ejectaStart, crosshairT, zoomMode, zoomStart, showAnnotations]);
+  
+  useEffect(() => { draw(); }, [draw]);
+  
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const ro = new ResizeObserver(() => draw());
+    ro.observe(canvas);
+    return () => ro.disconnect();
+  }, [draw]);
+  
+  function handlePointer(e) {
+    if (!onCrosshair) return;
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const rect = canvas.getBoundingClientRect();
+    const PAD_L = 40;
+    const PAD_R = 15;
+    const pW = rect.width - PAD_L - PAD_R;
+    const x = e.clientX - rect.left - PAD_L;
+    const frac = Math.max(0, Math.min(1, x / pW));
+    const [tMin, tMax] = timeRange;
+    const t = tMin + frac * (tMax - tMin);
+    if (zoomMode && e.type !== 'pointerdown') return;
+    onCrosshair(t);
+  }
   
   return (
     <div style={{ 
-      background: C.plotBg, 
-      border: `1px solid ${C.border}`, 
+      background: C.panelBg, 
+      border: `1px solid ${C.grid}`, 
       borderRadius: 3,
-      height: 160,
+      flex: 1,
+      minHeight: 0,
     }}>
-      <canvas ref={canvasRef} style={{ width: '100%', height: '100%', display: 'block' }} />
+      <canvas 
+        ref={canvasRef}
+        onPointerMove={zoomMode ? undefined : handlePointer}
+        onPointerLeave={() => !zoomMode && onCrosshair && onCrosshair(null)}
+        onPointerDown={handlePointer}
+        style={{ 
+          width: '100%', 
+          height: '100%', 
+          display: 'block',
+          cursor: zoomMode ? 'col-resize' : 'crosshair',
+        }} 
+      />
     </div>
   );
 }
 
+// Detect phi changes for annotations (simplified version)
+function detectPhiChanges(data) {
+  const changes = [];
+  const windowSize = 30; // 30 minutes
+  
+  for (let i = windowSize; i < data.length - windowSize; i++) {
+    const before = data.slice(i - windowSize, i).filter(d => d.phi !== null);
+    const after = data.slice(i, i + windowSize).filter(d => d.phi !== null);
+    
+    if (before.length < 10 || after.length < 10) continue;
+    
+    const phiBefore = before.reduce((sum, d) => sum + d.phi, 0) / before.length;
+    const phiAfter = after.reduce((sum, d) => sum + d.phi, 0) / after.length;
+    
+    let delta = phiAfter - phiBefore;
+    // Handle wrap-around
+    if (delta > 180) delta -= 360;
+    if (delta < -180) delta += 360;
+    
+    const absDelta = Math.abs(delta);
+    
+    if (absDelta > 90) {
+      // Check for HCS (Bx flip)
+      const bxBefore = before.filter(d => d.bx !== null).map(d => d.bx);
+      const bxAfter = after.filter(d => d.bx !== null).map(d => d.bx);
+      
+      if (bxBefore.length > 5 && bxAfter.length > 5) {
+        const avgBxBefore = bxBefore.reduce((a, b) => a + b) / bxBefore.length;
+        const avgBxAfter = bxAfter.reduce((a, b) => a + b) / bxAfter.length;
+        
+        if (Math.sign(avgBxBefore) !== 0 && Math.sign(avgBxAfter) !== 0 && 
+            Math.sign(avgBxBefore) !== Math.sign(avgBxAfter) && absDelta >= 120 && absDelta <= 240) {
+          changes.push({
+            time: data[i].time,
+            label: '↔ HCS',
+            color: C.hcs,
+            textColor: '#aabbcc',
+            width: 2.5
+          });
+          i += windowSize; // Skip ahead
+          continue;
+        }
+      }
+      
+      // Large rotation
+      if (absDelta >= 150) {
+        changes.push({
+          time: data[i].time,
+          label: '⚡ BOUNDARY',
+          color: C.boundary,
+          textColor: '#ffcc88',
+          width: 3.4
+        });
+        i += windowSize;
+      }
+    }
+  }
+  
+  return changes;
+}
+
+// Classification Box Component
 function ClassificationBox({ classData, cmeId }) {
-  if (!classData.active) {
+  if (!classData || !classData.active) {
     return (
       <div style={{
         background: C.classBox,
-        border: `1px solid ${C.border}`,
+        border: `1px solid ${C.grid}`,
         borderRadius: 3,
         padding: 16,
         fontFamily: FONT,
+        height: '100%',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
       }}>
-        <div style={{ fontSize: 12, color: C.textDim, textAlign: 'center', padding: '40px 0' }}>
-          {classData.notes && classData.notes.length > 0 
+        <div style={{ fontSize: 11, color: C.textDim, textAlign: 'center' }}>
+          {classData?.notes && classData.notes.length > 0 
             ? classData.notes[0] 
-            : 'Classification pending'}
+            : 'No active CME for classification'}
         </div>
       </div>
     );
@@ -617,23 +1147,27 @@ function ClassificationBox({ classData, cmeId }) {
   return (
     <div style={{
       background: C.classBox,
-      border: `1px solid ${C.border}`,
+      border: `1px solid ${C.grid}`,
       borderRadius: 3,
-      padding: 16,
+      padding: 14,
       fontFamily: FONT,
       display: 'flex',
       flexDirection: 'column',
-      gap: 14,
+      gap: 12,
+      height: '100%',
+      overflow: 'auto',
     }}>
       {/* Header */}
-      <div style={{ borderBottom: `1px solid ${C.border}`, paddingBottom: 10 }}>
-        <div style={{ fontSize: 9, color: C.textDim, letterSpacing: 1, marginBottom: 6 }}>
-          {cmeId}
-        </div>
-        <div style={{ fontSize: 13, color: C.text, fontWeight: 600, marginBottom: 4 }}>
+      <div style={{ borderBottom: `1px solid ${C.grid}`, paddingBottom: 8 }}>
+        {cmeId && (
+          <div style={{ fontSize: 8, color: C.textDim, letterSpacing: 1, marginBottom: 4 }}>
+            {cmeId}
+          </div>
+        )}
+        <div style={{ fontSize: 12, color: C.text, fontWeight: 600, marginBottom: 3 }}>
           {current.bs_type || 'UNKNOWN'}
         </div>
-        <div style={{ fontSize: 10, color: C.textDim }}>
+        <div style={{ fontSize: 9, color: C.textDim }}>
           {current.bs_type_full || 'Classification in progress'}
         </div>
       </div>
@@ -643,19 +1177,19 @@ function ClassificationBox({ classData, cmeId }) {
         <div style={{ 
           display: 'flex', 
           justifyContent: 'space-between', 
-          marginBottom: 6,
-          fontSize: 9,
+          marginBottom: 5,
+          fontSize: 8,
           color: C.textDim,
         }}>
-          <span>MATCH</span>
+          <span>CONFIDENCE</span>
           <span style={{ color: confidenceColor, fontWeight: 600 }}>
             {confidence.toFixed(0)}%
           </span>
         </div>
         <div style={{ 
           background: C.progressBar, 
-          height: 6, 
-          borderRadius: 3,
+          height: 5, 
+          borderRadius: 2,
           overflow: 'hidden',
         }}>
           <div style={{
@@ -669,7 +1203,7 @@ function ClassificationBox({ classData, cmeId }) {
       
       {/* Chirality */}
       {current.chirality && (
-        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 10 }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 9 }}>
           <span style={{ color: C.textDim }}>Chirality</span>
           <span style={{ color: C.text }}>{current.chirality}</span>
         </div>
@@ -677,7 +1211,7 @@ function ClassificationBox({ classData, cmeId }) {
       
       {/* Structure progress */}
       {sigs.structure_progress_pct !== undefined && (
-        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 10 }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 9 }}>
           <span style={{ color: C.textDim }}>Structure passed</span>
           <span style={{ color: C.text }}>{sigs.structure_progress_pct.toFixed(0)}%</span>
         </div>
@@ -685,7 +1219,7 @@ function ClassificationBox({ classData, cmeId }) {
       
       {/* Bz onset */}
       {sigs.bz_onset_timing && (
-        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 10 }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 9 }}>
           <span style={{ color: C.textDim }}>Bz onset</span>
           <span style={{ color: C.text }}>{sigs.bz_onset_timing}</span>
         </div>
@@ -694,12 +1228,12 @@ function ClassificationBox({ classData, cmeId }) {
       {/* Aurora impact */}
       {bz.description && (
         <div style={{ 
-          background: C.plotBg, 
-          padding: 10, 
-          borderRadius: 3,
-          fontSize: 10,
+          background: C.panelBg, 
+          padding: 8, 
+          borderRadius: 2,
+          fontSize: 9,
           color: C.text,
-          lineHeight: 1.5,
+          lineHeight: 1.4,
         }}>
           {bz.description}
         </div>
@@ -707,7 +1241,7 @@ function ClassificationBox({ classData, cmeId }) {
       
       {/* Aurora potential */}
       {bz.aurora_potential && (
-        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 10 }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 9 }}>
           <span style={{ color: C.textDim }}>Aurora potential</span>
           <span style={{ 
             color: bz.aurora_potential === 'EXTREME' ? C.bz_south : 
@@ -723,7 +1257,7 @@ function ClassificationBox({ classData, cmeId }) {
       
       {/* Kp estimate */}
       {bz.kp_estimate && bz.kp_estimate !== 'N/A' && (
-        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 10 }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 9 }}>
           <span style={{ color: C.textDim }}>Kp estimate</span>
           <span style={{ color: C.text }}>{bz.kp_estimate}</span>
         </div>
@@ -731,7 +1265,7 @@ function ClassificationBox({ classData, cmeId }) {
       
       {/* Duration */}
       {(bz.duration_hours_low || bz.duration_hours_high) && (
-        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 10 }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 9 }}>
           <span style={{ color: C.textDim }}>Duration (est)</span>
           <span style={{ color: C.text }}>
             {bz.duration_hours_low?.toFixed(1)}-{bz.duration_hours_high?.toFixed(1)} hr
@@ -741,7 +1275,7 @@ function ClassificationBox({ classData, cmeId }) {
       
       {/* Peak Bz */}
       {bz.peak_bz_estimate !== undefined && bz.peak_bz_estimate !== null && (
-        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 10 }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 9 }}>
           <span style={{ color: C.textDim }}>Peak Bz (est)</span>
           <span style={{ color: C.bz_south }}>
             {bz.peak_bz_estimate.toFixed(1)} nT
@@ -752,14 +1286,14 @@ function ClassificationBox({ classData, cmeId }) {
       {/* Notes */}
       {classData.notes && classData.notes.length > 0 && (
         <div style={{ 
-          fontSize: 8, 
+          fontSize: 7, 
           color: C.textDim, 
-          borderTop: `1px solid ${C.border}`,
-          paddingTop: 10,
-          lineHeight: 1.4,
+          borderTop: `1px solid ${C.grid}`,
+          paddingTop: 8,
+          lineHeight: 1.3,
         }}>
           {classData.notes.map((note, i) => (
-            <div key={i} style={{ marginBottom: 4 }}>• {note}</div>
+            <div key={i} style={{ marginBottom: 3 }}>• {note}</div>
           ))}
         </div>
       )}
@@ -771,23 +1305,29 @@ function parseMagData(raw) {
   if (!raw || !raw.columns || !raw.data) return [];
   
   const cols = raw.columns;
-  const timeIdx = cols.indexOf('time');
-  const bzIdx = cols.indexOf('bz');
-  const byIdx = cols.indexOf('by');
-  const phiIdx = cols.indexOf('phi');
+  const indices = {
+    time: cols.indexOf('time'),
+    bx: cols.indexOf('bx'),
+    by: cols.indexOf('by'),
+    bz: cols.indexOf('bz'),
+    bt: cols.indexOf('bt'),
+    phi: cols.indexOf('phi'),
+  };
   
-  if (timeIdx === -1) return [];
+  if (indices.time === -1) return [];
   
   return raw.data.map(row => {
     try {
-      const t = new Date(row[timeIdx]);
+      const t = new Date(row[indices.time]);
       if (isNaN(t.getTime())) return null;
       
       return {
         time: t.getTime(),
-        bz: bzIdx >= 0 ? row[bzIdx] : null,
-        by: byIdx >= 0 ? row[byIdx] : null,
-        phi: phiIdx >= 0 ? row[phiIdx] : null,
+        bx: indices.bx >= 0 ? row[indices.bx] : null,
+        by: indices.by >= 0 ? row[indices.by] : null,
+        bz: indices.bz >= 0 ? row[indices.bz] : null,
+        bt: indices.bt >= 0 ? row[indices.bt] : null,
+        phi: indices.phi >= 0 ? row[indices.phi] : null,
       };
     } catch {
       return null;
