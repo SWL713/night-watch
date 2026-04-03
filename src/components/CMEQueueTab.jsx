@@ -14,17 +14,14 @@ const C = {
 const CME_COLORS = ['#00FFF0', '#FF00FF', '#00FF00', '#FFFF00', '#FF0080', '#0080FF', '#FF8000', '#80FF00'];
 
 function calculateSpeed(cme) {
-  // Priority 1: Current velocity from position tracking
   if (cme.position?.velocity_current) {
     return { speed: Math.round(cme.position.velocity_current), estimated: false };
   }
   
-  // Priority 2: Current speed from properties
   if (cme.properties?.speed_current) {
     return { speed: Math.round(cme.properties.speed_current), estimated: false };
   }
   
-  // Priority 3: Initial launch speed from scorecard or properties
   if (cme.nasa_scorecard?.cme_analysis?.speed) {
     return { speed: Math.round(cme.nasa_scorecard.cme_analysis.speed), estimated: false };
   }
@@ -37,7 +34,6 @@ function calculateSpeed(cme) {
     return { speed: Math.round(cme.source.speed), estimated: false };
   }
   
-  // Priority 4: Calculate from arrival time, distance, and time elapsed
   const launchTime = cme.source?.launch_time ? new Date(cme.source.launch_time).getTime() : null;
   const ensemble = cme.nasa_scorecard?.ensemble_prediction;
   const arrivalTime = ensemble?.median_arrival_time || ensemble?.arrival_time;
@@ -53,7 +49,6 @@ function calculateSpeed(cme) {
     }
   }
   
-  // Priority 5: Calculate from current position and elapsed time
   if (launchTime) {
     const now = Date.now();
     const elapsedHours = (now - launchTime) / (1000 * 60 * 60);
@@ -187,10 +182,11 @@ export default function CMEQueueTab({ cmes, positions }) {
       }
     }
     
+    // REVERSED: Largest distance_au first = closest to Earth at top
     const sortedForDisplay = [...cmes].sort((a, b) => {
-      const distA = a.position?.distance_au || 999;
-      const distB = b.position?.distance_au || 999;
-      return distA - distB;
+      const distA = a.position?.distance_au || 0;
+      const distB = b.position?.distance_au || 0;
+      return distB - distA; // DESCENDING = largest (nearest Earth) first
     });
     
     return { sortedForDisplay, registry: newRegistry };

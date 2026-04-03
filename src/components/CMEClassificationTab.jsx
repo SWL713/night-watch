@@ -61,12 +61,8 @@ function parseColumnFile(raw) {
       const t = new Date(row[ti]);
       if (isNaN(t.getTime())) return null;
       
-      // Convert phi to 0-360° range (NOAA standard)
-      let phi = indices.phi >= 0 ? row[indices.phi] : null;
-      if (phi !== null) {
-        while (phi < 0) phi += 360;
-        while (phi >= 360) phi -= 360;
-      }
+      // DON'T normalize phi - let it be whatever it is (can go above 360° or below 0°)
+      const phi = indices.phi >= 0 ? row[indices.phi] : null;
       
       return {
         time: t,
@@ -92,7 +88,10 @@ function detectAnnotations(magData, timeRange) {
   
   for (const pt of visData) {
     if (pt.phi === null) continue;
-    const sector = (pt.phi >= 180 && pt.phi < 360) ? 'toward' : 'away';
+    // Normalize ONLY for sector detection
+    let normPhi = pt.phi % 360;
+    if (normPhi < 0) normPhi += 360;
+    const sector = (normPhi >= 180 && normPhi < 360) ? 'toward' : 'away';
     
     if (currentSector === null) {
       currentSector = sector;
@@ -191,8 +190,8 @@ function PlotCanvas({ data, series, yMin, yMax, timeRange, crosshairTime, onCros
 
     const PAD_L = showLabels ? 36 : 8;
     const PAD_R = 6;
-    const PAD_T = 12; // REDUCED from 20
-    const PAD_B = showLabels ? 14 : 4; // REDUCED from 18
+    const PAD_T = 12;
+    const PAD_B = showLabels ? 14 : 4;
     const pW = W - PAD_L - PAD_R;
     const pH = H - PAD_T - PAD_B;
 
@@ -209,19 +208,29 @@ function PlotCanvas({ data, series, yMin, yMax, timeRange, crosshairTime, onCros
     ctx.fillStyle = C.plotBg;
     ctx.fillRect(0, 0, W, H);
 
-    // Phi sector backgrounds (NOAA style: 0-180° Away = Blue, 180-360° Toward = Pink)
+    // Phi sector backgrounds - repeating pattern every 360°
     if (phiMode) {
-      const y180 = vy(180);
-      const y0 = vy(0);
-      const y360 = vy(360);
+      // Draw sectors for the full range
+      const yRangeMin = Math.floor(resolvedYMin / 360) * 360;
+      const yRangeMax = Math.ceil(resolvedYMax / 360) * 360;
       
-      // Away sector (0-180°) - Blue
-      ctx.fillStyle = C.phiAway;
-      ctx.fillRect(PAD_L, y180, pW, y0 - y180);
-      
-      // Toward sector (180-360°) - Pink
-      ctx.fillStyle = C.phiToward;
-      ctx.fillRect(PAD_L, y360, pW, y180 - y360);
+      for (let baseAngle = yRangeMin; baseAngle <= yRangeMax; baseAngle += 360) {
+        const away0 = vy(baseAngle);
+        const toward180 = vy(baseAngle + 180);
+        const away360 = vy(baseAngle + 360);
+        
+        // Away sector (0-180°)
+        if (away0 !== null && toward180 !== null) {
+          ctx.fillStyle = C.phiAway;
+          ctx.fillRect(PAD_L, toward180, pW, away0 - toward180);
+        }
+        
+        // Toward sector (180-360°)
+        if (toward180 !== null && away360 !== null) {
+          ctx.fillStyle = C.phiToward;
+          ctx.fillRect(PAD_L, away360, pW, toward180 - away360);
+        }
+      }
     }
 
     ctx.strokeStyle = C.grid;
@@ -323,7 +332,6 @@ function PlotCanvas({ data, series, yMin, yMax, timeRange, crosshairTime, onCros
       }
     }
 
-    // CROSSHAIR with DATE/TIME LABEL
     if (crosshairTime && !zoomMode) {
       const closest = visData.reduce((prev, curr) =>
         Math.abs(curr.time.getTime() - crosshairTime) < Math.abs(prev.time.getTime() - crosshairTime) ? curr : prev
@@ -340,7 +348,6 @@ function PlotCanvas({ data, series, yMin, yMax, timeRange, crosshairTime, onCros
         ctx.stroke();
         ctx.setLineDash([]);
 
-        // DATE/TIME LABEL - Dynamic label at top
         const dateLabel = closest.time.toLocaleDateString('en-US', { 
           month: 'short', 
           day: 'numeric' 
@@ -361,7 +368,6 @@ function PlotCanvas({ data, series, yMin, yMax, timeRange, crosshairTime, onCros
         ctx.textAlign = 'left';
         ctx.fillText(fullLabel, labelXClamped, PAD_T - 4);
 
-        // Value labels
         for (const s of series) {
           const v = closest[s.key];
           if (v === null || v === undefined) continue;
@@ -392,12 +398,14 @@ function PlotCanvas({ data, series, yMin, yMax, timeRange, crosshairTime, onCros
       ctx.textAlign = 'right';
       
       if (phiMode) {
-        // Phi labels: 0, 90, 180, 270, 360
-        ctx.fillText('360°', PAD_L - 4, vy(360) + 3);
-        ctx.fillText('270°', PAD_L - 4, vy(270) + 3);
-        ctx.fillText('180°', PAD_L - 4, vy(180) + 3);
-        ctx.fillText('90°', PAD_L - 4, vy(90) + 3);
-        ctx.fillText('0°', PAD_L - 4, vy(0) + 3);
+        // Show major tick marks
+        const step = 90;
+        for (let angle = Math.ceil(resolvedYMin / step) * step; angle <= resolvedYMax; angle += step) {
+          const y = vy(angle);
+          if (y !== null) {
+            ctx.fillText(`${angle}°`, PAD_L - 4, y + 3);
+          }
+        }
       } else {
         ctx.fillText(resolvedYMax.toFixed(0), PAD_L - 4, PAD_T + 10);
         if (!symmetric || resolvedYMin !== -resolvedYMax) {
@@ -437,7 +445,6 @@ function PlotCanvas({ data, series, yMin, yMax, timeRange, crosshairTime, onCros
     return () => resizeObserver.disconnect();
   }, [draw]);
 
-  // DRAG BEHAVIOR (not tap)
   const handleInteraction = (e) => {
     if (!onCrosshair) return;
     const canvas = canvasRef.current;
@@ -508,7 +515,6 @@ export default function CMEClassificationTab({ cmes, classifications, registry }
     return () => clearInterval(interval);
   }, []);
 
-  // Auto-select first CME if none selected
   useEffect(() => {
     if (cmes && cmes.length > 0 && !selectedCMEId) {
       setSelectedCMEId(cmes[0].id);
@@ -644,7 +650,7 @@ export default function CMEClassificationTab({ cmes, classifications, registry }
             </div>
             {phiExpanded && (
               <div style={{ flex: 1, padding: '4px', minHeight: 0 }}>
-                <PlotCanvas data={magData} series={phiSeries} yMin={0} yMax={360} timeRange={timeRange} crosshairTime={crosshairT} onCrosshair={setCrosshairT} zoomMode={false} showLabels={true} yLabel="deg" phiMode={true} annotations={annotations} showAnnotations={showAnnotations} />
+                <PlotCanvas data={magData} series={phiSeries} timeRange={timeRange} crosshairTime={crosshairT} onCrosshair={setCrosshairT} zoomMode={false} showLabels={true} yLabel="deg" phiMode={true} annotations={annotations} showAnnotations={showAnnotations} />
               </div>
             )}
           </div>
