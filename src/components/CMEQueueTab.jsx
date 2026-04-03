@@ -208,8 +208,22 @@ export default function CMEQueueTab({ cmes, positions }) {
       hour: '2-digit',
       minute: '2-digit'
     });
-    // Add ± if available
-    return plusMinus ? `${dateStr} ±${plusMinus}h` : dateStr;
+    // Make ± more prominent with color coding
+    if (plusMinus && plusMinus > 0) {
+      return (
+        <span>
+          {dateStr}
+          <span style={{ 
+            color: '#ffaa33', 
+            fontWeight: 600, 
+            marginLeft: 4 
+          }}>
+            ±{plusMinus}h
+          </span>
+        </span>
+      );
+    }
+    return dateStr;
   };
 
   if (cmes.length === 0) {

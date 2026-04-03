@@ -226,8 +226,14 @@ def finalize_event(evt):
     
     if avg_arrival and median_arrival:
         spread_hours = abs(avg_arrival - median_arrival) / 3600
+        # Use a more realistic spread: median ± spread, but minimum ±3 hours
+        spread_seconds = max(spread_hours * 3600, 3 * 3600)
+        earliest = median_arrival - spread_seconds
+        latest = median_arrival + spread_seconds
     else:
         spread_hours = 0
+        earliest = median_arrival
+        latest = median_arrival
     
     # Extract speed from note - FIXED to return None if not found
     speed = None
@@ -248,8 +254,8 @@ def finalize_event(evt):
         'arrival_stats': {
             'average': avg_arrival,
             'median': median_arrival,
-            'earliest': median_arrival,
-            'latest': avg_arrival,
+            'earliest': earliest,
+            'latest': latest,
             'num_predictions': evt["models"],
             'spread_hours': spread_hours
         },
