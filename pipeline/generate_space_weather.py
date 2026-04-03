@@ -199,6 +199,86 @@ def kp_to_g(kp):
     return ''
 
 
+def parse_noaa_3day_forecast_text(forecast_text):
+    """
+    Parse NOAA official 3-day forecast text to extract G-scale predictions.
+    This is THE authoritative source that matches what's on NOAA SWPC website.
+    
+    Example format:
+    NOAA Kp index breakdown Apr 03-Apr 05 2026
+                Apr 03       Apr 04       Apr 05
+    00-03UT       2   (G0)    6   (G2)    3   (G0)
+    03-06UT       3   (G0)    7   (G3)    3   (G0)
+    
+    Returns list of {time: ISO timestamp, kp: float, g: 'G1'/'G2'/etc, observed: False}
+    """
+    import re
+    
+    if not forecast_text:
+        return []
+    
+    results = []
+    lines = forecast_text.split('\n')
+    
+    # Find the date header line (e.g., "            Apr 03       Apr 04       Apr 05")
+    date_line = None
+    date_line_idx = None
+    for i, line in enumerate(lines):
+        if re.search(r'(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)\s+\d{2}', line):
+            date_line = line
+            date_line_idx = i
+            break
+    
+    if not date_line or date_line_idx is None:
+        return []
+    
+    # Extract dates from header
+    date_matches = re.findall(r'(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)\s+(\d{2})', date_line)
+    if len(date_matches) < 3:
+        return []
+    
+    # Convert to datetime objects (assume current year)
+    now = datetime.now(timezone.utc)
+    year = now.year
+    month_map = {'Jan': 1, 'Feb': 2, 'Mar': 3, 'Apr': 4, 'May': 5, 'Jun': 6,
+                 'Jul': 7, 'Aug': 8, 'Sep': 9, 'Oct': 10, 'Nov': 11, 'Dec': 12}
+    
+    dates = []
+    for month_str, day_str in date_matches[:3]:  # Only use first 3 dates
+        month = month_map[month_str]
+        day = int(day_str)
+        dt = datetime(year, month, day, tzinfo=timezone.utc)
+        dates.append(dt)
+    
+    # Parse data rows (e.g., "00-03UT       2   (G0)    6   (G2)    3   (G0)")
+    for line in lines[date_line_idx + 1:]:
+        # Match time range and values - handle variable spacing
+        match = re.match(r'(\d{2})-(\d{2})UT\s+(\d+)\s+\(G(\d+)\)\s+(\d+)\s+\(G(\d+)\)\s+(\d+)\s+\(G(\d+)\)', line)
+        if not match:
+            continue
+        
+        start_hour = int(match.group(1))
+        
+        # Process each day's value
+        for day_idx in range(3):
+            kp_val = int(match.group(3 + day_idx * 2))
+            g_val = int(match.group(4 + day_idx * 2))
+            
+            # Calculate timestamp (use start of 3-hour block)
+            dt = dates[day_idx].replace(hour=start_hour, minute=0, second=0, microsecond=0)
+            
+            g_label = f'G{g_val}' if g_val > 0 else ''
+            
+            results.append({
+                'time': dt.isoformat(),
+                'kp': float(kp_val),
+                'g': g_label,
+                'observed': False  # All are forecasts
+            })
+    
+    return results
+
+
 def fetch_kp_data():
     """
     Fetch real-time and forecast Kp from NOAA.
@@ -239,69 +319,96 @@ def fetch_kp_data():
     except Exception as e:
         log.warning(f'Kp 1m fetch failed: {e}')
 
-    # ── 3-hour forecast/observed blocks ───────────────────────────────────────
+    # ── 3-hour forecast blocks - USE OFFICIAL NOAA 3-DAY TEXT FORECAST ───────
     kp_forecast = []
     kp_now = None
+    
+    # PRIORITY 1: Official NOAA 3-day text forecast (matches SWPC website exactly!)
     try:
-        data = safe_get(KP_FORECAST_URL)
-        if not data:
-            log.warning('Kp forecast: no data returned')
+        log.info('Fetching official NOAA 3-day text forecast...')
+        response = requests.get(NOAA_FORECAST_URL, timeout=10)
+        response.raise_for_status()
+        forecast_blocks = parse_noaa_3day_forecast_text(response.text)
+        
+        if forecast_blocks:
+            log.info(f'✓ Parsed official 3-day forecast: {len(forecast_blocks)} blocks')
+            kp_forecast = forecast_blocks
+            
+            # Get kp_now from most recent OBSERVED block (if any marked observed)
+            observed_blocks = [b for b in forecast_blocks if b.get('observed') and 
+                             datetime.fromisoformat(b['time']) <= now]
+            if observed_blocks:
+                kp_now = observed_blocks[-1]['kp']
+                log.info(f'✓ kp_now from 3-day forecast: {kp_now}')
         else:
-            log.info(f'Kp forecast raw: {len(data)} rows, first row type={type(data[0]).__name__}, first row={str(data[0])[:120]}')
-            last_observed_kp = None
-
-            # Handle list-of-lists (header row first) OR list-of-dicts
-            if isinstance(data[0], list):
-                headers = [str(h).lower().strip() for h in data[0]]
-                log.info(f'Kp forecast headers: {headers}')
-                ti = next((i for i, h in enumerate(headers) if 'time' in h), 0)
-                ki = next((i for i, h in enumerate(headers) if 'kp' in h), 1)
-                oi = next((i for i, h in enumerate(headers) if 'observ' in h), 2)
-                for row in data[1:]:
-                    try:
-                        t_str = str(row[ti]).replace('Z', '+00:00')
-                        dt = datetime.fromisoformat(t_str)
-                        if dt.tzinfo is None: dt = dt.replace(tzinfo=timezone.utc)
-                        kp_f = float(row[ki])
-                        obs_flag = str(row[oi]).lower() if len(row) > oi else ''
-                        is_observed = obs_flag in ('observed', 'estimated')
-                        kp_forecast.append({'time': dt.isoformat(), 'kp': round(kp_f, 2),
-                                            'g': kp_to_g(kp_f), 'observed': is_observed})
-                        if is_observed and dt <= now:
-                            last_observed_kp = kp_f
-                    except Exception as row_err:
-                        log.debug(f'Kp forecast row skip: {row_err} | row={row}')
-            elif isinstance(data[0], dict):
-                log.info(f'Kp forecast dict keys: {list(data[0].keys())}')
-                for rec in data:
-                    try:
-                        t_str = str(rec.get('time_tag') or rec.get('time') or '').replace('Z', '+00:00')
-                        dt = datetime.fromisoformat(t_str)
-                        if dt.tzinfo is None: dt = dt.replace(tzinfo=timezone.utc)
-                        kp_f = float(rec.get('kp') or rec.get('Kp') or rec.get('kp_index') or 0)
-                        obs_flag = str(rec.get('observed') or rec.get('type') or '').lower()
-                        is_observed = obs_flag in ('observed', 'estimated', 'true', '1')
-                        kp_forecast.append({'time': dt.isoformat(), 'kp': round(kp_f, 2),
-                                            'g': kp_to_g(kp_f), 'observed': is_observed})
-                        if is_observed and dt <= now:
-                            last_observed_kp = kp_f
-                    except Exception as row_err:
-                        log.debug(f'Kp forecast dict row skip: {row_err}')
-
-            if last_observed_kp is not None:
-                kp_now = round(last_observed_kp, 2)
-
-            # Fallback: use most recent 1-min observed Kp if forecast gave nothing
-            if kp_now is None and kp_observed:
-                recent_kps = [p['kp'] for p in kp_observed[-6:] if p.get('kp') is not None]
-                if recent_kps:
-                    kp_now = round(max(recent_kps), 2)
-                    log.info(f'Kp now fallback from 1m observed: {kp_now}')
-
-            log.info(f'Kp forecast: {len(kp_forecast)} blocks, kp_now={kp_now}')
+            log.warning('3-day forecast parsed but returned no blocks')
+            
     except Exception as e:
-        log.warning(f'Kp forecast fetch failed: {e}')
-        import traceback; log.warning(traceback.format_exc())
+        log.warning(f'Failed to fetch/parse 3-day forecast: {e}')
+    
+    # FALLBACK: JSON Kp forecast if 3-day text fails
+    if not kp_forecast:
+        log.info('Falling back to JSON Kp forecast...')
+        try:
+            data = safe_get(KP_FORECAST_URL)
+            if not data:
+                log.warning('Kp forecast: no data returned')
+            else:
+                log.info(f'Kp forecast raw: {len(data)} rows, first row type={type(data[0]).__name__}, first row={str(data[0])[:120]}')
+                last_observed_kp = None
+
+                # Handle list-of-lists (header row first) OR list-of-dicts
+                if isinstance(data[0], list):
+                    headers = [str(h).lower().strip() for h in data[0]]
+                    log.info(f'Kp forecast headers: {headers}')
+                    ti = next((i for i, h in enumerate(headers) if 'time' in h), 0)
+                    ki = next((i for i, h in enumerate(headers) if 'kp' in h), 1)
+                    oi = next((i for i, h in enumerate(headers) if 'observ' in h), 2)
+                    for row in data[1:]:
+                        try:
+                            t_str = str(row[ti]).replace('Z', '+00:00')
+                            dt = datetime.fromisoformat(t_str)
+                            if dt.tzinfo is None: dt = dt.replace(tzinfo=timezone.utc)
+                            kp_f = float(row[ki])
+                            obs_flag = str(row[oi]).lower() if len(row) > oi else ''
+                            is_observed = obs_flag in ('observed', 'estimated')
+                            kp_forecast.append({'time': dt.isoformat(), 'kp': round(kp_f, 2),
+                                                'g': kp_to_g(kp_f), 'observed': is_observed})
+                            if is_observed and dt <= now:
+                                last_observed_kp = kp_f
+                        except Exception as row_err:
+                            log.debug(f'Kp forecast row skip: {row_err} | row={row}')
+                elif isinstance(data[0], dict):
+                    log.info(f'Kp forecast dict keys: {list(data[0].keys())}')
+                    for rec in data:
+                        try:
+                            t_str = str(rec.get('time_tag') or rec.get('time') or '').replace('Z', '+00:00')
+                            dt = datetime.fromisoformat(t_str)
+                            if dt.tzinfo is None: dt = dt.replace(tzinfo=timezone.utc)
+                            kp_f = float(rec.get('kp') or rec.get('Kp') or rec.get('kp_index') or 0)
+                            obs_flag = str(rec.get('observed') or rec.get('type') or '').lower()
+                            is_observed = obs_flag in ('observed', 'estimated', 'true', '1')
+                            kp_forecast.append({'time': dt.isoformat(), 'kp': round(kp_f, 2),
+                                                'g': kp_to_g(kp_f), 'observed': is_observed})
+                            if is_observed and dt <= now:
+                                last_observed_kp = kp_f
+                        except Exception as row_err:
+                            log.debug(f'Kp forecast dict row skip: {row_err}')
+
+                if last_observed_kp is not None:
+                    kp_now = round(last_observed_kp, 2)
+
+                # Fallback: use most recent 1-min observed Kp if forecast gave nothing
+                if kp_now is None and kp_observed:
+                    recent_kps = [p['kp'] for p in kp_observed[-6:] if p.get('kp') is not None]
+                    if recent_kps:
+                        kp_now = round(max(recent_kps), 2)
+                        log.info(f'Kp now fallback from 1m observed: {kp_now}')
+
+                log.info(f'Kp forecast: {len(kp_forecast)} blocks, kp_now={kp_now}')
+        except Exception as e:
+            log.warning(f'Kp forecast fetch failed: {e}')
+            import traceback; log.warning(traceback.format_exc())
 
     g_now = kp_to_g(kp_now) if kp_now is not None else ''
 
