@@ -1,5 +1,5 @@
 """
-CCMC Scoreboard Scraper - FIXED VERSION
+CCMC Scoreboard Scraper - Based on Real Structure
 Fetches CME list from https://kauai.ccmc.gsfc.nasa.gov/CMEscoreboard/
 """
 
@@ -7,13 +7,44 @@ import requests
 from bs4 import BeautifulSoup
 from datetime import datetime, timezone, timedelta
 import re
+from html.parser import HTMLParser
+
+
+class CCMCTextExtractor(HTMLParser):
+    """Extract plain text lines from HTML"""
+    def __init__(self):
+        super().__init__()
+        self.parts = []
+
+    def handle_starttag(self, tag, attrs):
+        if tag in {"br", "p", "div", "li", "tr", "td", "th", "h1", "h2", "h3", "h4", "h5", "h6"}:
+            self.parts.append("\n")
+
+    def handle_endtag(self, tag):
+        if tag in {"p", "div", "li", "tr", "td", "th", "h1", "h2", "h3", "h4", "h5", "h6"}:
+            self.parts.append("\n")
+
+    def handle_data(self, data):
+        text = data.strip()
+        if text:
+            self.parts.append(text)
+
+    def get_lines(self):
+        raw_text = "\n".join(self.parts)
+        raw_lines = raw_text.splitlines()
+        lines = []
+        for line in raw_lines:
+            cleaned = re.sub(r"\s+", " ", line).strip()
+            if cleaned:
+                lines.append(cleaned)
+        return lines
 
 
 def fetch_cme_scoreboard(log):
     """
-    Scrape CCMC CME Scoreboard
+    Scrape CCMC CME Scoreboard using proper HTML structure
     
-    Returns list of CME dicts with: event_id, launch_time, speed, type, predictions, etc.
+    Returns list of CME dicts with: event_id, launch_time, speed, predictions, etc.
     """
     
     url = 'https://kauai.ccmc.gsfc.nasa.gov/CMEscoreboard/'
@@ -22,176 +53,279 @@ def fetch_cme_scoreboard(log):
         response = requests.get(url, timeout=30)
         response.raise_for_status()
         
-        soup = BeautifulSoup(response.text, 'html.parser')
+        # Parse HTML to text lines
+        parser = CCMCTextExtractor()
+        parser.feed(response.text)
+        lines = parser.get_lines()
         
-        # Find all table rows
-        table = soup.find('table')
-        if not table:
-            log.warning("No table found on scoreboard")
-            return []
+        # Split into Active and Past sections
+        active_lines, past_lines = split_sections(lines)
         
-        cmes = []
-        current_cme = None
-        seen_events = set()
+        # Parse Active CMEs only (past CMEs are for historical reference)
+        active_events = parse_cme_blocks(active_lines, log)
         
-        # Process rows
-        rows = table.find_all('tr')
-        
-        for row in rows:
-            cols = row.find_all('td')
-            if len(cols) < 4:
-                continue
-            
-            # Extract raw text from all columns
-            col_texts = [col.get_text(strip=True) for col in cols]
-            
-            # Check if this is a MAIN EVENT ROW (has start time in format YYYY-MM-DD HH:MM:SS)
-            # Main event rows have the CME start time in specific columns
-            is_main_event = False
-            event_time_str = None
-            
-            # Try to find a date pattern that looks like a CME start time
-            for text in col_texts[:5]:  # Check first few columns
-                # Match: YYYY-MM-DDTHH:MMZ or YYYY-MM-DD HH:MM:SS
-                match = re.search(r'(\d{4}-\d{2}-\d{2})[T\s](\d{2}:\d{2})', text)
-                if match:
-                    event_time_str = text
-                    is_main_event = True
-                    break
-            
-            if not is_main_event:
-                # This is a prediction sub-row, skip it
-                continue
-            
-            try:
-                # Parse event time
-                event_time = parse_scoreboard_time(event_time_str)
-                if not event_time:
-                    continue
-                
-                # Skip events older than 30 days
-                age_days = (datetime.now(timezone.utc) - event_time).days
-                if age_days > 30:
-                    continue
-                
-                # Create unique event ID
-                event_id = event_time.strftime('%Y-%m-%dT%H:%MZ')
-                
-                # Skip duplicates
-                if event_id in seen_events:
-                    continue
-                seen_events.add(event_id)
-                
-                # Extract speed (look for number followed by km/s)
-                speed = None
-                for text in col_texts:
-                    match = re.search(r'(\d+\.?\d*)\s*km/s', text, re.IGNORECASE)
-                    if match:
-                        speed = float(match.group(1))
-                        break
-                
-                if not speed:
-                    # Try to find any reasonable speed value (300-3000 km/s)
-                    for text in col_texts:
-                        try:
-                            val = float(re.sub(r'[^\d.]', '', text))
-                            if 300 <= val <= 3000:
-                                speed = val
-                                break
-                        except:
-                            continue
-                
-                # Default speed if not found
-                if not speed:
-                    speed = 500  # Default CME speed
-                
-                # Extract CME type
-                cme_type = 'Unknown'
-                for text in col_texts:
-                    if 'halo' in text.lower():
-                        cme_type = 'Full Halo'
-                        break
-                    elif 'partial' in text.lower():
-                        cme_type = 'Partial Halo'
-                        break
-                
-                # Extract arrival predictions (look for timestamps in future)
-                arrival_times = []
-                now = datetime.now(timezone.utc)
-                
-                for text in col_texts:
-                    # Find future timestamps
-                    match = re.search(r'(\d{4}-\d{2}-\d{2})[T\s](\d{2}:\d{2})', text)
-                    if match:
-                        try:
-                            pred_time = parse_scoreboard_time(text)
-                            if pred_time and pred_time > now:
-                                arrival_times.append(pred_time.timestamp())
-                        except:
-                            continue
-                
-                # Calculate arrival statistics
-                if arrival_times:
-                    avg_arrival = sum(arrival_times) / len(arrival_times)
-                    sorted_times = sorted(arrival_times)
-                    median_arrival = sorted_times[len(sorted_times) // 2]
-                    earliest = min(arrival_times)
-                    latest = max(arrival_times)
-                    spread_hours = (latest - earliest) / 3600
-                else:
-                    avg_arrival = median_arrival = earliest = latest = None
-                    spread_hours = 0
-                
-                cme = {
-                    'event_id': event_id,
-                    'launch_time': event_time.isoformat(),
-                    'speed': speed,
-                    'type': cme_type,
-                    'predictions': [],  # Detailed predictions not parsed in simple version
-                    'arrival_stats': {
-                        'average': avg_arrival,
-                        'median': median_arrival,
-                        'earliest': earliest,
-                        'latest': latest,
-                        'num_predictions': len(arrival_times),
-                        'spread_hours': spread_hours
-                    },
-                    'actual_arrival': None,
-                    'status': 'ACTIVE'
-                }
-                
-                cmes.append(cme)
-                
-            except Exception as e:
-                log.warning(f"Failed to parse CME row: {e}")
-                continue
-        
-        log.info(f"Scraped {len(cmes)} CMEs from scoreboard")
-        return cmes
+        log.info(f"Scraped {len(active_events)} CMEs from scoreboard")
+        return active_events
         
     except Exception as e:
         log.error(f"Scoreboard scrape failed: {e}")
         return []
 
 
+def split_sections(lines):
+    """Split lines into Active and Past CME sections"""
+    active_idx = None
+    past_idx = None
+    
+    for i, line in enumerate(lines):
+        if line == "Active CMEs:":
+            active_idx = i
+        elif line == "Past CMEs:":
+            past_idx = i
+            break
+    
+    if active_idx is None:
+        # Fallback: treat all as active
+        return lines, []
+    
+    if past_idx is None:
+        # No past section, all active
+        return lines[active_idx + 1:], []
+    
+    active_lines = lines[active_idx + 1:past_idx]
+    past_lines = lines[past_idx + 1:]
+    return active_lines, past_lines
+
+
+def parse_cme_blocks(section_lines, log):
+    """
+    Parse CME blocks from text lines
+    
+    Structure:
+    CME: 2026-04-03T16:50Z
+    CME Note: Full halo, Earth-directed
+    Predicted Shock Arrival Time...
+    2026-04-05T12:30Z  (prediction timestamp)
+    WSA-ENLIL + Cone (NASA)  (method)
+    ...
+    2026-04-05T10:00Z
+    Average of all Methods  (AVG)
+    2026-04-05T11:00Z
+    Median of all Methods  (MEDIAN)
+    """
+    
+    events = []
+    current = None
+    pending_prediction_line = None
+    in_note = False
+    
+    for line in section_lines:
+        # Stop at footer
+        if line.startswith("Previous Predictions in ") or line.startswith("CCMC Rules of the Road"):
+            break
+        
+        # New CME event
+        if line.startswith("CME: "):
+            # Finalize previous event
+            if current:
+                finalized = finalize_event(current)
+                if finalized:
+                    events.append(finalized)
+            
+            # Start new event
+            event_id = line.replace("CME: ", "").strip()
+            current = {
+                "raw_event_id": event_id,
+                "note_full": "",
+                "avg_raw": None,
+                "median_raw": None,
+                "models": 0,
+                "not_detected": False,
+            }
+            pending_prediction_line = None
+            in_note = False
+            continue
+        
+        if not current:
+            continue
+        
+        # Not detected flag
+        if line == "This CME was not detected at Earth!":
+            current["not_detected"] = True
+            in_note = False
+            continue
+        
+        # Skip observed data sections
+        if line.startswith("Actual Shock Arrival Time:"):
+            in_note = False
+            continue
+        
+        if line.startswith("Observed Geomagnetic Storm Parameters:"):
+            in_note = False
+            continue
+        
+        # CME Note section
+        if line.startswith("CME Note:"):
+            current["note_full"] = line.replace("CME Note:", "").strip()
+            in_note = True
+            continue
+        
+        # Prediction section header
+        if line.startswith("Predicted Shock Arrival Time"):
+            in_note = False
+            continue
+        
+        # Multi-line CME notes
+        if in_note:
+            if line.startswith("CME: ") or line.startswith("Predicted Shock Arrival Time"):
+                in_note = False
+            else:
+                current["note_full"] += " " + line
+                continue
+        
+        # Prediction timestamp row
+        if extract_first_timestamp(line):
+            pending_prediction_line = line
+            continue
+        
+        # Method row (paired with prior timestamp)
+        if pending_prediction_line:
+            ts = extract_first_timestamp(pending_prediction_line)
+            
+            # Average prediction
+            if "Average of all Methods" in line:
+                current["avg_raw"] = ts
+                pending_prediction_line = None
+                continue
+            
+            # Median prediction
+            if "Median of all Methods" in line:
+                current["median_raw"] = ts
+                pending_prediction_line = None
+                continue
+            
+            # Count actual model submissions
+            method_markers = [
+                "WSA-ENLIL", "Ensemble", "Other (", "CMEFM",
+                "Met Office", "BoM", "NOAA/SWPC", "SIDC",
+            ]
+            
+            if any(marker in line for marker in method_markers):
+                if "Auto Generated" not in line:
+                    current["models"] += 1
+                pending_prediction_line = None
+                continue
+    
+    # Finalize last event
+    if current:
+        finalized = finalize_event(current)
+        if finalized:
+            events.append(finalized)
+    
+    return events
+
+
+def extract_first_timestamp(text):
+    """Extract first ISO timestamp from text"""
+    match = re.search(r"\b\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(?::\d{2})?Z?\b", text)
+    return match.group(0) if match else None
+
+
+def finalize_event(evt):
+    """Convert raw parsed event to final CME dict"""
+    
+    if not evt or not evt["raw_event_id"]:
+        return None
+    
+    # Parse launch time
+    launch_time = parse_scoreboard_time(evt["raw_event_id"])
+    if not launch_time:
+        return None
+    
+    # Skip old events (>30 days)
+    age_days = (datetime.now(timezone.utc) - launch_time).days
+    if age_days > 30:
+        return None
+    
+    # Parse arrival times
+    avg_arrival = None
+    median_arrival = None
+    
+    if evt["avg_raw"]:
+        avg_time = parse_scoreboard_time(evt["avg_raw"])
+        if avg_time:
+            avg_arrival = avg_time.timestamp()
+    
+    if evt["median_raw"]:
+        median_time = parse_scoreboard_time(evt["median_raw"])
+        if median_time:
+            median_arrival = median_time.timestamp()
+    
+    # Calculate spread
+    if avg_arrival and median_arrival:
+        spread_hours = abs(avg_arrival - median_arrival) / 3600
+    else:
+        spread_hours = 0
+    
+    # Extract speed from note (if mentioned)
+    speed = 500  # Default
+    note = evt.get("note_full", "")
+    speed_match = re.search(r'(\d+)\s*km/s', note, re.IGNORECASE)
+    if speed_match:
+        speed = float(speed_match.group(1))
+    
+    # Classify type
+    note_lower = note.lower()
+    if "full halo" in note_lower:
+        cme_type = "Full Halo"
+    elif "partial halo" in note_lower:
+        cme_type = "Partial Halo"
+    elif "halo" in note_lower:
+        cme_type = "Halo"
+    elif "earth-directed" in note_lower:
+        cme_type = "Earth-directed"
+    else:
+        cme_type = "Unknown"
+    
+    return {
+        'event_id': launch_time.strftime('%Y-%m-%dT%H:%MZ'),
+        'launch_time': launch_time.isoformat(),
+        'speed': speed,
+        'type': cme_type,
+        'predictions': [],
+        'arrival_stats': {
+            'average': avg_arrival,
+            'median': median_arrival,
+            'earliest': median_arrival,  # Use median as earliest estimate
+            'latest': avg_arrival,  # Use avg as latest estimate
+            'num_predictions': evt["models"],
+            'spread_hours': spread_hours
+        },
+        'actual_arrival': None,
+        'status': 'ACTIVE',
+        'not_detected': evt.get("not_detected", False)
+    }
+
+
 def parse_scoreboard_time(time_str):
-    """Parse various time formats from scoreboard"""
+    """Parse timestamp from scoreboard"""
     
     if not time_str:
         return None
     
+    # Strip trailing Z if present
+    time_str = time_str.strip().rstrip('Z')
+    
     formats = [
-        '%Y-%m-%dT%H:%MZ',
-        '%Y-%m-%dT%H:%M:%SZ',
+        '%Y-%m-%dT%H:%M:%S',
+        '%Y-%m-%dT%H:%M',
         '%Y-%m-%d %H:%M:%S',
         '%Y-%m-%d %H:%M',
-        '%Y/%m/%d %H:%M',
-        '%m/%d/%Y %H:%M'
     ]
     
     for fmt in formats:
         try:
-            return datetime.strptime(time_str.strip(), fmt).replace(tzinfo=timezone.utc)
+            return datetime.strptime(time_str, fmt).replace(tzinfo=timezone.utc)
         except:
             continue
     
@@ -199,10 +333,8 @@ def parse_scoreboard_time(time_str):
 
 
 def extract_predictions(row, log):
-    """Extract forecaster predictions from table row"""
-    predictions = []
-    # Simplified - detailed prediction parsing not implemented
-    return predictions
+    """Extract forecaster predictions from table row (not implemented)"""
+    return []
 
 
 def sync_queue_with_scoreboard(queue, scoreboard, coronal_holes, log):
@@ -221,6 +353,10 @@ def sync_queue_with_scoreboard(queue, scoreboard, coronal_holes, log):
     
     # Add new CMEs
     for sb_cme in scoreboard:
+        # Skip CMEs that were not detected at Earth
+        if sb_cme.get('not_detected'):
+            continue
+        
         cme_id = f"CME_{sb_cme['event_id']}"
         
         if cme_id not in existing_ids:
@@ -261,7 +397,7 @@ def create_cme_from_scoreboard(sb_cme, coronal_holes, log):
     
     cme_id = f"CME_{sb_cme['event_id']}"
     
-    # Associate coronal hole (simplified - would need location matching)
+    # Associate coronal hole (simplified)
     ch_association = None
     
     cme = {
