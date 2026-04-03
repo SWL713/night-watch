@@ -1,38 +1,40 @@
-import React, { useState, useEffect } from 'react';
-import './CMEClassificationTab.css';
+import { useState, useEffect } from 'react';
 
-// Neon colors matching Queue tab
+const FONT = 'DejaVu Sans Mono, Consolas, monospace';
+const C = {
+  bg: '#06080f',
+  plotBg: '#04060d',
+  border: '#0d1525',
+  grid: 'rgba(30,45,70,0.6)',
+  zero: 'rgba(60,90,120,0.5)',
+  text: '#2a4a5a',
+  textDim: '#1a2a3a',
+  bz_neg: '#ee5577',
+  bz_pos: '#44ddaa',
+  by: '#4488ff',
+  phi: '#44aaff',
+};
+
 const CME_COLORS = [
-  '#00FFF0', // Cyan
-  '#FF00FF', // Magenta
-  '#00FF00', // Green
-  '#FFFF00', // Yellow
-  '#FF0080', // Pink
-  '#0080FF', // Blue
-  '#FF8000', // Orange
-  '#80FF00', // Lime
+  '#00FFF0', '#FF00FF', '#00FF00', '#FFFF00', 
+  '#FF0080', '#0080FF', '#FF8000', '#80FF00',
 ];
 
 export default function CMEClassificationTab({ cmes, classifications }) {
   const [showBz, setShowBz] = useState(true);
   const [showBy, setShowBy] = useState(true);
-  const [bzByData, setBzByData] = useState([]);
-  const [phiData, setPhiData] = useState([]);
+  const [magData, setMagData] = useState([]);
   const [selectedCMEIndex, setSelectedCMEIndex] = useState(0);
 
   useEffect(() => {
-    // Fetch L1 magnetic field data for plots
     const fetchMagData = async () => {
       try {
         const response = await fetch(`/night-watch/data/space_weather.json?t=${Date.now()}`);
-        if (!response.ok) {
-          console.warn('Could not load space_weather.json');
-          return;
-        }
+        if (!response.ok) return;
         
         const data = await response.json();
         
-        // Extract last 24 hours of Bz/By data
+        // Extract last 24 hours
         const now = Date.now();
         const last24h = now - (24 * 60 * 60 * 1000);
         
@@ -46,11 +48,10 @@ export default function CMEClassificationTab({ cmes, classifications }) {
               phi: Math.atan2(point.by_gsm, point.bz_gsm) * (180 / Math.PI)
             }));
           
-          setBzByData(recentData);
-          setPhiData(recentData);
+          setMagData(recentData);
         }
       } catch (err) {
-        console.error('Error fetching mag data:', err);
+        console.error('Error loading mag data:', err);
       }
     };
 
@@ -60,97 +61,126 @@ export default function CMEClassificationTab({ cmes, classifications }) {
   }, []);
 
   const renderBzByPlot = () => {
-    if (bzByData.length === 0) {
-      return <div className="plot-empty">Loading magnetic field data...</div>;
+    if (magData.length === 0) {
+      return (
+        <div style={{ 
+          display: 'flex', 
+          alignItems: 'center', 
+          justifyContent: 'center',
+          height: 160,
+          color: C.textDim,
+          fontSize: 9
+        }}>
+          Loading magnetic field data...
+        </div>
+      );
     }
 
     const width = 800;
-    const height = 180;
-    const padding = { top: 15, right: 15, bottom: 25, left: 45 };
-    const plotWidth = width - padding.left - padding.right;
-    const plotHeight = height - padding.top - padding.bottom;
+    const height = 160;
+    const padL = 40, padR = 10, padT = 10, padB = 20;
+    const plotWidth = width - padL - padR;
+    const plotHeight = height - padT - padB;
 
-    const allValues = bzByData.flatMap(d => [d.bz, d.by]);
-    const minVal = Math.min(...allValues, -10);
-    const maxVal = Math.max(...allValues, 10);
+    const allVals = magData.flatMap(d => [d.bz, d.by]).filter(v => v != null);
+    const minVal = Math.min(...allVals, -10);
+    const maxVal = Math.max(...allVals, 10);
 
-    const scaleY = (val) => {
-      const normalized = (val - minVal) / (maxVal - minVal);
-      return padding.top + plotHeight - (normalized * plotHeight);
+    const scaleY = (v) => {
+      const norm = (v - minVal) / (maxVal - minVal);
+      return padT + plotHeight - (norm * plotHeight);
     };
 
     const scaleX = (idx) => {
-      return padding.left + (idx / (bzByData.length - 1)) * plotWidth;
+      return padL + (idx / (magData.length - 1)) * plotWidth;
     };
 
-    const bzPath = bzByData.map((d, i) => 
-      `${i === 0 ? 'M' : 'L'} ${scaleX(i)} ${scaleY(d.bz)}`
+    const bzPath = magData.map((d, i) => 
+      d.bz != null ? `${i === 0 ? 'M' : 'L'} ${scaleX(i)} ${scaleY(d.bz)}` : ''
     ).join(' ');
 
-    const byPath = bzByData.map((d, i) => 
-      `${i === 0 ? 'M' : 'L'} ${scaleX(i)} ${scaleY(d.by)}`
+    const byPath = magData.map((d, i) => 
+      d.by != null ? `${i === 0 ? 'M' : 'L'} ${scaleX(i)} ${scaleY(d.by)}` : ''
     ).join(' ');
 
     return (
-      <svg width={width} height={height} className="plot-svg">
-        <line x1={padding.left} y1={scaleY(0)} x2={width - padding.right} y2={scaleY(0)} stroke="#1a3a40" strokeWidth="2" />
-        {showBz && <path d={bzPath} fill="none" stroke="#00FFF0" strokeWidth="2" style={{ filter: 'drop-shadow(0 0 4px #00FFF088)' }} />}
-        {showBy && <path d={byPath} fill="none" stroke="#FF00FF" strokeWidth="2" style={{ filter: 'drop-shadow(0 0 4px #FF00FF88)' }} />}
-        <line x1={padding.left} y1={padding.top} x2={padding.left} y2={height - padding.bottom} stroke="#4a6a70" strokeWidth="1" />
-        <line x1={padding.left} y1={height - padding.bottom} x2={width - padding.right} y2={height - padding.bottom} stroke="#4a6a70" strokeWidth="1" />
-        <text x={padding.left - 32} y={scaleY(maxVal)} fill="#7a8a90" fontSize="10">{maxVal.toFixed(0)}</text>
-        <text x={padding.left - 32} y={scaleY(0)} fill="#7a8a90" fontSize="10">0</text>
-        <text x={padding.left - 32} y={scaleY(minVal)} fill="#7a8a90" fontSize="10">{minVal.toFixed(0)}</text>
-        <text x={padding.left - 35} y={height / 2} fill="#7a8a90" fontSize="11" transform={`rotate(-90 ${padding.left - 35} ${height / 2})`}>nT</text>
-        <text x={width / 2} y={height - 5} fill="#7a8a90" fontSize="11" textAnchor="middle">Last 24 Hours</text>
+      <svg width={width} height={height} style={{ background: C.plotBg, borderRadius: 4 }}>
+        <line x1={padL} y1={scaleY(0)} x2={width - padR} y2={scaleY(0)} stroke={C.zero} strokeWidth="2" />
+        {showBz && <path d={bzPath} fill="none" stroke={C.bz_pos} strokeWidth="2" style={{ filter: 'drop-shadow(0 0 3px #44ddaa88)' }} />}
+        {showBy && <path d={byPath} fill="none" stroke={C.by} strokeWidth="2" style={{ filter: 'drop-shadow(0 0 3px #4488ff88)' }} />}
+        <line x1={padL} y1={padT} x2={padL} y2={height - padB} stroke={C.grid} strokeWidth="1" />
+        <line x1={padL} y1={height - padB} x2={width - padR} y2={height - padB} stroke={C.grid} strokeWidth="1" />
+        <text x={padL - 28} y={scaleY(maxVal)} fill={C.textDim} fontSize="9">{maxVal.toFixed(0)}</text>
+        <text x={padL - 28} y={scaleY(0)} fill={C.textDim} fontSize="9">0</text>
+        <text x={padL - 28} y={scaleY(minVal)} fill={C.textDim} fontSize="9">{minVal.toFixed(0)}</text>
+        <text x={padL - 32} y={height / 2} fill={C.textDim} fontSize="10" transform={`rotate(-90 ${padL - 32} ${height / 2})`}>nT</text>
+        <text x={width / 2} y={height - 4} fill={C.textDim} fontSize="9" textAnchor="middle">Last 24 Hours</text>
       </svg>
     );
   };
 
   const renderPhiPlot = () => {
-    if (phiData.length === 0) {
-      return <div className="plot-empty">Loading phi data...</div>;
+    if (magData.length === 0) {
+      return (
+        <div style={{ 
+          display: 'flex', 
+          alignItems: 'center', 
+          justifyContent: 'center',
+          height: 120,
+          color: C.textDim,
+          fontSize: 9
+        }}>
+          Loading phi data...
+        </div>
+      );
     }
 
     const width = 800;
-    const height = 130;
-    const padding = { top: 15, right: 15, bottom: 25, left: 45 };
-    const plotWidth = width - padding.left - padding.right;
-    const plotHeight = height - padding.top - padding.bottom;
+    const height = 120;
+    const padL = 40, padR = 10, padT = 10, padB = 20;
+    const plotWidth = width - padL - padR;
+    const plotHeight = height - padT - padB;
 
     const scaleY = (angle) => {
-      const normalized = (angle + 180) / 360;
-      return padding.top + plotHeight - (normalized * plotHeight);
+      const norm = (angle + 180) / 360;
+      return padT + plotHeight - (norm * plotHeight);
     };
 
     const scaleX = (idx) => {
-      return padding.left + (idx / (phiData.length - 1)) * plotWidth;
+      return padL + (idx / (magData.length - 1)) * plotWidth;
     };
 
-    const phiPath = phiData.map((d, i) => 
-      `${i === 0 ? 'M' : 'L'} ${scaleX(i)} ${scaleY(d.phi)}`
+    const phiPath = magData.map((d, i) => 
+      d.phi != null ? `${i === 0 ? 'M' : 'L'} ${scaleX(i)} ${scaleY(d.phi)}` : ''
     ).join(' ');
 
     return (
-      <svg width={width} height={height} className="plot-svg">
-        <line x1={padding.left} y1={scaleY(0)} x2={width - padding.right} y2={scaleY(0)} stroke="#1a3a40" strokeWidth="2" />
-        <line x1={padding.left} y1={scaleY(90)} x2={width - padding.right} y2={scaleY(90)} stroke="#1a3a40" strokeWidth="1" strokeDasharray="3,3" />
-        <line x1={padding.left} y1={scaleY(-90)} x2={width - padding.right} y2={scaleY(-90)} stroke="#1a3a40" strokeWidth="1" strokeDasharray="3,3" />
-        <path d={phiPath} fill="none" stroke="#FFFF00" strokeWidth="2" style={{ filter: 'drop-shadow(0 0 4px #FFFF0088)' }} />
-        <line x1={padding.left} y1={padding.top} x2={padding.left} y2={height - padding.bottom} stroke="#4a6a70" />
-        <line x1={padding.left} y1={height - padding.bottom} x2={width - padding.right} y2={height - padding.bottom} stroke="#4a6a70" />
-        <text x={padding.left - 32} y={scaleY(180)} fill="#7a8a90" fontSize="10">180°</text>
-        <text x={padding.left - 32} y={scaleY(0)} fill="#7a8a90" fontSize="10">0°</text>
-        <text x={padding.left - 32} y={scaleY(-180)} fill="#7a8a90" fontSize="10">-180°</text>
-        <text x={padding.left - 35} y={height / 2} fill="#7a8a90" fontSize="11" transform={`rotate(-90 ${padding.left - 35} ${height / 2})`}>Phi (deg)</text>
+      <svg width={width} height={height} style={{ background: C.plotBg, borderRadius: 4 }}>
+        <line x1={padL} y1={scaleY(0)} x2={width - padR} y2={scaleY(0)} stroke={C.zero} strokeWidth="2" />
+        <line x1={padL} y1={scaleY(90)} x2={width - padR} y2={scaleY(90)} stroke={C.grid} strokeWidth="1" strokeDasharray="3,3" />
+        <line x1={padL} y1={scaleY(-90)} x2={width - padR} y2={scaleY(-90)} stroke={C.grid} strokeWidth="1" strokeDasharray="3,3" />
+        <path d={phiPath} fill="none" stroke={C.phi} strokeWidth="2" style={{ filter: 'drop-shadow(0 0 3px #44aaff88)' }} />
+        <line x1={padL} y1={padT} x2={padL} y2={height - padB} stroke={C.grid} />
+        <line x1={padL} y1={height - padB} x2={width - padR} y2={height - padB} stroke={C.grid} />
+        <text x={padL - 28} y={scaleY(180)} fill={C.textDim} fontSize="9">180°</text>
+        <text x={padL - 28} y={scaleY(0)} fill={C.textDim} fontSize="9">0°</text>
+        <text x={padL - 28} y={scaleY(-180)} fill={C.textDim} fontSize="9">-180°</text>
+        <text x={padL - 32} y={height / 2} fill={C.textDim} fontSize="10" transform={`rotate(-90 ${padL - 32} ${height / 2})`}>Phi (deg)</text>
       </svg>
     );
   };
 
   if (cmes.length === 0) {
     return (
-      <div className="cme-classification-tab">
-        <div className="no-cmes">No active CMEs to classify</div>
+      <div style={{
+        flex: 1,
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        color: C.text,
+        fontSize: 11
+      }}>
+        No active CMEs to classify
       </div>
     );
   }
@@ -160,93 +190,172 @@ export default function CMEClassificationTab({ cmes, classifications }) {
   const classification = classifications[selectedCME.id];
 
   return (
-    <div className="cme-classification-tab">
+    <div style={{ 
+      flex: 1, 
+      display: 'flex', 
+      flexDirection: 'column', 
+      overflow: 'auto',
+      padding: '8px'
+    }}>
       {/* Bz/By Plot */}
-      <div className="plot-section">
-        <div className="plot-header">
-          <h3>Bz/By Magnetic Field</h3>
-          <div className="plot-controls">
-            <label className="toggle-control">
-              <input type="checkbox" checked={showBz} onChange={(e) => setShowBz(e.target.checked)} />
-              <span style={{ color: '#00FFF0' }}>Bz</span>
+      <div style={{ 
+        background: C.bg, 
+        border: `1px solid ${C.border}`, 
+        borderRadius: 4, 
+        padding: '8px',
+        marginBottom: 8
+      }}>
+        <div style={{ 
+          display: 'flex', 
+          justifyContent: 'space-between', 
+          alignItems: 'center',
+          marginBottom: 8
+        }}>
+          <span style={{ color: C.textDim, fontSize: 7, letterSpacing: 1 }}>
+            MAGNETIC FIELD (nT)
+          </span>
+          <div style={{ display: 'flex', gap: 12 }}>
+            <label style={{ display: 'flex', alignItems: 'center', gap: 4, cursor: 'pointer' }}>
+              <input 
+                type="checkbox" 
+                checked={showBz} 
+                onChange={(e) => setShowBz(e.target.checked)}
+                style={{ accentColor: C.bz_pos }}
+              />
+              <span style={{ color: C.bz_pos, fontSize: 8, fontWeight: 700 }}>Bz</span>
             </label>
-            <label className="toggle-control">
-              <input type="checkbox" checked={showBy} onChange={(e) => setShowBy(e.target.checked)} />
-              <span style={{ color: '#FF00FF' }}>By</span>
+            <label style={{ display: 'flex', alignItems: 'center', gap: 4, cursor: 'pointer' }}>
+              <input 
+                type="checkbox" 
+                checked={showBy} 
+                onChange={(e) => setShowBy(e.target.checked)}
+                style={{ accentColor: C.by }}
+              />
+              <span style={{ color: C.by, fontSize: 8, fontWeight: 700 }}>By</span>
             </label>
           </div>
         </div>
-        <div className="plot-container">
+        <div style={{ width: '100%', overflowX: 'auto' }}>
           {renderBzByPlot()}
         </div>
       </div>
 
       {/* Phi Plot */}
-      <div className="plot-section">
-        <h3>Phi Angle</h3>
-        <div className="plot-container">
+      <div style={{ 
+        background: C.bg, 
+        border: `1px solid ${C.border}`, 
+        borderRadius: 4, 
+        padding: '8px',
+        marginBottom: 8
+      }}>
+        <div style={{ marginBottom: 8 }}>
+          <span style={{ color: C.textDim, fontSize: 7, letterSpacing: 1 }}>
+            IMF PHI GSM (°)
+          </span>
+        </div>
+        <div style={{ width: '100%', overflowX: 'auto' }}>
           {renderPhiPlot()}
         </div>
       </div>
 
-      {/* Classification for Selected CME */}
-      <div className="classification-details" style={{ borderColor: selectedColor }}>
-        <div className="classification-header">
-          <span className="cme-number" style={{ color: selectedColor }}>
+      {/* Classification Details */}
+      <div style={{ 
+        background: C.bg, 
+        border: `2px solid ${selectedColor}`, 
+        borderRadius: 4, 
+        padding: '10px'
+      }}>
+        <div style={{ 
+          display: 'flex', 
+          alignItems: 'center', 
+          gap: 8,
+          marginBottom: 8,
+          paddingBottom: 8,
+          borderBottom: `1px solid ${C.border}`
+        }}>
+          <span style={{ color: selectedColor, fontSize: 16, fontWeight: 'bold' }}>
             {selectedCMEIndex + 1}
           </span>
-          <span className="cme-id">{selectedCME.id}</span>
-          <span className={`cme-state ${selectedCME.state.current.toLowerCase()}`}>
+          <span style={{ color: C.textDim, fontSize: 8, fontFamily: FONT, flex: 1 }}>
+            {selectedCME.id}
+          </span>
+          <span style={{
+            background: selectedCME.state.current === 'WATCH' ? '#FFA500' : '#4a6a70',
+            color: selectedCME.state.current === 'WATCH' ? '#000' : '#fff',
+            padding: '2px 8px',
+            borderRadius: 3,
+            fontSize: 7,
+            fontWeight: 700
+          }}>
             {selectedCME.state.current}
           </span>
         </div>
-        
+
         {classification ? (
-          <div className="classification-info">
-            <div className="info-row">
-              <span className="label">Bothmer-Schwenn Type:</span>
-              <span className="value">{classification.bs_type || 'Pending'}</span>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 6, fontSize: 8 }}>
+            <div style={{ display: 'flex', gap: 8 }}>
+              <span style={{ color: C.textDim }}>BOTHMER-SCHWENN TYPE:</span>
+              <span style={{ color: '#e0e6ed' }}>{classification.bs_type || 'Pending'}</span>
             </div>
-            <div className="info-row">
-              <span className="label">Confidence:</span>
-              <span className="value">
+            <div style={{ display: 'flex', gap: 8 }}>
+              <span style={{ color: C.textDim }}>CONFIDENCE:</span>
+              <span style={{ color: '#e0e6ed' }}>
                 {classification.confidence ? `${classification.confidence}%` : 'Pending'}
               </span>
             </div>
             {classification.window_start && (
-              <div className="info-row">
-                <span className="label">Classification Window:</span>
-                <span className="value">
+              <div style={{ display: 'flex', gap: 8 }}>
+                <span style={{ color: C.textDim }}>WINDOW:</span>
+                <span style={{ color: '#e0e6ed', fontSize: 7 }}>
                   {new Date(classification.window_start).toLocaleString()} - 
                   {new Date(classification.window_end).toLocaleString()}
                 </span>
               </div>
             )}
             {classification.aurora_prediction && (
-              <div className="info-row">
-                <span className="label">Aurora Prediction:</span>
-                <span className="value">{classification.aurora_prediction}</span>
+              <div style={{ display: 'flex', gap: 8 }}>
+                <span style={{ color: C.textDim }}>AURORA:</span>
+                <span style={{ color: '#e0e6ed' }}>{classification.aurora_prediction}</span>
               </div>
             )}
           </div>
         ) : (
-          <div className="classification-pending">
-            <p>Classification pending - awaiting arrival window</p>
+          <div style={{ textAlign: 'center', padding: '12px 0', color: C.textDim, fontSize: 8 }}>
+            Classification pending - awaiting arrival window
           </div>
         )}
 
-        {/* CME Selector at Bottom - Horizontal */}
+        {/* CME Selector Buttons - Horizontal at bottom */}
         {cmes.length > 1 && (
-          <div className="cme-selector-bottom">
+          <div style={{ 
+            display: 'flex', 
+            gap: 4, 
+            marginTop: 12,
+            paddingTop: 12,
+            borderTop: `1px solid ${C.border}`,
+            justifyContent: 'center',
+            flexWrap: 'wrap'
+          }}>
             {cmes.map((cme, idx) => (
               <button
                 key={cme.id}
-                className={`cme-selector-btn-small ${idx === selectedCMEIndex ? 'active' : ''}`}
                 onClick={() => setSelectedCMEIndex(idx)}
                 style={{
-                  borderColor: CME_COLORS[idx % CME_COLORS.length],
+                  background: idx === selectedCMEIndex 
+                    ? `${CME_COLORS[idx % CME_COLORS.length]}22` 
+                    : 'transparent',
+                  border: `1px solid ${CME_COLORS[idx % CME_COLORS.length]}`,
                   color: CME_COLORS[idx % CME_COLORS.length],
-                  background: idx === selectedCMEIndex ? `${CME_COLORS[idx % CME_COLORS.length]}22` : 'transparent'
+                  minWidth: 28,
+                  height: 28,
+                  borderRadius: 4,
+                  cursor: 'pointer',
+                  fontSize: 10,
+                  fontWeight: 'bold',
+                  transition: 'all 0.2s ease',
+                  boxShadow: idx === selectedCMEIndex 
+                    ? `0 0 12px ${CME_COLORS[idx % CME_COLORS.length]}88` 
+                    : 'none'
                 }}
               >
                 {idx + 1}

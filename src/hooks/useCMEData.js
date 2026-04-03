@@ -14,7 +14,7 @@ export function useCMEData() {
   useEffect(() => {
     const fetchData = async () => {
       try {
-        // Fetch all three files in parallel with base path
+        // Fetch all three files in parallel
         const [queueRes, positionsRes, classificationsRes] = await Promise.all([
           fetch(`/night-watch/data/cme_queue.json?t=${Date.now()}`),
           fetch(`/night-watch/data/cme_positions.json?t=${Date.now()}`),
@@ -34,9 +34,6 @@ export function useCMEData() {
           // Find matching position data
           const positionData = positionsData.cmes?.find(p => p.id === cme.id);
           
-          // Find matching classification data
-          const classificationData = classificationsData.classifications?.[cme.id];
-
           return {
             ...cme,
             // Merge position data (use real-time positions, not queue's stale data)
@@ -47,9 +44,7 @@ export function useCMEData() {
               progress_percent: positionData.progress.percent_to_l1,
               eta_hours: positionData.progress.eta_hours,
               eta_timestamp: positionData.progress.eta_timestamp
-            } : cme.position,
-            // Add classification if available
-            classification: classificationData || cme.classification
+            } : cme.position
           };
         });
 
