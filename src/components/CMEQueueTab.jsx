@@ -13,49 +13,103 @@ const C = {
 
 const CME_COLORS = ['#00FFF0', '#FF00FF', '#00FF00', '#FFFF00', '#FF0080', '#0080FF', '#FF8000', '#80FF00'];
 
-function calculateEstimatedSpeed(cme) {
+function calculateSpeed(cme) {
+  // Priority 1: Current velocity from position tracking
   if (cme.position?.velocity_current) {
     return { speed: Math.round(cme.position.velocity_current), estimated: false };
   }
   
+  // Priority 2: Current speed from properties
   if (cme.properties?.speed_current) {
     return { speed: Math.round(cme.properties.speed_current), estimated: false };
   }
   
+  // Priority 3: Initial launch speed from scorecard or properties
+  if (cme.nasa_scorecard?.cme_analysis?.speed) {
+    return { speed: Math.round(cme.nasa_scorecard.cme_analysis.speed), estimated: false };
+  }
+  
+  if (cme.properties?.speed) {
+    return { speed: Math.round(cme.properties.speed), estimated: false };
+  }
+  
+  if (cme.source?.speed) {
+    return { speed: Math.round(cme.source.speed), estimated: false };
+  }
+  
+  // Priority 4: Calculate from arrival time, distance, and time elapsed
   const launchTime = cme.source?.launch_time ? new Date(cme.source.launch_time).getTime() : null;
-  if (!launchTime) return { speed: null, estimated: false };
+  const ensemble = cme.nasa_scorecard?.ensemble_prediction;
+  const arrivalTime = ensemble?.median_arrival_time || ensemble?.arrival_time;
   
-  const now = Date.now();
-  const elapsedHours = (now - launchTime) / (1000 * 60 * 60);
+  if (launchTime && arrivalTime) {
+    const arrivalMs = new Date(arrivalTime).getTime();
+    const travelTimeHours = (arrivalMs - launchTime) / (1000 * 60 * 60);
+    
+    if (travelTimeHours > 0) {
+      const distanceKm = 1.0 * 149597870.7;
+      const speedKms = distanceKm / (travelTimeHours * 3600);
+      return { speed: Math.round(speedKms), estimated: true };
+    }
+  }
   
-  if (elapsedHours <= 0) return { speed: null, estimated: false };
+  // Priority 5: Calculate from current position and elapsed time
+  if (launchTime) {
+    const now = Date.now();
+    const elapsedHours = (now - launchTime) / (1000 * 60 * 60);
+    
+    if (elapsedHours > 0) {
+      const distanceAU = cme.position?.distance_au || 0;
+      if (distanceAU > 0) {
+        const distanceKm = distanceAU * 149597870.7;
+        const speedKms = distanceKm / (elapsedHours * 3600);
+        return { speed: Math.round(speedKms), estimated: true };
+      }
+    }
+  }
   
-  const distanceAU = cme.position?.distance_au || 0;
-  if (distanceAU <= 0) return { speed: null, estimated: false };
-  
-  const distanceKm = distanceAU * 149597870.7;
-  const speedKms = distanceKm / (elapsedHours * 3600);
-  
-  return {
-    speed: Math.round(speedKms),
-    estimated: true
-  };
+  return { speed: null, estimated: false };
 }
 
 function getETAInfo(cme) {
   const ensemble = cme.nasa_scorecard?.ensemble_prediction;
+  
   if (ensemble?.median_arrival_time) {
+    const medianTime = new Date(ensemble.median_arrival_time);
+    const hours = Math.round((medianTime - new Date()) / (1000 * 60 * 60));
+    
+    let plusMinus = null;
+    if (ensemble.models && ensemble.models.length > 1) {
+      const arrivalTimes = ensemble.models
+        .map(m => m.arrival_time ? new Date(m.arrival_time).getTime() : null)
+        .filter(t => t !== null);
+      
+      if (arrivalTimes.length > 0) {
+        const minTime = Math.min(...arrivalTimes);
+        const maxTime = Math.max(...arrivalTimes);
+        const medianMs = medianTime.getTime();
+        
+        const minusDiff = Math.round((medianMs - minTime) / (1000 * 60 * 60));
+        const plusDiff = Math.round((maxTime - medianMs) / (1000 * 60 * 60));
+        
+        plusMinus = Math.max(minusDiff, plusDiff);
+      }
+    }
+    
     return {
-      timestamp: new Date(ensemble.median_arrival_time),
-      hours: Math.round((new Date(ensemble.median_arrival_time) - new Date()) / (1000 * 60 * 60)),
+      timestamp: medianTime,
+      hours: hours,
+      plusMinus: plusMinus,
       source: 'median'
     };
   }
   
   if (ensemble?.arrival_time) {
+    const meanTime = new Date(ensemble.arrival_time);
     return {
-      timestamp: new Date(ensemble.arrival_time),
-      hours: Math.round((new Date(ensemble.arrival_time) - new Date()) / (1000 * 60 * 60)),
+      timestamp: meanTime,
+      hours: Math.round((meanTime - new Date()) / (1000 * 60 * 60)),
+      plusMinus: null,
       source: 'mean'
     };
   }
@@ -65,6 +119,7 @@ function getETAInfo(cme) {
     return {
       timestamp: eta,
       hours: Math.round(cme.position.eta_hours),
+      plusMinus: null,
       source: 'calc'
     };
   }
@@ -74,25 +129,17 @@ function getETAInfo(cme) {
 
 export default function CMEQueueTab({ cmes, positions }) {
   const [selectedCME, setSelectedCME] = useState(null);
-  
-  // Persistent numbering and coloring
   const [cmeRegistry, setCMERegistry] = useState({});
   
-  // Assign numbers and colors based on launch order
   const { sortedForDisplay, registry } = useMemo(() => {
     if (!cmes || cmes.length === 0) {
-      // Board is empty - reset registry
       return { sortedForDisplay: [], registry: {} };
     }
     
-    // Get existing registry or start fresh
     const newRegistry = { ...cmeRegistry };
-    
-    // Track which numbers and colors are currently in use
     const usedNumbers = new Set();
     const usedColors = new Set();
     
-    // First pass: preserve existing assignments
     for (const cme of cmes) {
       if (newRegistry[cme.id]) {
         usedNumbers.add(newRegistry[cme.id].number);
@@ -100,37 +147,30 @@ export default function CMEQueueTab({ cmes, positions }) {
       }
     }
     
-    // Second pass: assign numbers/colors to new CMEs
     const cmeIds = new Set(cmes.map(c => c.id));
-    
-    // Remove CMEs that are no longer in the array
     for (const id in newRegistry) {
       if (!cmeIds.has(id)) {
         delete newRegistry[id];
       }
     }
     
-    // Sort by launch time to determine number assignment order
     const sortedByLaunch = [...cmes].sort((a, b) => {
       const timeA = a.source?.launch_time ? new Date(a.source.launch_time).getTime() : 0;
       const timeB = b.source?.launch_time ? new Date(b.source.launch_time).getTime() : 0;
       return timeA - timeB;
     });
     
-    // Assign numbers sequentially by launch order
     let nextNumber = 1;
     for (const cme of sortedByLaunch) {
       if (!newRegistry[cme.id]) {
-        // Find next available number
         while (usedNumbers.has(nextNumber)) {
           nextNumber++;
         }
         
-        // Find next available color
         let colorIndex = 0;
         while (usedColors.has(CME_COLORS[colorIndex % CME_COLORS.length])) {
           colorIndex++;
-          if (colorIndex >= CME_COLORS.length * 2) break; // Safety
+          if (colorIndex >= CME_COLORS.length * 2) break;
         }
         
         const assignedColor = CME_COLORS[colorIndex % CME_COLORS.length];
@@ -147,7 +187,6 @@ export default function CMEQueueTab({ cmes, positions }) {
       }
     }
     
-    // Sort by distance for display (nearest to Earth first)
     const sortedForDisplay = [...cmes].sort((a, b) => {
       const distA = a.position?.distance_au || 999;
       const distB = b.position?.distance_au || 999;
@@ -157,7 +196,6 @@ export default function CMEQueueTab({ cmes, positions }) {
     return { sortedForDisplay, registry: newRegistry };
   }, [cmes, cmeRegistry]);
   
-  // Update registry when it changes
   useEffect(() => {
     setCMERegistry(registry);
   }, [registry]);
@@ -223,7 +261,7 @@ export default function CMEQueueTab({ cmes, positions }) {
           const assignment = registry[cme.id] || { number: 0, color: '#888' };
           const cmeNumber = assignment.number;
           const cmeColor = assignment.color;
-          const speedInfo = calculateEstimatedSpeed(cme);
+          const speedInfo = calculateSpeed(cme);
           
           const numModels = cme.arrival?.models?.length 
             || cme.nasa_scorecard?.ensemble_prediction?.num_models 
@@ -331,7 +369,9 @@ export default function CMEQueueTab({ cmes, positions }) {
                   <div style={{ display: 'flex', gap: 6 }}>
                     <span style={{ color: C.textDim }}>ETA:</span>
                     <span style={{ color: C.text }}>
-                      {etaInfo ? `${etaInfo.hours}h` : 'N/A'}
+                      {etaInfo 
+                        ? `${etaInfo.hours}h${etaInfo.plusMinus ? ` ±${etaInfo.plusMinus}h` : ''}`
+                        : 'N/A'}
                     </span>
                   </div>
                   
