@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import CMEQueueTab from './CMEQueueTab';
 import CMEClassificationTab from './CMEClassificationTab';
-import { useCMEData } from '../hooks/useCMEData';
+import useCMEData from '../hooks/useCMEData';
 
 const FONT = 'DejaVu Sans Mono, Consolas, monospace';
 const C = {
@@ -16,7 +16,6 @@ export default function CMEDashboard() {
   const [activeTab, setActiveTab] = useState('queue');
   const { cmes, classifications, positions, loading, error } = useCMEData();
 
-  // Share registry between tabs
   const [registry, setRegistry] = useState({});
 
   if (loading) {
@@ -39,6 +38,7 @@ export default function CMEDashboard() {
     <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
       <div style={{ 
         display: 'flex', 
+        justifyContent: 'center', // CENTERED
         gap: 4, 
         padding: '8px 12px', 
         borderBottom: `2px solid ${C.border}`,

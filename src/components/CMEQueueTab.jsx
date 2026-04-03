@@ -182,11 +182,10 @@ export default function CMEQueueTab({ cmes, positions }) {
       }
     }
     
-    // REVERSED: Largest distance_au first = closest to Earth at top
     const sortedForDisplay = [...cmes].sort((a, b) => {
       const distA = a.position?.distance_au || 0;
       const distB = b.position?.distance_au || 0;
-      return distB - distA; // DESCENDING = largest (nearest Earth) first
+      return distB - distA;
     });
     
     return { sortedForDisplay, registry: newRegistry };
@@ -207,14 +206,16 @@ export default function CMEQueueTab({ cmes, positions }) {
     });
   };
 
-  const formatETATimestamp = (timestamp) => {
+  const formatETATimestamp = (timestamp, plusMinus) => {
     if (!timestamp) return null;
-    return timestamp.toLocaleDateString('en-US', {
+    const dateStr = timestamp.toLocaleDateString('en-US', {
       month: 'short',
       day: 'numeric',
       hour: '2-digit',
       minute: '2-digit'
     });
+    // Add ± if available
+    return plusMinus ? `${dateStr} ±${plusMinus}h` : dateStr;
   };
 
   if (cmes.length === 0) {
@@ -374,7 +375,7 @@ export default function CMEQueueTab({ cmes, positions }) {
                   <div style={{ display: 'flex', gap: 6 }}>
                     <span style={{ color: C.textDim }}>ARRIVAL:</span>
                     <span style={{ color: C.text, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                      {etaInfo ? formatETATimestamp(etaInfo.timestamp) : 'N/A'}
+                      {etaInfo ? formatETATimestamp(etaInfo.timestamp, etaInfo.plusMinus) : 'N/A'}
                     </span>
                   </div>
                   
