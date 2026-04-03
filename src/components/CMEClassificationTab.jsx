@@ -69,12 +69,10 @@ function parseColumnFile(raw) {
   }).filter(Boolean);
 }
 
-// EXACT Space Weather PlotCanvas approach
-function PlotCanvas({ data, series, yMin, yMax, timeRange, crosshairTime, onCrosshair, zoomMode, symmetric, showLabels, yLabel }) {
+function PlotCanvas({ data, series, yMin, yMax, timeRange, crosshairTime, onCrosshair, zoomMode, symmetric, showLabels, yLabel, phiMode }) {
   const canvasRef = useRef(null);
   const dpr = window.devicePixelRatio || 1;
 
-  // AUTO-SCALE Y-axis (Space Weather approach)
   const [resolvedYMin, resolvedYMax] = useMemo(() => {
     if (yMin != null && yMax != null) return [yMin, yMax];
 
@@ -138,11 +136,9 @@ function PlotCanvas({ data, series, yMin, yMax, timeRange, crosshairTime, onCros
       return Math.max(PAD_T, Math.min(PAD_T + pH, y));
     }
 
-    // Background
     ctx.fillStyle = C.plotBg;
     ctx.fillRect(0, 0, W, H);
 
-    // Grid
     ctx.strokeStyle = C.grid;
     ctx.lineWidth = 0.5;
     for (let i = 0; i <= 4; i++) {
@@ -153,7 +149,6 @@ function PlotCanvas({ data, series, yMin, yMax, timeRange, crosshairTime, onCros
       ctx.stroke();
     }
 
-    // Zero line
     if (resolvedYMin < 0 && resolvedYMax > 0) {
       const y0 = vy(0);
       ctx.strokeStyle = C.zero;
@@ -164,49 +159,62 @@ function PlotCanvas({ data, series, yMin, yMax, timeRange, crosshairTime, onCros
       ctx.stroke();
     }
 
-    // Series lines
     const visData = data.filter(p => p.time.getTime() >= tMin && p.time.getTime() <= tMax);
+    
     for (const s of series) {
       const pts = visData.filter(p => p[s.key] !== null);
       if (pts.length === 0) continue;
 
-      ctx.lineWidth = s.width || 1.2;
-      let drawing = false;
-      let curColor = null;
-
-      for (const pt of pts) {
-        const x = tx(pt.time.getTime());
-        const v = pt[s.key];
-        const y = vy(v);
-        if (y === null) {
-          if (drawing) ctx.stroke();
-          drawing = false;
-          continue;
-        }
-
-        const color = s.colorFn ? s.colorFn(v) : s.color;
-
-        if (!drawing) {
-          ctx.strokeStyle = color;
+      // PHI MODE: SCATTER DOTS (Space Weather style)
+      if (s.scatter || phiMode) {
+        for (const pt of pts) {
+          const x = tx(pt.time.getTime());
+          const y = vy(pt[s.key]);
+          if (y === null) continue;
+          ctx.fillStyle = s.color;
           ctx.beginPath();
-          ctx.moveTo(x, y);
-          drawing = true;
-          curColor = color;
-        } else if (color !== curColor) {
-          ctx.lineTo(x, y);
-          ctx.stroke();
-          ctx.strokeStyle = color;
-          ctx.beginPath();
-          ctx.moveTo(x, y);
-          curColor = color;
-        } else {
-          ctx.lineTo(x, y);
+          ctx.arc(x, y, 1.5, 0, Math.PI * 2);
+          ctx.fill();
         }
+      } else {
+        // LINE MODE (Bz/By)
+        ctx.lineWidth = s.width || 1.2;
+        let drawing = false;
+        let curColor = null;
+
+        for (const pt of pts) {
+          const x = tx(pt.time.getTime());
+          const v = pt[s.key];
+          const y = vy(v);
+          if (y === null) {
+            if (drawing) ctx.stroke();
+            drawing = false;
+            continue;
+          }
+
+          const color = s.colorFn ? s.colorFn(v) : s.color;
+
+          if (!drawing) {
+            ctx.strokeStyle = color;
+            ctx.beginPath();
+            ctx.moveTo(x, y);
+            drawing = true;
+            curColor = color;
+          } else if (color !== curColor) {
+            ctx.lineTo(x, y);
+            ctx.stroke();
+            ctx.strokeStyle = color;
+            ctx.beginPath();
+            ctx.moveTo(x, y);
+            curColor = color;
+          } else {
+            ctx.lineTo(x, y);
+          }
+        }
+        if (drawing) ctx.stroke();
       }
-      if (drawing) ctx.stroke();
     }
 
-    // Crosshair
     if (crosshairTime && !zoomMode) {
       const closest = visData.reduce((prev, curr) =>
         Math.abs(curr.time.getTime() - crosshairTime) < Math.abs(prev.time.getTime() - crosshairTime) ? curr : prev
@@ -241,7 +249,6 @@ function PlotCanvas({ data, series, yMin, yMax, timeRange, crosshairTime, onCros
       }
     }
 
-    // Y-axis labels
     if (showLabels) {
       ctx.fillStyle = C.textDim;
       ctx.font = `9px ${FONT}`;
@@ -260,7 +267,6 @@ function PlotCanvas({ data, series, yMin, yMax, timeRange, crosshairTime, onCros
       }
     }
 
-    // Axes
     ctx.strokeStyle = C.grid;
     ctx.lineWidth = 1;
     ctx.beginPath();
@@ -268,7 +274,7 @@ function PlotCanvas({ data, series, yMin, yMax, timeRange, crosshairTime, onCros
     ctx.lineTo(PAD_L, PAD_T + pH);
     ctx.lineTo(W - PAD_R, PAD_T + pH);
     ctx.stroke();
-  }, [data, series, timeRange, resolvedYMin, resolvedYMax, crosshairTime, zoomMode, showLabels, yLabel, dpr]);
+  }, [data, series, timeRange, resolvedYMin, resolvedYMax, crosshairTime, zoomMode, showLabels, yLabel, phiMode, dpr]);
 
   useEffect(() => {
     draw();
@@ -361,27 +367,10 @@ export default function CMEClassificationTab({ cmes, classifications }) {
   };
 
   const bzBySeries = [];
-  if (showBz) bzBySeries.push({
-    key: 'bz',
-    label: 'Bz',
-    color: C.bz_pos,
-    colorFn: (v) => v >= 0 ? C.bz_pos : C.bz_neg,
-    width: 1.5
-  });
-  if (showBy) bzBySeries.push({
-    key: 'by',
-    label: 'By',
-    color: C.by_pos,
-    colorFn: (v) => v >= 0 ? C.by_pos : C.by_neg,
-    width: 1.5
-  });
+  if (showBz) bzBySeries.push({ key: 'bz', label: 'Bz', color: C.bz_pos, colorFn: (v) => v >= 0 ? C.bz_pos : C.bz_neg, width: 1.5 });
+  if (showBy) bzBySeries.push({ key: 'by', label: 'By', color: C.by_pos, colorFn: (v) => v >= 0 ? C.by_pos : C.by_neg, width: 1.5 });
 
-  const phiSeries = [{
-    key: 'phi',
-    label: 'Phi',
-    color: C.phi,
-    width: 1.5
-  }];
+  const phiSeries = [{ key: 'phi', label: 'Phi', color: C.phi, scatter: true }];
 
   if (cmes.length === 0) {
     return <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', color: C.text, fontSize: 11 }}>No active CMEs to classify</div>;
@@ -427,8 +416,9 @@ export default function CMEClassificationTab({ cmes, classifications }) {
         </div>
       )}
 
+      {/* FLEX-GROW: Minimized sections don't leave gaps */}
       <div style={{ flex: 1, display: 'flex', flexDirection: 'column', padding: '8px', gap: 8, overflow: 'hidden' }}>
-        <div style={{ background: C.bg, border: `1px solid ${C.border}`, borderRadius: 4, flexShrink: 0 }}>
+        <div style={{ background: C.bg, border: `1px solid ${C.border}`, borderRadius: 4, flexShrink: 0, flexGrow: bzByExpanded ? 0 : 0 }}>
           <div onClick={() => setBzByExpanded(!bzByExpanded)} style={{ 
             padding: '8px 10px', cursor: 'pointer', display: 'flex', justifyContent: 'space-between', alignItems: 'center',
             borderBottom: bzByExpanded ? `1px solid ${C.border}` : 'none'
@@ -446,23 +436,13 @@ export default function CMEClassificationTab({ cmes, classifications }) {
           </div>
           {bzByExpanded && magData.length > 0 && (
             <div style={{ height: 140, padding: '8px' }}>
-              <PlotCanvas
-                data={magData}
-                series={bzBySeries}
-                timeRange={timeRange}
-                crosshairTime={crosshairT}
-                onCrosshair={zoomMode ? handleZoomTap : setCrosshairT}
-                zoomMode={zoomMode}
-                symmetric={true}
-                showLabels={true}
-                yLabel="nT"
-              />
+              <PlotCanvas data={magData} series={bzBySeries} timeRange={timeRange} crosshairTime={crosshairT} onCrosshair={zoomMode ? handleZoomTap : setCrosshairT} zoomMode={zoomMode} symmetric={true} showLabels={true} yLabel="nT" />
             </div>
           )}
         </div>
 
         {magData.length > 0 && (
-          <div style={{ background: C.bg, border: `1px solid ${C.border}`, borderRadius: 4, flexShrink: 0 }}>
+          <div style={{ background: C.bg, border: `1px solid ${C.border}`, borderRadius: 4, flexShrink: 0, flexGrow: phiExpanded ? 0 : 0 }}>
             <div onClick={() => setPhiExpanded(!phiExpanded)} style={{ 
               padding: '8px 10px', cursor: 'pointer', display: 'flex', justifyContent: 'space-between', alignItems: 'center',
               borderBottom: phiExpanded ? `1px solid ${C.border}` : 'none'
@@ -472,23 +452,13 @@ export default function CMEClassificationTab({ cmes, classifications }) {
             </div>
             {phiExpanded && (
               <div style={{ height: 120, padding: '8px' }}>
-                <PlotCanvas
-                  data={magData}
-                  series={phiSeries}
-                  yMin={-180}
-                  yMax={180}
-                  timeRange={timeRange}
-                  crosshairTime={crosshairT}
-                  onCrosshair={zoomMode ? handleZoomTap : setCrosshairT}
-                  zoomMode={zoomMode}
-                  showLabels={true}
-                  yLabel="deg"
-                />
+                <PlotCanvas data={magData} series={phiSeries} yMin={-180} yMax={180} timeRange={timeRange} crosshairTime={crosshairT} onCrosshair={zoomMode ? handleZoomTap : setCrosshairT} zoomMode={zoomMode} showLabels={true} yLabel="deg" phiMode={true} />
               </div>
             )}
           </div>
         )}
 
+        {/* FLEX-GROW: Classification expands when plots minimize */}
         <div style={{ flex: 1, background: C.bg, border: `2px solid ${selectedColor}`, borderRadius: 4, padding: '10px', display: 'flex', flexDirection: 'column', minHeight: 0 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8, paddingBottom: 8, borderBottom: `1px solid ${C.border}` }}>
             <span style={{ color: selectedColor, fontSize: 18, fontWeight: 'bold' }}>{selectedCMEIndex + 1}</span>
@@ -513,9 +483,7 @@ export default function CMEClassificationTab({ cmes, classifications }) {
                 </div>
               </div>
             ) : (
-              <div style={{ textAlign: 'center', padding: '12px 0', color: C.textDim, fontSize: 9 }}>
-                Classification pending
-              </div>
+              <div style={{ textAlign: 'center', padding: '12px 0', color: C.textDim, fontSize: 9 }}>Classification pending</div>
             )}
           </div>
 

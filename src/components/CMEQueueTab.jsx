@@ -54,13 +54,13 @@ export default function CMEQueueTab({ cmes, positions }) {
 
   return (
     <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
-      {/* Visualization - Fixed at top */}
+      {/* Visualization - 30% LESS HEIGHT */}
       <div style={{ 
         flexShrink: 0,
-        height: 200,
+        height: 140,  // was 200
         borderBottom: `1px solid ${C.border}`,
         background: C.bg,
-        padding: '10px',
+        padding: '8px',
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center'
@@ -73,7 +73,7 @@ export default function CMEQueueTab({ cmes, positions }) {
         />
       </div>
 
-      {/* CME Cards - 2-COLUMN LAYOUT */}
+      {/* CME Cards - 2-column layout */}
       <div style={{ 
         flex: 1, 
         overflowY: 'auto', 
@@ -107,7 +107,6 @@ export default function CMEQueueTab({ cmes, positions }) {
                 e.currentTarget.style.transform = 'none';
               }}
             >
-              {/* Header */}
               <div style={{ 
                 display: 'flex', 
                 alignItems: 'center', 
@@ -132,7 +131,6 @@ export default function CMEQueueTab({ cmes, positions }) {
                 }}>{cme.state.current}</span>
               </div>
 
-              {/* 2-COLUMN GRID LAYOUT */}
               <div style={{ 
                 display: 'grid',
                 gridTemplateColumns: '1fr 1fr',
@@ -140,7 +138,6 @@ export default function CMEQueueTab({ cmes, positions }) {
                 rowGap: '3px',
                 fontSize: 9
               }}>
-                {/* Left column */}
                 <div style={{ display: 'contents' }}>
                   <div style={{ display: 'flex', gap: 6 }}>
                     <span style={{ color: C.textDim }}>TYPE:</span>
@@ -169,7 +166,6 @@ export default function CMEQueueTab({ cmes, positions }) {
                   </div>
                 </div>
 
-                {/* Right column */}
                 <div style={{ display: 'contents' }}>
                   <div style={{ display: 'flex', gap: 6 }}>
                     <span style={{ color: C.textDim }}>LAUNCH:</span>
