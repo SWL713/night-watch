@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import CMEQueueTab from './CMEQueueTab';
 import CMEClassificationTab from './CMEClassificationTab';
-import useCMEData from '../hooks/useCMEData';
+import { useCMEData } from '../hooks/useCMEData';
 
 const FONT = 'DejaVu Sans Mono, Consolas, monospace';
 const C = {
