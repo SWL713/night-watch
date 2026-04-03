@@ -471,6 +471,7 @@ function BzPlot({ data, timeRange, ejectaStart, crosshairT, onCrosshair, zoomMod
         // Label text
         ctx.fillStyle = nearest.bz < 0 ? C.bz_south : C.bz_north;
         ctx.font = `8px ${FONT}`;
+        ctx.textAlign = 'left';
         ctx.fillText(val, lx, y);
         
         // Dot
@@ -715,6 +716,7 @@ function ByPlot({ data, timeRange, ejectaStart, crosshairT, onCrosshair, zoomMod
         
         ctx.fillStyle = nearest.by >= 0 ? C.by_dusk : C.by_dawn;
         ctx.font = `8px ${FONT}`;
+        ctx.textAlign = 'left';
         ctx.fillText(val, lx, y);
         
         ctx.fillStyle = nearest.by >= 0 ? C.by_dusk : C.by_dawn;
@@ -981,6 +983,7 @@ function PhiPlot({ data, timeRange, ejectaStart, crosshairT, onCrosshair, zoomMo
         
         ctx.fillStyle = C.phi;
         ctx.font = `8px ${FONT}`;
+        ctx.textAlign = 'left';
         ctx.fillText(val, lx, y);
         
         ctx.fillStyle = C.phi;
