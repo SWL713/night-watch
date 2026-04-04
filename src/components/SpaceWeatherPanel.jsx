@@ -52,8 +52,8 @@ const C = {
   density: '#aa66ff',
   temp:    '#ff8844',
   phi:     '#44aaff',
-  toward:  'rgba(255,80,80,0.08)',
-  parker:  'rgba(100,200,255,0.4)',
+  toward:  'rgba(255,80,80,0.18)',
+  parker:  'rgba(100,200,255,0.6)',
 
   e38:   '#44aaff',
   e175:  '#44eeff',
