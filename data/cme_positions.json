@@ -1,6 +1,6 @@
 {
   "metadata": {
-    "last_updated": "2026-04-03T21:31:41.816657+00:00"
+    "last_updated": "2026-04-04T01:55:21.280277+00:00"
   },
   "satellites": {
     "l1": {
@@ -16,9 +16,9 @@
     {
       "id": "CME_2026-04-02T20:46Z",
       "position": {
-        "distance_au": 0.348,
-        "distance_rsun": 74.7,
-        "velocity_current": 446.0,
+        "distance_au": 0.409,
+        "distance_rsun": 88.0,
+        "velocity_current": 441.3,
         "acceleration": 0,
         "distance_source": "scoreboard_aligned"
       },
@@ -34,8 +34,8 @@
         "w_from_ch": false
       },
       "progress": {
-        "percent_to_l1": 34.8,
-        "eta_hours": 46.5,
+        "percent_to_l1": 40.9,
+        "eta_hours": 42.1,
         "eta_timestamp": 1775419200.0,
         "eta_source": "scoreboard_median"
       },
@@ -44,65 +44,9 @@
     {
       "id": "CME_2026-04-01T23:45Z",
       "position": {
-        "distance_au": 0.957,
-        "distance_rsun": 205.7,
-        "velocity_current": 430.0,
-        "acceleration": 0,
-        "distance_source": "scoreboard_aligned"
-      },
-      "uncertainty": {
-        "cone_half_angle_deg": 35,
-        "distance_uncertainty_au": 0.05,
-        "velocity_uncertainty": 75
-      },
-      "propagation": {
-        "model": "DBM",
-        "gamma": 3e-08,
-        "w_ambient": 420,
-        "w_from_ch": false
-      },
-      "progress": {
-        "percent_to_l1": 95.7,
-        "eta_hours": 2.1,
-        "eta_timestamp": 1775259360.0,
-        "eta_source": "scoreboard_median"
-      },
-      "state": "WATCH"
-    },
-    {
-      "id": "CME_2026-04-01T03:00Z",
-      "position": {
-        "distance_au": 0.887,
-        "distance_rsun": 190.7,
-        "velocity_current": 423.9,
-        "acceleration": 0,
-        "distance_source": "scoreboard_aligned"
-      },
-      "uncertainty": {
-        "cone_half_angle_deg": 35,
-        "distance_uncertainty_au": 0.05,
-        "velocity_uncertainty": 75
-      },
-      "propagation": {
-        "model": "DBM",
-        "gamma": 3e-08,
-        "w_ambient": 420,
-        "w_from_ch": false
-      },
-      "progress": {
-        "percent_to_l1": 88.7,
-        "eta_hours": 8.5,
-        "eta_timestamp": 1775282400.0,
-        "eta_source": "scoreboard_median"
-      },
-      "state": "WATCH"
-    },
-    {
-      "id": "CME_2026-04-01T00:24Z",
-      "position": {
-        "distance_au": 1.087,
-        "distance_rsun": 233.7,
-        "velocity_current": 423.5,
+        "distance_au": 1.0,
+        "distance_rsun": 215.0,
+        "velocity_current": 428.2,
         "acceleration": 0,
         "distance_source": "scoreboard_aligned"
       },
@@ -119,7 +63,63 @@
       },
       "progress": {
         "percent_to_l1": 100,
-        "eta_hours": -5.5,
+        "eta_hours": -2.3,
+        "eta_timestamp": 1775259360.0,
+        "eta_source": "scoreboard_median"
+      },
+      "state": "WATCH"
+    },
+    {
+      "id": "CME_2026-04-01T03:00Z",
+      "position": {
+        "distance_au": 0.946,
+        "distance_rsun": 203.3,
+        "velocity_current": 423.2,
+        "acceleration": 0,
+        "distance_source": "scoreboard_aligned"
+      },
+      "uncertainty": {
+        "cone_half_angle_deg": 35,
+        "distance_uncertainty_au": 0.05,
+        "velocity_uncertainty": 75
+      },
+      "propagation": {
+        "model": "DBM",
+        "gamma": 3e-08,
+        "w_ambient": 420,
+        "w_from_ch": false
+      },
+      "progress": {
+        "percent_to_l1": 94.6,
+        "eta_hours": 4.1,
+        "eta_timestamp": 1775282400.0,
+        "eta_source": "scoreboard_median"
+      },
+      "state": "WATCH"
+    },
+    {
+      "id": "CME_2026-04-01T00:24Z",
+      "position": {
+        "distance_au": 1.0,
+        "distance_rsun": 215.0,
+        "velocity_current": 422.8,
+        "acceleration": 0,
+        "distance_source": "scoreboard_aligned"
+      },
+      "uncertainty": {
+        "cone_half_angle_deg": 35,
+        "distance_uncertainty_au": 0.05,
+        "velocity_uncertainty": 75
+      },
+      "propagation": {
+        "model": "DBM",
+        "gamma": 3e-08,
+        "w_ambient": 420,
+        "w_from_ch": false
+      },
+      "progress": {
+        "percent_to_l1": 100,
+        "eta_hours": -9.9,
         "eta_timestamp": 1775232000.0,
         "eta_source": "scoreboard_median"
       },
