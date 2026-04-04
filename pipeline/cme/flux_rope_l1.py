@@ -210,7 +210,61 @@ def detect_ejecta_start(l1_mag_df, l1_plasma_df, shock_time=None):
     return None
 
 
-def classify_flux_rope_l1(l1_mag, l1_plasma, shock_time=None, 
+def _extrapolate_south_crossing(bz_series, ejecta_start):
+    """Extrapolate when Bz will cross zero if currently positive but trending down.
+
+    Uses the last 2 hours of smoothed Bz data to fit a linear slope.
+    If the slope is negative, projects forward to the zero crossing.
+    Returns hours from now until projected crossing, or None.
+    """
+    if len(bz_series) < 30:
+        return None
+
+    # Use last 2 hours (120 points at 1-min cadence)
+    recent = bz_series.iloc[-min(120, len(bz_series)):]
+    current_bz = recent.iloc[-1]
+
+    # Only extrapolate if Bz is still positive
+    if current_bz < 0:
+        return None
+
+    # Smooth with 15-min rolling mean to filter noise
+    smoothed = recent.rolling(window=min(15, len(recent) // 2), center=False, min_periods=3).mean().dropna()
+    if len(smoothed) < 10:
+        return None
+
+    # Linear regression on smoothed data
+    x = np.arange(len(smoothed), dtype=float)  # minutes
+    y = smoothed.values
+    valid = ~np.isnan(y)
+    if valid.sum() < 10:
+        return None
+    x, y = x[valid], y[valid]
+
+    # Fit slope
+    n = len(x)
+    slope = (n * np.sum(x * y) - np.sum(x) * np.sum(y)) / (n * np.sum(x**2) - np.sum(x)**2)
+
+    if slope >= -0.01:
+        # Not trending down meaningfully
+        return None
+
+    # Current smoothed value
+    current_smooth = float(y[-1])
+    if current_smooth <= 0:
+        return 0.0
+
+    # Minutes until zero crossing
+    minutes_to_zero = current_smooth / abs(slope)
+
+    # Sanity: don't project more than 24 hours out
+    if minutes_to_zero > 24 * 60:
+        return None
+
+    return minutes_to_zero / 60.0
+
+
+def classify_flux_rope_l1(l1_mag, l1_plasma, shock_time=None,
                           structure_duration_hrs=24.0):
     """
     Classify flux rope structure from L1 data.
@@ -392,7 +446,9 @@ def classify_flux_rope_l1(l1_mag, l1_plasma, shock_time=None,
                 south_run = 0
 
     # Onset timing description
+    bz_south_projected_hrs = None
     if bz_south_onset_hrs is not None:
+        # Observed: Bz already went south
         if bz_south_onset_hrs < 0.5:
             bz_onset_timing = 'immediate (<30 min)'
         elif bz_south_onset_hrs < 3:
@@ -402,14 +458,20 @@ def classify_flux_rope_l1(l1_mag, l1_plasma, shock_time=None,
         else:
             bz_onset_timing = f'late ({bz_south_onset_hrs:.1f}h post-shock)'
     else:
-        onset_map = {
-            'NES': 'mid-passage (est)', 'SEN': 'leading edge (est)',
-            'ESW': 'throughout (est)', 'WSE': 'throughout (est)',
-            'NWS': 'trailing edge (est)', 'SWN': 'leading edge (est)',
-            'ENW': 'N/A (+Bz throughout)', 'WNE': 'N/A (+Bz throughout)',
-            'unknown': 'indeterminate'
-        }
-        bz_onset_timing = onset_map.get(best_type, 'indeterminate')
+        # Bz hasn't gone south yet — try to extrapolate from trend
+        bz_south_projected_hrs = _extrapolate_south_crossing(bz_series, ejecta_start)
+        if bz_south_projected_hrs is not None:
+            total_hrs = elapsed_hrs + bz_south_projected_hrs
+            bz_onset_timing = f'projected ~{total_hrs:.1f}h post-shock (in ~{bz_south_projected_hrs:.1f}h)'
+        else:
+            onset_map = {
+                'NES': 'mid-passage (est)', 'SEN': 'leading edge (est)',
+                'ESW': 'throughout (est)', 'WSE': 'throughout (est)',
+                'NWS': 'trailing edge (est)', 'SWN': 'leading edge (est)',
+                'ENW': 'N/A (+Bz throughout)', 'WNE': 'N/A (+Bz throughout)',
+                'unknown': 'indeterminate'
+            }
+            bz_onset_timing = onset_map.get(best_type, 'indeterminate')
     
     return {
         'type': best_type,
