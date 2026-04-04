@@ -118,10 +118,23 @@ function CMEClassificationTab({ activeCME, classification }) {
     setZoomMode(false);
   };
   
-  // Calculate actual time range
-  const actualRange = customRange || [Date.now() - timeRange * 3600000, Date.now()];
-  
+  // Calculate actual time range — auto-expand if classification window extends beyond default
   const ejectaStart = classData?.classification_window?.start;
+  const classWindowStart = ejectaStart ? new Date(ejectaStart).getTime() : null;
+  const classWindowEnd = classData?.classification_window?.end ? new Date(classData.classification_window.end).getTime() : null;
+
+  let actualRange;
+  if (customRange) {
+    actualRange = customRange;
+  } else {
+    const defaultStart = Date.now() - timeRange * 3600000;
+    // If classification window starts before our default view, expand to 2h before it
+    if (classWindowStart && classWindowStart < defaultStart) {
+      actualRange = [classWindowStart - 2 * 3600000, Date.now()];
+    } else {
+      actualRange = [defaultStart, Date.now()];
+    }
+  }
   
   if (loading) {
     return (
@@ -408,11 +421,12 @@ function BzPlot({ data, timeRange, ejectaStart, classWindow, crosshairT, onCross
       ctx.stroke();
     }
     
-    // Classification window highlight — dim data outside the window
+    // Classification window highlight — dim outside, tint inside, edge markers
     if (classWindow?.start) {
       const cwStart = new Date(classWindow.start).getTime();
       const cwEnd = classWindow.end ? new Date(classWindow.end).getTime() : tMax;
-      const dim = 'rgba(0,0,0,0.45)';
+      const dim = 'rgba(0,0,0,0.55)';
+      // Dim outside regions
       if (cwStart > tMin) {
         ctx.fillStyle = dim;
         ctx.fillRect(PAD.l, PAD.t, xScale(Math.min(cwStart, tMax)) - PAD.l, pH);
@@ -421,6 +435,22 @@ function BzPlot({ data, timeRange, ejectaStart, classWindow, crosshairT, onCross
         ctx.fillStyle = dim;
         ctx.fillRect(xScale(Math.max(cwEnd, tMin)), PAD.t, PAD.l + pW - xScale(Math.max(cwEnd, tMin)), pH);
       }
+      // Subtle tint inside classification window
+      const xL = xScale(Math.max(cwStart, tMin));
+      const xR = xScale(Math.min(cwEnd, tMax));
+      ctx.fillStyle = 'rgba(68,170,255,0.04)';
+      ctx.fillRect(xL, PAD.t, xR - xL, pH);
+      // Edge markers
+      ctx.setLineDash([3, 3]);
+      ctx.lineWidth = 1.2;
+      ctx.strokeStyle = 'rgba(68,170,255,0.5)';
+      if (cwStart >= tMin && cwStart <= tMax) {
+        ctx.beginPath(); ctx.moveTo(xL, PAD.t); ctx.lineTo(xL, PAD.t + pH); ctx.stroke();
+      }
+      if (cwEnd >= tMin && cwEnd <= tMax) {
+        ctx.beginPath(); ctx.moveTo(xR, PAD.t); ctx.lineTo(xR, PAD.t + pH); ctx.stroke();
+      }
+      ctx.setLineDash([]);
     }
 
     // Ejecta start marker

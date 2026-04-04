@@ -49,8 +49,8 @@ export default function LayerControls({ layers, onToggle, helpMode, onHelpTap })
 
 export function initLayers() {
   return {
-    clouds:    true,
-    bortle:    true,
+    clouds:    false,
+    bortle:    false,
     ovation:   true,
     pins:      true,
     sightings: true,

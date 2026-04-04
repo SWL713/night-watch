@@ -229,6 +229,21 @@ export default function TimelineBar({ spaceWeather, moonData, selectedHour, onHo
       ? realTrace[realTrace.length - 1].bz
       : (spaceWeather.bz_now ?? 0)
 
+    // Bridge: connect last solid point to lagEnd so dashed flows seamlessly
+    if (realTrace.length >= 1) {
+      const lastPt = realTrace[realTrace.length - 1]
+      const lastShifted = new Date(lastPt.time.getTime() + lagMs)
+      if (lastShifted < lagEnd && lagEnd <= tEnd) {
+        ctx.lineWidth = 1.8; ctx.setLineDash([]); ctx.globalAlpha = 0.92
+        ctx.strokeStyle = bzNow < 0 ? '#ee5577' : '#44ddaa'
+        ctx.beginPath()
+        ctx.moveTo(tx(lastShifted), bzY(lastPt.bz))
+        ctx.lineTo(tx(lagEnd), bzY(bzNow))
+        ctx.stroke()
+        ctx.globalAlpha = 1.0
+      }
+    }
+
     // DASHED propagated — starts at lagEnd, slope-extrapolated
     const lagHrs = lagMs / 3600000
     let propSlope = 0.0
@@ -306,7 +321,12 @@ export default function TimelineBar({ spaceWeather, moonData, selectedHour, onHo
         .map(p => ({ time: new Date(p.time), bz: p.bz }))
         .filter(p => p.time >= lagEnd && p.time <= tEnd && !isNaN(p.bz))
       if (fcPts.length > 1) {
-        ctx.lineWidth = 2.0; ctx.setLineDash([6, 3]); ctx.globalAlpha = 0.70
+        // Bridge: connect from lagEnd/bzAtLagEnd to first forecast point
+        const firstFc = fcPts[0]
+        ctx.lineWidth = 1.8; ctx.setLineDash([6, 3]); ctx.globalAlpha = 0.70
+        ctx.strokeStyle = bzAtLagEnd < 0 ? '#ee5577' : '#44ddaa'
+        ctx.beginPath(); ctx.moveTo(tx(lagEnd), bzY(bzAtLagEnd)); ctx.lineTo(tx(firstFc.time), bzY(firstFc.bz)); ctx.stroke()
+        // Draw forecast
         for (let i = 0; i < fcPts.length - 1; i++) {
           const a = fcPts[i], b = fcPts[i + 1]
           const mid = (a.bz + b.bz) / 2
