@@ -23,18 +23,13 @@ class BothmerSchwennClassifier:
             Classification dict with flux rope type, confidence, predictions
         """
         
-        # Determine shock_time from state history
-        shock_time = None
-        for h in cme['state']['history']:
-            if h.get('to') == 'ARRIVED':
-                shock_time = h.get('timestamp')
-                break
-        
-        # Run flux rope classification
+        # Let flux_rope_l1 detect the actual ejecta start from L1 data
+        # (velocity jump, Bt elevation, etc.) rather than using the state
+        # transition timestamp, which may be artificial (e.g. G-level fast-track)
         result = classify_flux_rope_l1(
             l1_mag=l1_mag,
             l1_plasma=l1_plasma,
-            shock_time=shock_time,
+            shock_time=None,
             structure_duration_hrs=24.0
         )
         
