@@ -1,6 +1,6 @@
 {
   "metadata": {
-    "last_updated": "2026-04-04T20:05:01.209085+00:00"
+    "last_updated": "2026-04-04T21:15:50.226676+00:00"
   },
   "active_cme_id": "CME_2026-04-02T20:46Z",
   "cmes": [
@@ -17,7 +17,7 @@
       },
       "properties": {
         "speed_initial": 583.4,
-        "speed_current": 574,
+        "speed_current": 578,
         "half_angle": 35,
         "type": "Unknown",
         "direction_lat": 0,
@@ -29,7 +29,8 @@
         "earliest_prediction": 1775408400.0,
         "latest_prediction": 1775430000.0,
         "num_models": 1,
-        "confidence_spread_hours": 0.0
+        "confidence_spread_hours": 0.0,
+        "scoreboard_url": "https://kauai.ccmc.gsfc.nasa.gov/CMEscoreboard/"
       },
       "state": {
         "current": "ARRIVED",
@@ -60,7 +61,12 @@
         "eta_hours": null
       },
       "created_at": "2026-04-04T19:56:58.182501+00:00",
-      "last_updated": "2026-04-04T19:56:58.182503+00:00"
+      "last_updated": "2026-04-04T19:56:58.182503+00:00",
+      "aurora_rating": {
+        "stars": 2,
+        "confidence": 25,
+        "basis": "583 km/s \u2014 moderate"
+      }
     },
     {
       "id": "CME_2026-04-01T03:00Z",
@@ -75,7 +81,7 @@
       },
       "properties": {
         "speed_initial": 554.1,
-        "speed_current": 574,
+        "speed_current": 578,
         "half_angle": 35,
         "type": "Faint CME",
         "direction_lat": 0,
@@ -87,7 +93,8 @@
         "earliest_prediction": 1775271600.0,
         "latest_prediction": 1775293200.0,
         "num_models": 1,
-        "confidence_spread_hours": 0.0
+        "confidence_spread_hours": 0.0,
+        "scoreboard_url": "https://kauai.ccmc.gsfc.nasa.gov/CMEscoreboard/"
       },
       "state": {
         "current": "ARRIVED",
@@ -118,7 +125,12 @@
         "eta_hours": null
       },
       "created_at": "2026-04-04T19:56:58.182549+00:00",
-      "last_updated": "2026-04-04T19:56:58.182550+00:00"
+      "last_updated": "2026-04-04T19:56:58.182550+00:00",
+      "aurora_rating": {
+        "stars": 2,
+        "confidence": 25,
+        "basis": "554 km/s \u2014 moderate"
+      }
     }
   ]
 }

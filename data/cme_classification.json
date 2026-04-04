@@ -1,6 +1,6 @@
 {
   "metadata": {
-    "last_updated": "2026-04-04T20:05:01.209085+00:00",
+    "last_updated": "2026-04-04T21:15:50.226676+00:00",
     "active_cme_id": "CME_2026-04-02T20:46Z"
   },
   "classifications": {
@@ -8,13 +8,13 @@
       "active": true,
       "classification_window": {
         "start": "2026-04-01T11:27:00",
-        "end": null,
+        "end": "2026-04-02T11:27:00+00:00",
         "duration_hours": 24.0
       },
       "current": {
         "bs_type": "SWN",
         "bs_type_full": "South-West-North (Weakening - north trailing)",
-        "confidence": 75.76120152480654,
+        "confidence": 75.76120152479429,
         "confidence_trend": "STABLE",
         "locked": true,
         "chirality": "left-handed"
@@ -30,7 +30,9 @@
         "onset_time": "leading edge (northward)",
         "duration_hours_low": 5.804205214465938,
         "duration_hours_high": 14.510513036164845,
-        "peak_bz_estimate": -15.65
+        "peak_bz_estimate": -15.65,
+        "flux_rope_duration_hours": 24.0,
+        "bz_south_onset_hours": 0
       },
       "phi_events": [],
       "quality_flags": {
