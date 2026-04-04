@@ -149,10 +149,6 @@ function CMEClassificationTab({ activeCME, classification }) {
         flexWrap: 'wrap',
         gap: 8,
       }}>
-        <div style={{ fontSize: 10, color: C.textDim, letterSpacing: 0.5 }}>
-          L1 · DSCOVR + WIND · GSM real-time
-        </div>
-        
         <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap', alignItems: 'center' }}>
           {/* Annotations toggle */}
           <ToggleButton
