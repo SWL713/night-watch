@@ -425,34 +425,45 @@ function BzPlot({ data, timeRange, ejectaStart, classWindow, crosshairT, onCross
       ctx.stroke();
     }
     
-    // Classification window highlight — dim outside, tint inside, edge markers
+    // Classification window highlight — always persists regardless of zoom
     if (classWindow?.start) {
       const cwStart = new Date(classWindow.start).getTime();
       const cwEnd = classWindow.end ? new Date(classWindow.end).getTime() : tMax;
       const dim = 'rgba(0,0,0,0.55)';
-      // Dim outside regions
-      if (cwStart > tMin) {
+
+      if (cwEnd <= tMin || cwStart >= tMax) {
+        // Entire view is outside the classification window — dim everything
         ctx.fillStyle = dim;
-        ctx.fillRect(PAD.l, PAD.t, xScale(Math.min(cwStart, tMax)) - PAD.l, pH);
+        ctx.fillRect(PAD.l, PAD.t, pW, pH);
+      } else {
+        // Dim the portion before the window
+        if (cwStart > tMin) {
+          ctx.fillStyle = dim;
+          ctx.fillRect(PAD.l, PAD.t, xScale(cwStart) - PAD.l, pH);
+        }
+        // Dim the portion after the window
+        if (cwEnd < tMax) {
+          ctx.fillStyle = dim;
+          ctx.fillRect(xScale(cwEnd), PAD.t, PAD.l + pW - xScale(cwEnd), pH);
+        }
+        // Subtle tint inside the visible classification region
+        const xL = xScale(Math.max(cwStart, tMin));
+        const xR = xScale(Math.min(cwEnd, tMax));
+        ctx.fillStyle = 'rgba(68,170,255,0.04)';
+        ctx.fillRect(xL, PAD.t, xR - xL, pH);
       }
-      if (cwEnd < tMax) {
-        ctx.fillStyle = dim;
-        ctx.fillRect(xScale(Math.max(cwEnd, tMin)), PAD.t, PAD.l + pW - xScale(Math.max(cwEnd, tMin)), pH);
-      }
-      // Subtle tint inside classification window
-      const xL = xScale(Math.max(cwStart, tMin));
-      const xR = xScale(Math.min(cwEnd, tMax));
-      ctx.fillStyle = 'rgba(68,170,255,0.04)';
-      ctx.fillRect(xL, PAD.t, xR - xL, pH);
-      // Edge markers
+
+      // Edge markers (only when visible)
       ctx.setLineDash([3, 3]);
       ctx.lineWidth = 1.2;
       ctx.strokeStyle = 'rgba(68,170,255,0.5)';
-      if (cwStart >= tMin && cwStart <= tMax) {
-        ctx.beginPath(); ctx.moveTo(xL, PAD.t); ctx.lineTo(xL, PAD.t + pH); ctx.stroke();
+      if (cwStart > tMin && cwStart < tMax) {
+        const x = xScale(cwStart);
+        ctx.beginPath(); ctx.moveTo(x, PAD.t); ctx.lineTo(x, PAD.t + pH); ctx.stroke();
       }
-      if (cwEnd >= tMin && cwEnd <= tMax) {
-        ctx.beginPath(); ctx.moveTo(xR, PAD.t); ctx.lineTo(xR, PAD.t + pH); ctx.stroke();
+      if (cwEnd > tMin && cwEnd < tMax) {
+        const x = xScale(cwEnd);
+        ctx.beginPath(); ctx.moveTo(x, PAD.t); ctx.lineTo(x, PAD.t + pH); ctx.stroke();
       }
       ctx.setLineDash([]);
     }
