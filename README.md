@@ -1,7 +1,7 @@
 # 🌌 Night Watch
 
 **Aurora hunting app for the Northeast US and Southeast Canada.**
-Real-time space weather, HRRR cloud forecasts, light pollution mapping, community sighting reports, live camera network, camera settings advisor, and clear sky finder — built for the Substorm Society aurora hunting community.
+Real-time space weather, CME tracking, HRRR cloud forecasts, light pollution mapping, community sighting reports, live camera network, camera settings advisor, and clear sky finder — built for the Substorm Society aurora hunting community.
 
 **Live:** [swl713.github.io/night-watch](https://swl713.github.io/night-watch)
 
@@ -12,6 +12,7 @@ Real-time space weather, HRRR cloud forecasts, light pollution mapping, communit
 Night Watch combines multiple data sources on a single interactive map to answer one question: *where should I drive tonight to see the aurora, and is anyone seeing it right now?*
 
 - **Space weather** — live Bz, solar wind speed and density, Kp index, G-scale storms, NOAA geomagnetic alerts, HSS detection, and an Ovation auroral oval overlay updated every 30–60 minutes
+- **CME tracking** — Earth-directed coronal mass ejections from NOAA DONKI with real-time propagation visualization, IPS-observed shock arrivals, flux rope passage states, and ENLIL model predictions
 - **Cloud cover** — HRRR model TCDC forecasts updated hourly, 18-hour forecast horizon for full overnight coverage
 - **Light pollution** — NASA GIBS VIIRS night light tiles recolored so dark sky is transparent and light-polluted areas glow orange to red
 - **Community spots** — curated dark sky viewing locations with cloud-adjusted scores, aurora photos, and directions
@@ -49,6 +50,25 @@ Both Clouds and Bortle are on by default. When both are active they render as a 
 
 ---
 
+## CME Dashboard
+
+View active Earth-directed coronal mass ejections with real-time tracking:
+
+**CME Queue** — Shows incoming and actively passing CMEs with:
+- **Lifecycle states:** WATCH (days out) → INBOUND (12-48h) → IMMINENT (<12h) → PASSING (flux rope at L1) → EXITED (recently passed)
+- **IPS-aware filtering:** Uses observed shock arrival times from ACE/DSCOVR when available for accurate state determination
+- **ENLIL predictions:** Shock arrival time, Kp estimates, glancing blow indicators
+- **Propagation visualizer:** Animated Sun→Earth view showing CME positions (excludes EXITED CMEs for clarity)
+
+**Smart filtering logic:**
+- PASSING state: < 18 hours since observed shock (flux rope actively passing L1)
+- EXITED state: 18-24 hours since observed shock (removed from visualizer, kept in queue for geomagnetic context)
+- Fallback: 24-hour window using ENLIL predictions when IPS observations unavailable
+
+**Data sources:** NOAA DONKI CMEAnalysis, WSA-ENLIL simulations, IPS (Interplanetary Shock) events from L1 satellites
+
+---
+
 ## Clear Sky Finder
 
 Tap the ☁️ button to activate Clear Sky Finder mode. A teal heatmap overlay appears showing which regions have the clearest average skies across the next 8 hours. Activating it automatically turns off the Clouds and Bortle layers to reduce clutter.
@@ -67,7 +87,7 @@ The spot pins switch to a cloud-only color mode: teal = consistently clear 8-hou
 | Base map | CARTO Dark Matter tiles |
 | Light pollution | NASA GIBS VIIRS SNPP DayNightBand ENCC tiles |
 | Cloud data | HRRR TCDC via NOMADS byte-range fetch (f00–f18) |
-| Space weather | NOAA SWPC REST APIs |
+| Space weather | NOAA SWPC REST APIs + DONKI |
 | Geocoding | Nominatim / OpenStreetMap |
 | Community data | Supabase (PostgreSQL + Row Level Security) |
 | Photo hosting | Cloudinary (unsigned upload, client-side compression) |
@@ -80,7 +100,8 @@ The spot pins switch to a cloud-only color mode: teal = consistently clear 8-hou
 
 ### Space weather (`space_weather.yml`)
 - Every 30 min active hours / 60 min quiet hours
-- Fetches: Bz, V, density, 1-min Kp, 3-hour Kp forecast, ENLIL (cached between daily runs), Ovation oval, stateful HSS detection (V ≥ 450 km/s gate)
+- Fetches: Bz, V, density, 1-min Kp, 3-hour Kp forecast, ENLIL (cached between daily runs), Ovation oval, stateful HSS detection (V ≥ 450 km/s gate), CME queue from DONKI scoreboard
+- CME tracking: Earth-directed CMEs with IPS-aware state management, 18-hour flux rope passage detection, ENLIL shock predictions
 - ~540 min/month
 
 ### Cloud cover (`clouds.yml`)
@@ -178,6 +199,17 @@ ALTER TABLE live_cams
 | Very Strong | −30 to −50 |
 | Extreme | < −50 |
 
+### CME lifecycle states
+
+| State | Description | Typical Duration |
+|-------|-------------|------------------|
+| WATCH | Multiple days out | Days |
+| INBOUND | 12-48 hours from Earth | 1-2 days |
+| IMMINENT | < 12 hours from arrival | Hours |
+| ARRIVED | Shock detected (ENLIL prediction) | Initial detection |
+| PASSING | Flux rope actively passing L1 | 6-18 hours |
+| EXITED | Flux rope has passed | Residual effects 18-24h |
+
 ---
 
 ## Community features
@@ -222,7 +254,7 @@ Tap 📷 → tap shooting location → panel opens with auto-populated Bortle, l
 
 ## Data sources
 
-NOAA SWPC · NCEP NOMADS · NASA GIBS · CARTO · Nominatim/OSM · Supabase · Cloudinary
+NOAA SWPC · NOAA DONKI · NCEP NOMADS · NASA GIBS · CARTO · Nominatim/OSM · Supabase · Cloudinary
 
 ---
 
