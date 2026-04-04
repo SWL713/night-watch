@@ -275,7 +275,7 @@ function BzPlot({ data, timeRange, ejectaStart, classWindow, crosshairT, onCross
     
     const W = rect.width;
     const H = rect.height;
-    const PAD = { l: 40, r: 10, t: 20, b: 16 };
+    const PAD = { l: 40, r: 10, t: 4, b: 12 };
     const pW = W - PAD.l - PAD.r;
     const pH = H - PAD.t - PAD.b;
     
@@ -514,33 +514,18 @@ function BzPlot({ data, timeRange, ejectaStart, classWindow, crosshairT, onCross
       ctx.fillText(val.toFixed(0), PAD.l - 5, y + 3);
     }
     
-    // Title
-    ctx.fillStyle = '#44bbff';
-    ctx.font = `bold 22px ${FONT}`;
+    // Label + current value — overlaid on plot, no separate title area
+    ctx.font = `bold 9px ${FONT}`;
     ctx.textAlign = 'left';
-    ctx.fillText('Bz', PAD.l, 20);
-    
-    ctx.fillStyle = C.textFaint;
-    ctx.font = `8.5px ${FONT}`;
-    ctx.fillText('GSM · nT', PAD.l + 35, 20);
-    
-    // Current value
+    ctx.fillStyle = 'rgba(68,187,255,0.5)';
+    ctx.fillText('Bz nT', PAD.l + 3, PAD.t + 10);
     const latest = visData[visData.length - 1];
     if (latest && latest.bz !== null && !isNaN(latest.bz)) {
-      const valStr = `${latest.bz > 0 ? '+' : ''}${latest.bz.toFixed(1)} nT`;
-      ctx.font = `10px ${FONT}`;
+      ctx.font = `bold 10px ${FONT}`;
       ctx.textAlign = 'right';
       ctx.fillStyle = latest.bz < 0 ? C.bz_south : C.bz_north;
-      ctx.fillText(valStr, W - PAD.r, 20);
+      ctx.fillText(`${latest.bz > 0 ? '+' : ''}${latest.bz.toFixed(1)}`, W - PAD.r - 2, PAD.t + 10);
     }
-    
-    // Labels
-    ctx.font = `8.5px ${FONT}`;
-    ctx.textAlign = 'left';
-    ctx.fillStyle = '#225533';
-    ctx.fillText('↑ NORTH', PAD.l + 3, PAD.t + 12);
-    ctx.fillStyle = '#662233';
-    ctx.fillText('↓ SOUTH = aurora fuel', PAD.l + 3, PAD.t + pH - 5);
     
   }, [data, timeRange, ejectaStart, classWindow, crosshairT, zoomMode, zoomStart]);
   
@@ -611,7 +596,7 @@ function ByPlot({ data, timeRange, ejectaStart, classWindow, crosshairT, onCross
     
     const W = rect.width;
     const H = rect.height;
-    const PAD = { l: 40, r: 10, t: 20, b: 16 };
+    const PAD = { l: 40, r: 10, t: 4, b: 12 };
     const pW = W - PAD.l - PAD.r;
     const pH = H - PAD.t - PAD.b;
     
@@ -765,33 +750,18 @@ function ByPlot({ data, timeRange, ejectaStart, classWindow, crosshairT, onCross
       ctx.fillText(val.toFixed(0), PAD.l - 5, y + 3);
     }
     
-    // Title
-    ctx.fillStyle = C.by_dusk;
-    ctx.font = `bold 18px ${FONT}`;
+    // Label + current value
+    ctx.font = `bold 9px ${FONT}`;
     ctx.textAlign = 'left';
-    ctx.fillText('By', PAD.l, 20);
-    
-    ctx.fillStyle = C.textFaint;
-    ctx.font = `8px ${FONT}`;
-    ctx.fillText('GSM · nT', PAD.l + 30, 20);
-    
-    // Current value
+    ctx.fillStyle = 'rgba(255,170,51,0.5)';
+    ctx.fillText('By nT', PAD.l + 3, PAD.t + 10);
     const latest = visData[visData.length - 1];
     if (latest && latest.by !== null && !isNaN(latest.by)) {
-      const valStr = `${latest.by > 0 ? '+' : ''}${latest.by.toFixed(1)} nT`;
-      ctx.font = `10px ${FONT}`;
+      ctx.font = `bold 10px ${FONT}`;
       ctx.textAlign = 'right';
       ctx.fillStyle = latest.by >= 0 ? C.by_dusk : C.by_dawn;
-      ctx.fillText(valStr, W - PAD.r, 20);
+      ctx.fillText(`${latest.by > 0 ? '+' : ''}${latest.by.toFixed(1)}`, W - PAD.r - 2, PAD.t + 10);
     }
-    
-    // Direction labels
-    ctx.font = `9px ${FONT}`;
-    ctx.textAlign = 'left';
-    ctx.fillStyle = '#1a5a3a';
-    ctx.fillText('+By  DUSK', PAD.l + pW * 0.03, PAD.t + pH * 0.15);
-    ctx.fillStyle = '#5a3a0a';
-    ctx.fillText('−By  DAWN', PAD.l + pW * 0.03, PAD.t + pH * 0.85);
     
   }, [data, timeRange, ejectaStart, classWindow, crosshairT, zoomMode, zoomStart]);
   
@@ -862,7 +832,7 @@ function PhiPlot({ data, timeRange, ejectaStart, classWindow, crosshairT, onCros
     
     const W = rect.width;
     const H = rect.height;
-    const PAD = { l: 40, r: 10, t: 20, b: 22 };
+    const PAD = { l: 40, r: 10, t: 4, b: 14 };
     const pW = W - PAD.l - PAD.r;
     const pH = H - PAD.t - PAD.b;
     
@@ -1046,31 +1016,18 @@ function PhiPlot({ data, timeRange, ejectaStart, classWindow, crosshairT, onCros
       ctx.fillText(deg + '°', PAD.l - 5, y + 3);
     });
     
-    // Title
-    ctx.fillStyle = C.phi_label;
-    ctx.font = `bold 16px ${FONT}`;
+    // Label + current value
+    ctx.font = `bold 9px ${FONT}`;
     ctx.textAlign = 'left';
-    ctx.fillText('φ', PAD.l, 20);
-    
-    ctx.fillStyle = C.textFaint;
-    ctx.font = `8.5px ${FONT}`;
-    ctx.fillText('clock angle [GSM]', PAD.l + 20, 20);
-    
-    // Current value
+    ctx.fillStyle = 'rgba(170,136,255,0.5)';
+    ctx.fillText('φ GSM', PAD.l + 3, PAD.t + 10);
     const latest = visData[visData.length - 1];
     if (latest && latest.phi !== null && !isNaN(latest.phi)) {
-      const valStr = latest.phi.toFixed(0) + '°';
-      ctx.font = `10px ${FONT}`;
+      ctx.font = `bold 10px ${FONT}`;
       ctx.textAlign = 'right';
       ctx.fillStyle = C.phi;
-      ctx.fillText(valStr, W - PAD.r, 20);
+      ctx.fillText(latest.phi.toFixed(0) + '°', W - PAD.r - 2, PAD.t + 10);
     }
-    
-    // Caption
-    ctx.fillStyle = C.textFaint;
-    ctx.font = `8.5px ${FONT}`;
-    ctx.textAlign = 'left';
-    ctx.fillText('0°=north  180°=south  ·  rapid changes annotated', PAD.l + 3, H - 5);
     
   }, [data, timeRange, ejectaStart, classWindow, crosshairT, zoomMode, zoomStart, showAnnotations]);
   
