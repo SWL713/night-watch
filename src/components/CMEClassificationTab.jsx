@@ -1171,9 +1171,9 @@ function ClassificationBox({ classData, metadata, cmeId }) {
                 bz.aurora_potential === 'GOOD' ? C.bz_north : C.textDim;
 
   const Row = ({ label, value, color }) => (
-    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 9, lineHeight: 1.2, padding: '1px 0' }}>
-      <span style={{ color: C.textDim }}>{label}</span>
-      <span style={{ color: color || C.text, fontWeight: color ? 600 : 400, marginLeft: 8 }}>{value}</span>
+    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', fontSize: 9, lineHeight: 1.2, padding: '1px 0' }}>
+      <span style={{ color: C.textDim, whiteSpace: 'nowrap', marginRight: 6 }}>{label}</span>
+      <span style={{ color: color || C.text, fontWeight: color ? 600 : 400, whiteSpace: 'nowrap', textAlign: 'right' }}>{value}</span>
     </div>
   );
 
@@ -1183,7 +1183,7 @@ function ClassificationBox({ classData, metadata, cmeId }) {
       padding: '6px 10px', fontFamily: FONT, height: '100%',
       display: 'flex', gap: 10, overflow: 'hidden',
     }}>
-      {/* LEFT: Featured BS type box */}
+      {/* COL 1: Featured BS type box */}
       <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minWidth: 76, flexShrink: 0 }}>
         <div style={{
           border: `2px solid ${confCol}`, borderRadius: 4,
@@ -1200,29 +1200,28 @@ function ClassificationBox({ classData, metadata, cmeId }) {
         {cmeId && <div style={{ fontSize: 6, color: C.textFaint, marginTop: 1, letterSpacing: 0.5 }}>{cmeId}</div>}
       </div>
 
-      {/* MIDDLE: Confidence + key metrics */}
-      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'center', gap: 1, minWidth: 0 }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 2 }}>
-          <span style={{ fontSize: 7, color: C.textDim, flexShrink: 0 }}>CONFIDENCE</span>
+      {/* COL 2: Short fields — compact labels + values */}
+      <div style={{ flex: 0.7, display: 'flex', flexDirection: 'column', justifyContent: 'center', gap: 1, minWidth: 0 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 4, marginBottom: 2 }}>
           <div style={{ flex: 1, background: C.progressBar, height: 3, borderRadius: 2, overflow: 'hidden' }}>
-            <div style={{ background: confCol, height: '100%', width: `${conf}%`, transition: 'width 0.3s ease' }} />
+            <div style={{ background: confCol, height: '100%', width: `${conf}%` }} />
           </div>
-          <span style={{ fontSize: 9, color: confCol, fontWeight: 600, flexShrink: 0 }}>{conf.toFixed(0)}%</span>
+          <span style={{ fontSize: 9, color: confCol, fontWeight: 600, whiteSpace: 'nowrap' }}>{conf.toFixed(0)}%</span>
         </div>
-        <Row label="Aurora" value={bz.aurora_potential} color={auCol} />
         <Row label="Kp" value={bz.kp_estimate} />
-        {bz.peak_bz_estimate != null && <Row label="Peak Bz" value={`${bz.peak_bz_estimate.toFixed(1)} nT`} color={C.bz_south} />}
-        <Row label="Chirality" value={cur.chirality} />
-        {sigs.structure_progress_pct != null && <Row label="Structure" value={`${sigs.structure_progress_pct.toFixed(0)}%${cur.locked ? ' locked' : ''}`} />}
+        <Row label="Aurora" value={bz.aurora_potential} color={auCol} />
+        {bz.peak_bz_estimate != null && <Row label="Peak" value={`${bz.peak_bz_estimate.toFixed(1)} nT`} color={C.bz_south} />}
+        {bz.flux_rope_duration_hours != null && <Row label="Rope" value={`~${bz.flux_rope_duration_hours}h`} />}
+        {sigs.structure_progress_pct != null && <Row label="Struct" value={`${sigs.structure_progress_pct.toFixed(0)}%${cur.locked ? ' locked' : ''}`} />}
       </div>
 
-      {/* RIGHT: Timing + impact */}
-      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'center', gap: 1, minWidth: 0 }}>
+      {/* COL 3: Longer fields — timing, chirality, impact */}
+      <div style={{ flex: 1.3, display: 'flex', flexDirection: 'column', justifyContent: 'center', gap: 1, minWidth: 0 }}>
+        <Row label="Chirality" value={cur.chirality} />
         {sigs.bz_onset_timing && <Row label="-Bz onset" value={sigs.bz_onset_timing} />}
         {bz.bz_south_onset_hours != null && <Row label="-Bz begins" value={`~${bz.bz_south_onset_hours}h post-shock`} />}
         {(bz.duration_hours_low != null || bz.duration_hours_high != null) &&
           <Row label="-Bz duration" value={`${bz.duration_hours_low?.toFixed(1)}–${bz.duration_hours_high?.toFixed(1)} hr`} />}
-        {bz.flux_rope_duration_hours != null && <Row label="Rope passage" value={`~${bz.flux_rope_duration_hours}h`} />}
         {bz.description && (
           <div style={{ fontSize: 8, color: C.text, background: C.panelBg, padding: '3px 5px', borderRadius: 2, lineHeight: 1.2, marginTop: 1 }}>
             {bz.description}
