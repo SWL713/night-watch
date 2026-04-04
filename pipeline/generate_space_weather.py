@@ -279,6 +279,80 @@ def parse_noaa_3day_forecast_text(forecast_text):
     return results
 
 
+def parse_noaa_3day_forecast_text():
+    """
+    Parse official NOAA 3-day-forecast.txt for G-scale.
+    This is the AUTHORITATIVE source - same text shown on SWPC website.
+    
+    Example format:
+    :Product: 3-Day Forecast
+    :Issued: 2026 Apr 03 0030 UTC
+    ...
+    NOAA Geomagnetic Activity Observation and Forecast
+    ...
+    Apr 03     Apr 04     Apr 05
+    G1 (Minor)  G2 (Moderate)  G1 (Minor)
+    
+    Returns: G-scale string (e.g., 'G2') for today, or None if unavailable
+    """
+    try:
+        r = requests.get(NOAA_FORECAST_URL, timeout=15)
+        r.raise_for_status()
+        text = r.text
+        
+        # Find the forecast table
+        lines = text.split('\n')
+        
+        # Look for the line with dates (format: "Apr 03     Apr 04     Apr 05")
+        date_line_idx = None
+        for i, line in enumerate(lines):
+            # Match pattern: Month Day, repeated 3 times
+            if len(line) > 20:
+                # Simple heuristic: line with 3 date-like patterns
+                parts = line.split()
+                if len(parts) >= 6:  # At least 3 dates (month + day each)
+                    # Check if looks like dates (starts with letter, then numbers)
+                    if parts[0].isalpha() and parts[1].isdigit():
+                        date_line_idx = i
+                        break
+        
+        if date_line_idx is None:
+            log.warning('3-day forecast: could not find date line')
+            return None
+        
+        # Next non-empty line after dates should be the G-scale forecast
+        g_line = None
+        for i in range(date_line_idx + 1, min(date_line_idx + 5, len(lines))):
+            line = lines[i].strip()
+            if line and ('G' in line or 'None' in line or 'Below' in line):
+                g_line = line
+                break
+        
+        if not g_line:
+            log.warning('3-day forecast: could not find G-scale line')
+            return None
+        
+        # Extract first G-scale value (today's forecast)
+        # Format examples: "G1 (Minor)", "G2 (Moderate)", "Below threshold", "None"
+        import re
+        match = re.search(r'G(\d)', g_line)
+        if match:
+            g_num = match.group(1)
+            g_scale = f'G{g_num}'
+            log.info(f'3-day forecast G-scale (today): {g_scale}')
+            return g_scale
+        elif 'None' in g_line or 'Below' in g_line:
+            log.info('3-day forecast: no geomagnetic activity expected')
+            return ''
+        
+        log.warning(f'3-day forecast: could not parse G-scale from: {g_line}')
+        return None
+        
+    except Exception as e:
+        log.warning(f'3-day forecast parse failed: {e}')
+        return None
+
+
 def fetch_kp_data():
     """
     Fetch real-time and forecast Kp from NOAA.
@@ -411,6 +485,21 @@ def fetch_kp_data():
             import traceback; log.warning(traceback.format_exc())
 
     g_now = kp_to_g(kp_now) if kp_now is not None else ''
+
+    # ── PRIORITY 1: Official NOAA 3-day text forecast for G-scale ──
+    # This is the AUTHORITATIVE source - same text shown on SWPC website.
+    # Prioritized over noaa-scales.json because 3-day forecast is what forecasters actually publish.
+    try:
+        g_from_3day = parse_noaa_3day_forecast_text()
+        if g_from_3day is not None:  # None = parse failed, '' = no activity
+            g_now = g_from_3day
+            # Back-derive kp_now if we got G-scale but no Kp value
+            if g_from_3day and kp_now is None:
+                g_num = int(g_from_3day[1]) if len(g_from_3day) > 1 and g_from_3day[1].isdigit() else 0
+                kp_now = {1: 5.0, 2: 6.0, 3: 7.0, 4: 8.0, 5: 9.0}.get(g_num, 5.0)
+            log.info(f'Using 3-day forecast G-scale: {g_now}')
+    except Exception as e:
+        log.warning(f'3-day forecast G-scale extraction failed: {e}')
 
     # ── Direct G level from noaa-scales.json (most reliable, survives format changes) ──
     # Format: {"G":{"Scale":"2",...},"S":{"Scale":"0",...},"R":{"Scale":"1",...},...}
