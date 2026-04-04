@@ -293,8 +293,18 @@ def build_cme_queue_from_donki(cme_analysis_records, enlil_sims, ips_events):
             distance_au = 0.5  # Unknown
             progress_fraction = 0.5
         
-        # Determine state
+        # Determine state based on IPS observations and arrival timing
         if ips_match['observed']:
+            # IPS detected the shock - determine if still passing or already exited
+            observed_arrival = ips_match['time']
+            hours_since_observed = (now - observed_arrival).total_seconds() / 3600
+            
+            if hours_since_observed < 18:
+                state = 'PASSING'  # Flux rope actively passing
+            else:
+                state = 'EXITED'  # Flux rope has likely passed
+        elif hours_to_arrival is not None and hours_to_arrival < 0:
+            # Predicted to have arrived but no IPS confirmation yet
             state = 'ARRIVED'
         elif hours_to_arrival is not None and hours_to_arrival < 12:
             state = 'IMMINENT'
@@ -302,6 +312,15 @@ def build_cme_queue_from_donki(cme_analysis_records, enlil_sims, ips_events):
             state = 'INBOUND'
         else:
             state = 'WATCH'
+        
+        # Determine display flags
+        # show_in_visualizer: Only CMEs physically between Sun and Earth (or at Earth)
+        # Excludes EXITED state (already passed Earth)
+        show_in_visualizer = state in ['WATCH', 'INBOUND', 'IMMINENT', 'ARRIVED', 'PASSING']
+        
+        # active_in_queue: All CMEs that could still influence space weather
+        # Includes recent arrivals within 24-hour window
+        active_in_queue = True  # Will be filtered later based on state transitions
         
         # Build queue entry
         entry = {
@@ -362,6 +381,14 @@ def build_cme_queue_from_donki(cme_analysis_records, enlil_sims, ips_events):
                     'instruments': ips_match['instruments']
                 } if ips_match['observed'] else None
             },
+            'lifecycle': {
+                'state': state,
+                'active_in_queue': active_in_queue,
+                'active_for_data_collection': True  # Always true for newly detected CMEs
+            },
+            'display': {
+                'show_in_visualizer': show_in_visualizer
+            },
             'created_at': now.isoformat(),
             'last_updated': now.isoformat()
         }
@@ -384,11 +411,79 @@ def build_cme_queue_from_donki(cme_analysis_records, enlil_sims, ips_events):
     
     queue.sort(key=sort_key)
     
+    # Smart filtering using IPS observations + time-based fallback
+    # Phase 1.5: Use actual observed arrival when available
+    filtered_queue = []
+    removed_old = []
+    marked_exited = []
+    
+    for cme in queue:
+        eta_hours = cme['position']['eta_hours']
+        
+        # Incoming CMEs - always active
+        if eta_hours is None or eta_hours > 0:
+            filtered_queue.append(cme)
+            continue
+        
+        # CME has arrived - check if it's still active
+        # Priority: Use IPS observed shock time if available
+        ips_data = cme['donki_metadata'].get('ips_observed_shock')
+        
+        if ips_data and ips_data.get('time'):
+            # Use OBSERVED arrival time (more accurate than ENLIL prediction)
+            observed_arrival = datetime.fromisoformat(ips_data['time'].replace('Z', '+00:00'))
+            hours_since_observed = (now - observed_arrival).total_seconds() / 3600
+            
+            if hours_since_observed < 18:
+                # Flux rope likely still passing (typical passage: 6-18 hours)
+                cme['lifecycle']['state'] = 'PASSING'
+                cme['display']['show_in_visualizer'] = True
+                filtered_queue.append(cme)
+                logger.debug(f"  {cme['id']}: PASSING ({hours_since_observed:.1f}h since observed shock)")
+                
+            elif hours_since_observed < 24:
+                # Flux rope has likely exited, but keep for geomagnetic context
+                cme['lifecycle']['state'] = 'EXITED'
+                cme['display']['show_in_visualizer'] = False  # Remove from Sun-Earth viz
+                filtered_queue.append(cme)
+                marked_exited.append((cme['id'], hours_since_observed))
+                logger.debug(f"  {cme['id']}: EXITED ({hours_since_observed:.1f}h since observed shock)")
+                
+            else:
+                # Too old - remove entirely
+                removed_old.append((cme['id'], hours_since_observed))
+                cme['lifecycle']['active_in_queue'] = False
+                
+        else:
+            # No IPS observation - fall back to ENLIL prediction (conservative 24h window)
+            if eta_hours >= -24:
+                filtered_queue.append(cme)
+                logger.debug(f"  {cme['id']}: Active (no IPS, ETA: {eta_hours:.1f}h)")
+            else:
+                removed_old.append((cme['id'], abs(eta_hours)))
+                cme['lifecycle']['active_in_queue'] = False
+    
+    # Logging
+    if marked_exited:
+        logger.info(f"Marked {len(marked_exited)} CMEs as EXITED (18-24h past observed arrival):")
+        for cme_id, hours in marked_exited[:3]:
+            logger.info(f"  - {cme_id} ({hours:.1f}h past shock)")
+        if len(marked_exited) > 3:
+            logger.info(f"  ... and {len(marked_exited) - 3} more")
+    
+    if removed_old:
+        logger.info(f"Filtered out {len(removed_old)} old CMEs (>24h past arrival):")
+        for cme_id, hours in removed_old[:3]:
+            logger.info(f"  - {cme_id} ({hours:.1f}h past)")
+        if len(removed_old) > 3:
+            logger.info(f"  ... and {len(removed_old) - 3} more")
+    
     # Restore original logging level
     logger.setLevel(original_level)
     
     # Summary
-    logger.info(f"CME queue built: {len(queue)} Earth-directed CMEs")
+    logger.info(f"CME queue built: {len(filtered_queue)} Earth-directed CMEs (active)")
+    logger.info(f"  Total matched: {len(queue)} | Active: {len(filtered_queue)} | Filtered: {len(removed_old)}")
     if skipped_no_earth:
         logger.info(f"Skipped {len(skipped_no_earth)} CMEs (no Earth impact predicted):")
         for cme_id in skipped_no_earth[:5]:  # Show first 5
@@ -396,4 +491,4 @@ def build_cme_queue_from_donki(cme_analysis_records, enlil_sims, ips_events):
         if len(skipped_no_earth) > 5:
             logger.info(f"  ... and {len(skipped_no_earth) - 5} more")
     
-    return queue
+    return filtered_queue
