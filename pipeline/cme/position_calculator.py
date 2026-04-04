@@ -41,7 +41,12 @@ def calculate_single_cme_position(cme, coronal_holes, log):
     elapsed_hours = (now - launch_time).total_seconds() / 3600
     
     # DBM parameters
-    v0 = cme['properties']['speed_initial'] or 500  # km/s (default 500 if unknown)
+    v0 = cme['properties']['speed_initial']
+    speed_estimated = False
+    if not v0:
+        v0 = 500
+        speed_estimated = True
+        log.warning(f"CME {cme['id']}: speed_initial unknown, using 500 km/s estimate")
     gamma = 0.3e-7  # km^-1 (drag coefficient)
     
     # Ambient wind speed (from coronal hole or default)
@@ -131,7 +136,8 @@ def calculate_single_cme_position(cme, coronal_holes, log):
             'distance_rsun': round(distance_au * 215, 1),
             'velocity_current': round(v_current, 1),
             'acceleration': 0,  # Placeholder
-            'distance_source': distance_source  # NEW: track calculation method
+            'distance_source': distance_source,
+            'speed_estimated': speed_estimated
         },
         'uncertainty': {
             'cone_half_angle_deg': cme['properties'].get('half_angle', 35),
