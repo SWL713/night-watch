@@ -383,7 +383,9 @@ class CMEStateMachine:
         
         # Priority 3: Position calculator's ETA (from DBM model - fallback only)
         if 'position' in cme and 'eta_hours' in cme['position']:
-            return cme['position']['eta_hours']
+            eta = cme['position']['eta_hours']
+            # TYPE-SAFE: Ensure eta_hours is a float, not a string
+            return float(eta) if eta is not None else None
         
         return None
     
