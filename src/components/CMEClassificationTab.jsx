@@ -194,30 +194,33 @@ function CMEClassificationTab({ activeCME, classification }) {
       
       {/* Main content area */}
       <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
-        {/* Plots area - top 2/3 */}
-        <div style={{ flex: 2, display: 'flex', flexDirection: 'column', gap: 6, padding: '6px 10px 0', minHeight: 0 }}>
-          <BzPlot 
-            data={magData} 
+        {/* Plots area - top 70% */}
+        <div style={{ flex: 7, display: 'flex', flexDirection: 'column', gap: 4, padding: '4px 10px 0', minHeight: 0 }}>
+          <BzPlot
+            data={magData}
             timeRange={actualRange}
             ejectaStart={ejectaStart}
+            classWindow={classData?.classification_window}
             crosshairT={zoomMode ? null : crosshairT}
             onCrosshair={zoomMode ? handleZoomClick : setCrosshairT}
             zoomMode={zoomMode}
             zoomStart={zoomStart}
           />
-          <ByPlot 
-            data={magData} 
+          <ByPlot
+            data={magData}
             timeRange={actualRange}
             ejectaStart={ejectaStart}
+            classWindow={classData?.classification_window}
             crosshairT={zoomMode ? null : crosshairT}
             onCrosshair={zoomMode ? handleZoomClick : setCrosshairT}
             zoomMode={zoomMode}
             zoomStart={zoomStart}
           />
-          <PhiPlot 
-            data={magData} 
+          <PhiPlot
+            data={magData}
             timeRange={actualRange}
             ejectaStart={ejectaStart}
+            classWindow={classData?.classification_window}
             crosshairT={zoomMode ? null : crosshairT}
             onCrosshair={zoomMode ? handleZoomClick : setCrosshairT}
             zoomMode={zoomMode}
@@ -225,13 +228,13 @@ function CMEClassificationTab({ activeCME, classification }) {
             showAnnotations={showAnnotations}
           />
         </div>
-        
-        {/* Classification box - bottom 1/3 */}
-        <div style={{ flex: 1, padding: '6px 10px', minHeight: 0, overflow: 'auto' }}>
-          <ClassificationBox 
-            classData={classData} 
+
+        {/* Classification panel - bottom 30% */}
+        <div style={{ flex: 3, padding: '4px 10px 6px', minHeight: 0 }}>
+          <ClassificationBox
+            classData={classData}
             metadata={classMetadata}
-            cmeId={activeCME?.id || classMetadata?.active_cme_id} 
+            cmeId={activeCME?.id || classMetadata?.active_cme_id}
           />
         </div>
       </div>
@@ -260,7 +263,7 @@ function ToggleButton({ label, active, onClick, color }) {
 }
 
 // Bz Plot Component
-function BzPlot({ data, timeRange, ejectaStart, crosshairT, onCrosshair, zoomMode, zoomStart }) {
+function BzPlot({ data, timeRange, ejectaStart, classWindow, crosshairT, onCrosshair, zoomMode, zoomStart }) {
   const canvasRef = useRef(null);
   
   const draw = useCallback(() => {
@@ -409,6 +412,21 @@ function BzPlot({ data, timeRange, ejectaStart, crosshairT, onCrosshair, zoomMod
       ctx.stroke();
     }
     
+    // Classification window highlight — dim data outside the window
+    if (classWindow?.start) {
+      const cwStart = new Date(classWindow.start).getTime();
+      const cwEnd = classWindow.end ? new Date(classWindow.end).getTime() : tMax;
+      const dim = 'rgba(0,0,0,0.45)';
+      if (cwStart > tMin) {
+        ctx.fillStyle = dim;
+        ctx.fillRect(PAD.l, PAD.t, xScale(Math.min(cwStart, tMax)) - PAD.l, pH);
+      }
+      if (cwEnd < tMax) {
+        ctx.fillStyle = dim;
+        ctx.fillRect(xScale(Math.max(cwEnd, tMin)), PAD.t, PAD.l + pW - xScale(Math.max(cwEnd, tMin)), pH);
+      }
+    }
+
     // Ejecta start marker
     if (ejectaStart) {
       const ejectaTime = new Date(ejectaStart).getTime();
@@ -422,13 +440,13 @@ function BzPlot({ data, timeRange, ejectaStart, crosshairT, onCrosshair, zoomMod
         ctx.lineTo(x, PAD.t + pH);
         ctx.stroke();
         ctx.setLineDash([]);
-        
+
         const shockTime = new Date(ejectaTime);
         ctx.fillStyle = C.shock;
         ctx.font = `9px ${FONT}`;
         ctx.fontWeight = 'bold';
         ctx.textAlign = 'left';
-        ctx.fillText(`shock ${shockTime.getUTCHours().toString().padStart(2,'0')}:${shockTime.getUTCMinutes().toString().padStart(2,'0')}`, 
+        ctx.fillText(`shock ${shockTime.getUTCHours().toString().padStart(2,'0')}:${shockTime.getUTCMinutes().toString().padStart(2,'0')}`,
                      x + 3, PAD.t + 12);
       }
     }
@@ -528,7 +546,7 @@ function BzPlot({ data, timeRange, ejectaStart, crosshairT, onCrosshair, zoomMod
     ctx.fillStyle = '#662233';
     ctx.fillText('↓ SOUTH = aurora fuel', PAD.l + 3, PAD.t + pH - 5);
     
-  }, [data, timeRange, ejectaStart, crosshairT, zoomMode, zoomStart]);
+  }, [data, timeRange, ejectaStart, classWindow, crosshairT, zoomMode, zoomStart]);
   
   useEffect(() => { draw(); }, [draw]);
   
@@ -581,7 +599,7 @@ function BzPlot({ data, timeRange, ejectaStart, crosshairT, onCrosshair, zoomMod
 }
 
 // By Plot Component  
-function ByPlot({ data, timeRange, ejectaStart, crosshairT, onCrosshair, zoomMode, zoomStart }) {
+function ByPlot({ data, timeRange, ejectaStart, classWindow, crosshairT, onCrosshair, zoomMode, zoomStart }) {
   const canvasRef = useRef(null);
   
   const draw = useCallback(() => {
@@ -665,6 +683,21 @@ function ByPlot({ data, timeRange, ejectaStart, crosshairT, onCrosshair, zoomMod
       ctx.stroke();
     }
     
+    // Classification window highlight
+    if (classWindow?.start) {
+      const cwStart = new Date(classWindow.start).getTime();
+      const cwEnd = classWindow.end ? new Date(classWindow.end).getTime() : tMax;
+      const dim = 'rgba(0,0,0,0.45)';
+      if (cwStart > tMin) {
+        ctx.fillStyle = dim;
+        ctx.fillRect(PAD.l, PAD.t, xScale(Math.min(cwStart, tMax)) - PAD.l, pH);
+      }
+      if (cwEnd < tMax) {
+        ctx.fillStyle = dim;
+        ctx.fillRect(xScale(Math.max(cwEnd, tMin)), PAD.t, PAD.l + pW - xScale(Math.max(cwEnd, tMin)), pH);
+      }
+    }
+
     // Ejecta marker
     if (ejectaStart) {
       const ejectaTime = new Date(ejectaStart).getTime();
@@ -764,7 +797,7 @@ function ByPlot({ data, timeRange, ejectaStart, crosshairT, onCrosshair, zoomMod
     ctx.fillStyle = '#5a3a0a';
     ctx.fillText('−By  DAWN', PAD.l + pW * 0.03, PAD.t + pH * 0.85);
     
-  }, [data, timeRange, ejectaStart, crosshairT, zoomMode, zoomStart]);
+  }, [data, timeRange, ejectaStart, classWindow, crosshairT, zoomMode, zoomStart]);
   
   useEffect(() => { draw(); }, [draw]);
   
@@ -817,7 +850,7 @@ function ByPlot({ data, timeRange, ejectaStart, crosshairT, onCrosshair, zoomMod
 }
 
 // Phi Plot Component
-function PhiPlot({ data, timeRange, ejectaStart, crosshairT, onCrosshair, zoomMode, zoomStart, showAnnotations }) {
+function PhiPlot({ data, timeRange, ejectaStart, classWindow, crosshairT, onCrosshair, zoomMode, zoomStart, showAnnotations }) {
   const canvasRef = useRef(null);
   
   const draw = useCallback(() => {
@@ -932,6 +965,21 @@ function PhiPlot({ data, timeRange, ejectaStart, crosshairT, onCrosshair, zoomMo
       }
     }
     
+    // Classification window highlight
+    if (classWindow?.start) {
+      const cwStart = new Date(classWindow.start).getTime();
+      const cwEnd = classWindow.end ? new Date(classWindow.end).getTime() : tMax;
+      const dim = 'rgba(0,0,0,0.45)';
+      if (cwStart > tMin) {
+        ctx.fillStyle = dim;
+        ctx.fillRect(PAD.l, PAD.t, xScale(Math.min(cwStart, tMax)) - PAD.l, pH);
+      }
+      if (cwEnd < tMax) {
+        ctx.fillStyle = dim;
+        ctx.fillRect(xScale(Math.max(cwEnd, tMin)), PAD.t, PAD.l + pW - xScale(Math.max(cwEnd, tMin)), pH);
+      }
+    }
+
     // Ejecta marker
     if (ejectaStart) {
       const ejectaTime = new Date(ejectaStart).getTime();
@@ -1028,7 +1076,7 @@ function PhiPlot({ data, timeRange, ejectaStart, crosshairT, onCrosshair, zoomMo
     ctx.textAlign = 'left';
     ctx.fillText('0°=north  180°=south  ·  rapid changes annotated', PAD.l + 3, H - 5);
     
-  }, [data, timeRange, ejectaStart, crosshairT, zoomMode, zoomStart, showAnnotations]);
+  }, [data, timeRange, ejectaStart, classWindow, crosshairT, zoomMode, zoomStart, showAnnotations]);
   
   useEffect(() => { draw(); }, [draw]);
   
@@ -1143,204 +1191,99 @@ function detectPhiChanges(data) {
 
 // Classification Box Component
 function ClassificationBox({ classData, metadata, cmeId }) {
-  // Determine status message
-  let statusMessage = 'No active CME for classification';
-  let statusColor = C.textDim;
-  
-  if (metadata?.active_cme_id && !classData) {
-    // CME detected but no classification yet
-    statusMessage = `CME detected: ${metadata.active_cme_id}\n\nClassification in progress...\nWaiting for sufficient data (min 1.5hr post-shock)`;
-    statusColor = '#ffaa00';
-  } else if (classData?.notes && classData.notes.length > 0) {
-    statusMessage = classData.notes.join('\n');
-  }
-  
   if (!classData || !classData.active) {
+    let msg = 'No active CME for classification';
+    let col = C.textDim;
+    if (metadata?.active_cme_id && !classData) {
+      msg = `CME detected: ${metadata.active_cme_id}\nClassification in progress...`;
+      col = '#ffaa00';
+    } else if (classData?.notes?.length) {
+      msg = classData.notes.join('\n');
+    }
     return (
-      <div style={{
-        background: C.classBox,
-        border: `1px solid ${C.grid}`,
-        borderRadius: 3,
-        padding: 16,
-        fontFamily: FONT,
-        height: '100%',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-      }}>
-        <div style={{ 
-          fontSize: 10, 
-          color: statusColor, 
-          textAlign: 'center',
-          lineHeight: 1.6,
-          whiteSpace: 'pre-line',
-        }}>
-          {statusMessage}
-        </div>
+      <div style={{ background: C.classBox, border: `1px solid ${C.grid}`, borderRadius: 3,
+        height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: FONT }}>
+        <div style={{ fontSize: 10, color: col, textAlign: 'center', lineHeight: 1.6, whiteSpace: 'pre-line' }}>{msg}</div>
       </div>
     );
   }
-  
-  const current = classData.current || {};
+
+  const cur = classData.current || {};
   const sigs = classData.signatures || {};
   const bz = classData.bz_predictions || {};
-  
-  const confidence = current.confidence || 0;
-  const confidenceColor = confidence >= 75 ? C.bz_north : confidence >= 50 ? '#ffaa00' : C.bz_south;
-  
+  const conf = cur.confidence || 0;
+  const confCol = conf >= 75 ? C.bz_north : conf >= 50 ? '#ffaa00' : C.bz_south;
+  const auCol = bz.aurora_potential === 'EXTREME' ? C.bz_south :
+                bz.aurora_potential === 'EXCELLENT' ? '#ffaa00' :
+                bz.aurora_potential === 'GOOD' ? C.bz_north : C.textDim;
+
+  // Compact key-value row
+  const Row = ({ label, value, color }) => (
+    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 9, lineHeight: 1.3 }}>
+      <span style={{ color: C.textDim }}>{label}</span>
+      <span style={{ color: color || C.text, fontWeight: color ? 600 : 400 }}>{value}</span>
+    </div>
+  );
+
   return (
     <div style={{
-      background: C.classBox,
-      border: `1px solid ${C.grid}`,
-      borderRadius: 3,
-      padding: 14,
-      fontFamily: FONT,
-      display: 'flex',
-      flexDirection: 'column',
-      gap: 12,
-      height: '100%',
-      overflow: 'auto',
+      background: C.classBox, border: `1px solid ${C.grid}`, borderRadius: 3,
+      padding: '8px 12px', fontFamily: FONT, height: '100%',
+      display: 'flex', gap: 12, overflow: 'hidden',
     }}>
-      {/* Header */}
-      <div style={{ borderBottom: `1px solid ${C.grid}`, paddingBottom: 8 }}>
-        {cmeId && (
-          <div style={{ fontSize: 8, color: C.textDim, letterSpacing: 1, marginBottom: 4 }}>
-            {cmeId}
+      {/* LEFT: Featured BS type box */}
+      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minWidth: 80 }}>
+        <div style={{
+          border: `2px solid ${confCol}`, borderRadius: 4,
+          width: 72, height: 72, display: 'flex', alignItems: 'center', justifyContent: 'center',
+          background: 'rgba(255,255,255,0.03)',
+        }}>
+          <span style={{ fontSize: 28, fontWeight: 700, color: C.text, letterSpacing: 2 }}>
+            {cur.bs_type || '?'}
+          </span>
+        </div>
+        <div style={{ fontSize: 7, color: C.textDim, marginTop: 4, textAlign: 'center', lineHeight: 1.2, maxWidth: 80 }}>
+          {cur.bs_type_full || ''}
+        </div>
+        {cmeId && <div style={{ fontSize: 7, color: C.textFaint, marginTop: 2, letterSpacing: 0.5 }}>{cmeId}</div>}
+      </div>
+
+      {/* MIDDLE: Confidence + key metrics */}
+      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'center', gap: 3, minWidth: 0 }}>
+        {/* Confidence bar */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 2 }}>
+          <span style={{ fontSize: 8, color: C.textDim, flexShrink: 0 }}>CONFIDENCE</span>
+          <div style={{ flex: 1, background: C.progressBar, height: 4, borderRadius: 2, overflow: 'hidden' }}>
+            <div style={{ background: confCol, height: '100%', width: `${conf}%`, transition: 'width 0.3s ease' }} />
+          </div>
+          <span style={{ fontSize: 9, color: confCol, fontWeight: 600, flexShrink: 0 }}>{conf.toFixed(0)}%</span>
+        </div>
+
+        <Row label="Aurora" value={bz.aurora_potential} color={auCol} />
+        <Row label="Kp estimate" value={bz.kp_estimate} />
+        {bz.peak_bz_estimate != null && <Row label="Peak Bz" value={`${bz.peak_bz_estimate.toFixed(1)} nT`} color={C.bz_south} />}
+        <Row label="Chirality" value={cur.chirality} />
+        {sigs.structure_progress_pct != null && <Row label="Structure" value={`${sigs.structure_progress_pct.toFixed(0)}% passed${cur.locked ? ' · locked' : ''}`} />}
+      </div>
+
+      {/* RIGHT: Timing + impact */}
+      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'center', gap: 3, minWidth: 0 }}>
+        {sigs.bz_onset_timing && <Row label="Bz south onset" value={sigs.bz_onset_timing} />}
+        {bz.bz_south_onset_hours != null && <Row label="South begins" value={`~${bz.bz_south_onset_hours}h after shock`} />}
+        {(bz.duration_hours_low != null || bz.duration_hours_high != null) &&
+          <Row label="South Bz duration" value={`${bz.duration_hours_low?.toFixed(1)}–${bz.duration_hours_high?.toFixed(1)} hr`} />}
+        {bz.flux_rope_duration_hours != null && <Row label="Flux rope passage" value={`~${bz.flux_rope_duration_hours} hr total`} />}
+        {bz.description && (
+          <div style={{ fontSize: 8, color: C.text, background: C.panelBg, padding: '4px 6px', borderRadius: 2, lineHeight: 1.3, marginTop: 2 }}>
+            {bz.description}
           </div>
         )}
-        <div style={{ fontSize: 12, color: C.text, fontWeight: 600, marginBottom: 3 }}>
-          {current.bs_type || 'UNKNOWN'}
-        </div>
-        <div style={{ fontSize: 9, color: C.textDim }}>
-          {current.bs_type_full || 'Classification in progress'}
-        </div>
+        {classData.notes?.length > 0 && (
+          <div style={{ fontSize: 7, color: C.textDim, lineHeight: 1.2, marginTop: 1 }}>
+            {classData.notes.map((n, i) => <span key={i}>• {n} </span>)}
+          </div>
+        )}
       </div>
-      
-      {/* Confidence */}
-      <div>
-        <div style={{ 
-          display: 'flex', 
-          justifyContent: 'space-between', 
-          marginBottom: 5,
-          fontSize: 8,
-          color: C.textDim,
-        }}>
-          <span>CONFIDENCE</span>
-          <span style={{ color: confidenceColor, fontWeight: 600 }}>
-            {confidence.toFixed(0)}%
-          </span>
-        </div>
-        <div style={{ 
-          background: C.progressBar, 
-          height: 5, 
-          borderRadius: 2,
-          overflow: 'hidden',
-        }}>
-          <div style={{
-            background: confidenceColor,
-            height: '100%',
-            width: `${confidence}%`,
-            transition: 'width 0.3s ease',
-          }} />
-        </div>
-      </div>
-      
-      {/* Chirality */}
-      {current.chirality && (
-        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 9 }}>
-          <span style={{ color: C.textDim }}>Chirality</span>
-          <span style={{ color: C.text }}>{current.chirality}</span>
-        </div>
-      )}
-      
-      {/* Structure progress */}
-      {sigs.structure_progress_pct !== undefined && (
-        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 9 }}>
-          <span style={{ color: C.textDim }}>Structure passed</span>
-          <span style={{ color: C.text }}>{sigs.structure_progress_pct.toFixed(0)}%</span>
-        </div>
-      )}
-      
-      {/* Bz onset */}
-      {sigs.bz_onset_timing && (
-        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 9 }}>
-          <span style={{ color: C.textDim }}>Bz onset</span>
-          <span style={{ color: C.text }}>{sigs.bz_onset_timing}</span>
-        </div>
-      )}
-      
-      {/* Aurora impact */}
-      {bz.description && (
-        <div style={{ 
-          background: C.panelBg, 
-          padding: 8, 
-          borderRadius: 2,
-          fontSize: 9,
-          color: C.text,
-          lineHeight: 1.4,
-        }}>
-          {bz.description}
-        </div>
-      )}
-      
-      {/* Aurora potential */}
-      {bz.aurora_potential && (
-        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 9 }}>
-          <span style={{ color: C.textDim }}>Aurora potential</span>
-          <span style={{ 
-            color: bz.aurora_potential === 'EXTREME' ? C.bz_south : 
-                   bz.aurora_potential === 'EXCELLENT' ? '#ffaa00' :
-                   bz.aurora_potential === 'GOOD' ? C.bz_north :
-                   C.textDim,
-            fontWeight: 600,
-          }}>
-            {bz.aurora_potential}
-          </span>
-        </div>
-      )}
-      
-      {/* Kp estimate */}
-      {bz.kp_estimate && bz.kp_estimate !== 'N/A' && (
-        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 9 }}>
-          <span style={{ color: C.textDim }}>Kp estimate</span>
-          <span style={{ color: C.text }}>{bz.kp_estimate}</span>
-        </div>
-      )}
-      
-      {/* Duration */}
-      {(bz.duration_hours_low || bz.duration_hours_high) && (
-        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 9 }}>
-          <span style={{ color: C.textDim }}>Duration (est)</span>
-          <span style={{ color: C.text }}>
-            {bz.duration_hours_low?.toFixed(1)}-{bz.duration_hours_high?.toFixed(1)} hr
-          </span>
-        </div>
-      )}
-      
-      {/* Peak Bz */}
-      {bz.peak_bz_estimate !== undefined && bz.peak_bz_estimate !== null && (
-        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 9 }}>
-          <span style={{ color: C.textDim }}>Peak Bz (est)</span>
-          <span style={{ color: C.bz_south }}>
-            {bz.peak_bz_estimate.toFixed(1)} nT
-          </span>
-        </div>
-      )}
-      
-      {/* Notes */}
-      {classData.notes && classData.notes.length > 0 && (
-        <div style={{ 
-          fontSize: 7, 
-          color: C.textDim, 
-          borderTop: `1px solid ${C.grid}`,
-          paddingTop: 8,
-          lineHeight: 1.3,
-        }}>
-          {classData.notes.map((note, i) => (
-            <div key={i} style={{ marginBottom: 3 }}>• {note}</div>
-          ))}
-        </div>
-      )}
     </div>
   );
 }

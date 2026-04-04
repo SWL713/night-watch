@@ -44,7 +44,7 @@ class BothmerSchwennClassifier:
             'active': True,
             'classification_window': {
                 'start': result.get('ejecta_start_time'),
-                'end': None,  # Ongoing
+                'end': self._calc_window_end(result),
                 'duration_hours': result['structure_progress_pct'] / 100 * 24.0
             },
             'current': {
@@ -66,7 +66,9 @@ class BothmerSchwennClassifier:
                 'onset_time': result['bz_onset_timing'],
                 'duration_hours_low': result['bz_south_duration_hrs_low'],
                 'duration_hours_high': result['bz_south_duration_hrs_high'],
-                'peak_bz_estimate': result['peak_bz_estimate_nT']
+                'peak_bz_estimate': result['peak_bz_estimate_nT'],
+                'flux_rope_duration_hours': 24.0,
+                'bz_south_onset_hours': self._south_onset_hours(result['type']),
             },
             'phi_events': [],
             'quality_flags': {
@@ -214,6 +216,29 @@ class BothmerSchwennClassifier:
             },
             'notes': notes
         }
+
+    def _calc_window_end(self, result):
+        """Compute classification window end from start + 24h structure duration"""
+        start = result.get('ejecta_start_time')
+        if not start:
+            return None
+        from datetime import datetime, timedelta, timezone
+        try:
+            dt = datetime.fromisoformat(start).replace(tzinfo=timezone.utc)
+            return (dt + timedelta(hours=24)).isoformat()
+        except Exception:
+            return None
+
+    def _south_onset_hours(self, bs_type):
+        """Estimated hours after shock before Bz turns southward"""
+        # Based on Bothmer-Schwenn type: S-leading types go south immediately,
+        # N-leading types go south mid/late passage
+        return {
+            'SEN': 0, 'SWN': 0,          # South leading — immediate
+            'ESW': 2, 'WSE': 2,           # South throughout — early
+            'NES': 8, 'NWS': 12,          # North leading — mid/late
+            'ENW': None, 'WNE': None,     # North throughout — no south
+        }.get(bs_type)
 
     def _empty_classification(self):
         """Return empty classification when no data"""

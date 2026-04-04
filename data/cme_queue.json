@@ -1,6 +1,6 @@
 {
   "metadata": {
-    "last_updated": "2026-04-04T20:18:11.810175+00:00"
+    "last_updated": "2026-04-04T20:05:01.209085+00:00"
   },
   "active_cme_id": "CME_2026-04-02T20:46Z",
   "cmes": [
@@ -17,7 +17,7 @@
       },
       "properties": {
         "speed_initial": 583.4,
-        "speed_current": 573,
+        "speed_current": 574,
         "half_angle": 35,
         "type": "Unknown",
         "direction_lat": 0,
@@ -33,17 +33,17 @@
       },
       "state": {
         "current": "ARRIVED",
-        "entered_at": "2026-04-04T20:18:09.323290+00:00",
+        "entered_at": "2026-04-04T19:56:58.183402+00:00",
         "history": [
           {
             "from": "QUIET",
             "to": "WATCH",
-            "timestamp": "2026-04-04T19:19:49.469530+00:00"
+            "timestamp": "2026-04-04T19:56:58.183344+00:00"
           },
           {
             "from": "WATCH",
             "to": "ARRIVED",
-            "timestamp": "2026-04-04T20:18:09.323280+00:00"
+            "timestamp": "2026-04-04T19:56:58.183400+00:00"
           }
         ]
       },
@@ -59,8 +59,8 @@
         "progress_percent": 0,
         "eta_hours": null
       },
-      "created_at": "2026-04-04T19:19:49.469397+00:00",
-      "last_updated": "2026-04-04T19:19:49.469399+00:00"
+      "created_at": "2026-04-04T19:56:58.182501+00:00",
+      "last_updated": "2026-04-04T19:56:58.182503+00:00"
     },
     {
       "id": "CME_2026-04-01T03:00Z",
@@ -75,7 +75,7 @@
       },
       "properties": {
         "speed_initial": 554.1,
-        "speed_current": 573,
+        "speed_current": 574,
         "half_angle": 35,
         "type": "Faint CME",
         "direction_lat": 0,
@@ -91,17 +91,17 @@
       },
       "state": {
         "current": "ARRIVED",
-        "entered_at": "2026-04-04T20:18:09.323464+00:00",
+        "entered_at": "2026-04-04T19:56:58.183500+00:00",
         "history": [
           {
             "from": "QUIET",
             "to": "WATCH",
-            "timestamp": "2026-04-04T19:19:49.469538+00:00"
+            "timestamp": "2026-04-04T19:56:58.183462+00:00"
           },
           {
             "from": "WATCH",
             "to": "ARRIVED",
-            "timestamp": "2026-04-04T20:18:09.323456+00:00"
+            "timestamp": "2026-04-04T19:56:58.183498+00:00"
           }
         ]
       },
@@ -117,8 +117,8 @@
         "progress_percent": 0,
         "eta_hours": null
       },
-      "created_at": "2026-04-04T19:19:49.469479+00:00",
-      "last_updated": "2026-04-04T19:19:49.469480+00:00"
+      "created_at": "2026-04-04T19:56:58.182549+00:00",
+      "last_updated": "2026-04-04T19:56:58.182550+00:00"
     }
   ]
 }
