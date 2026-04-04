@@ -1221,62 +1221,70 @@ function ClassificationBox({ classData, metadata, cmeId }) {
     </div>
   );
 
+  // Build metrics for the grid — only include rows that have data
+  const metrics = [];
+  if (bz.aurora_potential) metrics.push({ l: 'Aurora', v: bz.aurora_potential, c: auCol });
+  if (bz.kp_estimate) metrics.push({ l: 'Kp', v: bz.kp_estimate });
+  if (bz.peak_bz_estimate != null) metrics.push({ l: 'Peak Bz', v: `${bz.peak_bz_estimate.toFixed(1)} nT`, c: C.bz_south });
+  if (cur.chirality) metrics.push({ l: 'Chirality', v: cur.chirality });
+  if (sigs.bz_onset_timing) metrics.push({ l: '-Bz onset', v: sigs.bz_onset_timing });
+  if (bz.bz_south_onset_hours != null) metrics.push({ l: '-Bz begins', v: `~${bz.bz_south_onset_hours}h post-shock` });
+  if (bz.duration_hours_low != null) metrics.push({ l: '-Bz duration', v: `${bz.duration_hours_low.toFixed(1)}–${bz.duration_hours_high?.toFixed(1)} hr` });
+  if (bz.flux_rope_duration_hours != null) metrics.push({ l: 'Rope passage', v: `~${bz.flux_rope_duration_hours}h` });
+  if (sigs.structure_progress_pct != null) metrics.push({ l: 'Structure', v: `${sigs.structure_progress_pct.toFixed(0)}%${cur.locked ? ' locked' : ''}` });
+
   return (
     <div style={{
       background: C.classBox, border: `1px solid ${C.grid}`, borderRadius: 3,
       padding: '8px 12px', fontFamily: FONT, height: '100%',
-      display: 'flex', gap: 12, overflow: 'hidden',
+      display: 'flex', gap: 14, overflow: 'hidden',
     }}>
       {/* LEFT: Featured BS type box */}
-      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minWidth: 80 }}>
+      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
         <div style={{
           border: `2px solid ${confCol}`, borderRadius: 4,
-          width: 72, height: 72, display: 'flex', alignItems: 'center', justifyContent: 'center',
+          width: 68, height: 68, display: 'flex', alignItems: 'center', justifyContent: 'center',
           background: 'rgba(255,255,255,0.03)',
         }}>
-          <span style={{ fontSize: 28, fontWeight: 700, color: C.text, letterSpacing: 2 }}>
+          <span style={{ fontSize: 26, fontWeight: 700, color: C.text, letterSpacing: 2 }}>
             {cur.bs_type || '?'}
           </span>
         </div>
-        <div style={{ fontSize: 7, color: C.textDim, marginTop: 4, textAlign: 'center', lineHeight: 1.2, maxWidth: 80 }}>
-          {cur.bs_type_full || ''}
+        <div style={{ fontSize: 7, color: confCol, marginTop: 4, fontWeight: 600 }}>
+          {conf.toFixed(0)}% conf
         </div>
-        {cmeId && <div style={{ fontSize: 7, color: C.textFaint, marginTop: 2, letterSpacing: 0.5 }}>{cmeId}</div>}
+        {cmeId && <div style={{ fontSize: 6, color: C.textFaint, marginTop: 2, letterSpacing: 0.3 }}>{cmeId}</div>}
       </div>
 
-      {/* MIDDLE: Confidence + key metrics */}
-      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'center', gap: 3, minWidth: 0 }}>
-        {/* Confidence bar */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 2 }}>
-          <span style={{ fontSize: 8, color: C.textDim, flexShrink: 0 }}>CONFIDENCE</span>
-          <div style={{ flex: 1, background: C.progressBar, height: 4, borderRadius: 2, overflow: 'hidden' }}>
-            <div style={{ background: confCol, height: '100%', width: `${conf}%`, transition: 'width 0.3s ease' }} />
+      {/* RIGHT: All metrics */}
+      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'center', minWidth: 0, gap: 4 }}>
+        {/* Type description + confidence bar */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 1 }}>
+          <div style={{ fontSize: 9, color: C.textDim, flex: 1 }}>
+            {cur.bs_type_full || 'Classification in progress'}
           </div>
-          <span style={{ fontSize: 9, color: confCol, fontWeight: 600, flexShrink: 0 }}>{conf.toFixed(0)}%</span>
+          <div style={{ width: 60, background: C.progressBar, height: 3, borderRadius: 2, overflow: 'hidden', flexShrink: 0 }}>
+            <div style={{ background: confCol, height: '100%', width: `${conf}%` }} />
+          </div>
         </div>
 
-        <Row label="Aurora" value={bz.aurora_potential} color={auCol} />
-        <Row label="Kp estimate" value={bz.kp_estimate} />
-        {bz.peak_bz_estimate != null && <Row label="Peak Bz" value={`${bz.peak_bz_estimate.toFixed(1)} nT`} color={C.bz_south} />}
-        <Row label="Chirality" value={cur.chirality} />
-        {sigs.structure_progress_pct != null && <Row label="Structure" value={`${sigs.structure_progress_pct.toFixed(0)}% passed${cur.locked ? ' · locked' : ''}`} />}
-      </div>
+        {/* Metrics grid — 2 columns, evenly spaced */}
+        <div style={{
+          display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '2px 16px',
+          borderTop: `1px solid ${C.grid}`, paddingTop: 4,
+        }}>
+          {metrics.map((m, i) => (
+            <div key={i} style={{ display: 'flex', justifyContent: 'space-between', fontSize: 9, lineHeight: 1.4 }}>
+              <span style={{ color: C.textDim }}>{m.l}</span>
+              <span style={{ color: m.c || C.text, fontWeight: m.c ? 600 : 400 }}>{m.v}</span>
+            </div>
+          ))}
+        </div>
 
-      {/* RIGHT: Timing + impact */}
-      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'center', gap: 3, minWidth: 0 }}>
-        {sigs.bz_onset_timing && <Row label="-Bz onset" value={sigs.bz_onset_timing} />}
-        {bz.bz_south_onset_hours != null && <Row label="-Bz begins" value={`~${bz.bz_south_onset_hours}h after shock`} />}
-        {(bz.duration_hours_low != null || bz.duration_hours_high != null) &&
-          <Row label="-Bz duration" value={`${bz.duration_hours_low?.toFixed(1)}–${bz.duration_hours_high?.toFixed(1)} hr`} />}
-        {bz.flux_rope_duration_hours != null && <Row label="Flux rope passage" value={`~${bz.flux_rope_duration_hours} hr total`} />}
+        {/* Impact summary */}
         {bz.description && (
-          <div style={{ fontSize: 8, color: C.text, background: C.panelBg, padding: '4px 6px', borderRadius: 2, lineHeight: 1.3, marginTop: 2 }}>
+          <div style={{ fontSize: 8, color: C.textDim, borderTop: `1px solid ${C.grid}`, paddingTop: 3, lineHeight: 1.3, fontStyle: 'italic' }}>
             {bz.description}
-          </div>
-        )}
-        {classData.notes?.length > 0 && (
-          <div style={{ fontSize: 7, color: C.textDim, lineHeight: 1.2, marginTop: 1 }}>
-            {classData.notes.map((n, i) => <span key={i}>• {n} </span>)}
           </div>
         )}
       </div>
