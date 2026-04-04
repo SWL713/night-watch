@@ -2398,6 +2398,10 @@ def main_with_clouds():
                     json.dump({'metadata': {'last_updated': now.isoformat()}, 'cmes': []}, f, indent=2)
             except:
                 pass
+    
+    except Exception as e:
+        log.error(f"CME pipeline wrapper failed: {e}")
+        # Don't crash main pipeline if CME fails
 
     # Cloud cover — HRRR primary (3km, no rate limits, no seams)
     # Falls back to Open-Meteo if HRRR fails or covers < 80% of grid
