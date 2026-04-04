@@ -1,6 +1,6 @@
 {
   "metadata": {
-    "last_updated": "2026-04-04T20:05:01.209085+00:00"
+    "last_updated": "2026-04-04T20:32:16.031810+00:00"
   },
   "active_cme_id": "CME_2026-04-02T20:46Z",
   "cmes": [
@@ -17,7 +17,7 @@
       },
       "properties": {
         "speed_initial": 583.4,
-        "speed_current": 574,
+        "speed_current": 573,
         "half_angle": 35,
         "type": "Unknown",
         "direction_lat": 0,
@@ -75,7 +75,7 @@
       },
       "properties": {
         "speed_initial": 554.1,
-        "speed_current": 574,
+        "speed_current": 573,
         "half_angle": 35,
         "type": "Faint CME",
         "direction_lat": 0,
