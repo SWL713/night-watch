@@ -1241,7 +1241,7 @@ function ClassificationBox({ classData, metadata, cmeId }) {
         <Row label="Kp" value={bz.kp_estimate} />
         <Row label="Aurora" value={bz.aurora_potential} color={auCol} />
         {bz.peak_bz_estimate != null && <Row label="Peak" value={`${bz.peak_bz_estimate.toFixed(1)} nT`} color={C.bz_south} />}
-        {bz.flux_rope_duration_hours != null && <Row label="Rope" value={`~${bz.flux_rope_duration_hours}h`} />}
+        {bz.flux_rope_duration_hours != null && <Row label="Rope" value={`~${Number(bz.flux_rope_duration_hours).toFixed(0)}h`} />}
         {sigs.structure_progress_pct != null && <Row label="Struct" value={`${sigs.structure_progress_pct.toFixed(0)}%${cur.locked ? ' locked' : ''}`} />}
       </div>
 
@@ -1249,7 +1249,7 @@ function ClassificationBox({ classData, metadata, cmeId }) {
       <div style={{ flex: 1.3, display: 'flex', flexDirection: 'column', justifyContent: 'center', gap: 1, minWidth: 0 }}>
         <Row label="Chirality" value={cur.chirality} />
         {sigs.bz_onset_timing && <Row label="-Bz onset" value={sigs.bz_onset_timing} />}
-        {bz.bz_south_onset_hours != null && <Row label="-Bz begins" value={`~${bz.bz_south_onset_hours}h post-shock`} />}
+        {bz.bz_south_onset_hours != null && <Row label="-Bz begins" value={`~${Number(bz.bz_south_onset_hours).toFixed(1)}h post-shock`} />}
         {(bz.duration_hours_low != null || bz.duration_hours_high != null) &&
           <Row label="-Bz duration" value={`${bz.duration_hours_low?.toFixed(1)}–${bz.duration_hours_high?.toFixed(1)} hr`} />}
         {bz.description && (
