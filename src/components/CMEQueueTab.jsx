@@ -314,6 +314,12 @@ export default function CMEQueueTab({ cmes, positions }) {
               }}>
                 <span style={{ color: cmeColor, fontSize: 16, fontWeight: 'bold', minWidth: 20 }}>{cmeNumber}</span>
                 <span style={{ color: C.textDim, fontSize: 8, fontFamily: FONT, flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{cme.id}</span>
+                {cme.aurora_rating && (
+                  <span style={{ fontSize: 10, color: cme.aurora_rating.stars >= 4 ? '#ffaa00' : cme.aurora_rating.stars >= 2 ? '#ffcc66' : '#667788', whiteSpace: 'nowrap', letterSpacing: 1 }}>
+                    {'★'.repeat(cme.aurora_rating.stars || 0)}{'☆'.repeat(5 - (cme.aurora_rating.stars || 0))}
+                    <span style={{ fontSize: 7, color: '#7a8a90', marginLeft: 2 }}>({cme.aurora_rating.confidence}%)</span>
+                  </span>
+                )}
                 <span style={{
                   background: cme.state?.current === 'WATCH' ? '#FFA500' 
                     : cme.state?.current === 'INBOUND' ? '#FF6B00'

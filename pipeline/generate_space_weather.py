@@ -2384,7 +2384,13 @@ def main_with_clouds():
                 json.dump(cme_data['classification'], f, indent=2)
             with open(cme_pos_path, 'w') as f:
                 json.dump(cme_data['positions'], f, indent=2)
-            
+
+            # Write Bz forecast for timeline overlay
+            if cme_data.get('bz_forecast'):
+                bz_fcst_path = os.path.join(os.path.dirname(__file__), '..', 'data', 'bz_forecast.json')
+                with open(bz_fcst_path, 'w') as f:
+                    json.dump(cme_data['bz_forecast'], f, indent=2)
+
             log.info("CME pipeline complete")
         
         except Exception as e:

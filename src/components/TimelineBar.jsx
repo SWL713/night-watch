@@ -299,6 +299,24 @@ export default function TimelineBar({ spaceWeather, moonData, selectedHour, onHo
     }
     ctx.setLineDash([]); ctx.globalAlpha = 1.0
 
+    // ── 5b. CME/STEREO-A Bz FORECAST OVERLAY ─────────────────────────────────
+    // Fetched from bz_forecast.json — higher fidelity than L1 linear regression
+    if (spaceWeather.bz_forecast_points?.length > 1) {
+      const fcPts = spaceWeather.bz_forecast_points
+        .map(p => ({ time: new Date(p.time), bz: p.bz }))
+        .filter(p => p.time >= lagEnd && p.time <= tEnd && !isNaN(p.bz))
+      if (fcPts.length > 1) {
+        ctx.lineWidth = 2.0; ctx.setLineDash([6, 3]); ctx.globalAlpha = 0.70
+        for (let i = 0; i < fcPts.length - 1; i++) {
+          const a = fcPts[i], b = fcPts[i + 1]
+          const mid = (a.bz + b.bz) / 2
+          ctx.strokeStyle = mid < 0 ? '#ee5577' : '#44ddaa'
+          ctx.beginPath(); ctx.moveTo(tx(a.time), bzY(a.bz)); ctx.lineTo(tx(b.time), bzY(b.bz)); ctx.stroke()
+        }
+        ctx.setLineDash([]); ctx.globalAlpha = 1.0
+      }
+    }
+
     // ── 6. VELOCITY TRACE ─────────────────────────────────────────────────────
     //
     // Same shift logic as Bz:

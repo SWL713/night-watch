@@ -35,9 +35,20 @@ export function useSpaceWeather() {
   useEffect(() => {
     async function load() {
       try {
-        const res = await fetch(SPACE_WEATHER_URL + '?t=' + Date.now())
+        const cacheBust = '?t=' + Date.now()
+        const res = await fetch(SPACE_WEATHER_URL + cacheBust)
         if (!res.ok) throw new Error(`HTTP ${res.status}`)
         const json = await res.json()
+        // Also fetch bz_forecast.json and merge points into spaceWeather
+        try {
+          const fcUrl = SPACE_WEATHER_URL.replace('space_weather.json', 'bz_forecast.json')
+          const fcRes = await fetch(fcUrl + cacheBust)
+          if (fcRes.ok) {
+            const fc = await fcRes.json()
+            json.bz_forecast_points = fc.points || []
+            json.bz_forecast_source = fc.source || null
+          }
+        } catch (_) { /* non-fatal */ }
         setData({ ...FALLBACK, ...json })
         setError(null)
       } catch (e) {
