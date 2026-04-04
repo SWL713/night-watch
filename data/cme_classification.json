@@ -1,6 +1,6 @@
 {
   "metadata": {
-    "last_updated": "2026-04-04T21:32:12.435551+00:00",
+    "last_updated": "2026-04-04T21:56:56.521339+00:00",
     "active_cme_id": "CME_2026-04-02T20:46Z"
   },
   "classifications": {
@@ -14,25 +14,25 @@
       "current": {
         "bs_type": "SWN",
         "bs_type_full": "South-West-North (Weakening - north trailing)",
-        "confidence": 75.5416573636178,
+        "confidence": 75.68473324042706,
         "confidence_trend": "STABLE",
         "locked": true,
         "chirality": "left-handed"
       },
       "signatures": {
         "structure_progress_pct": 100.0,
-        "bz_onset_timing": "leading edge (northward)"
+        "bz_onset_timing": "early (0.7h post-shock)"
       },
       "bz_predictions": {
         "description": "North trailing edge. Weakening.",
         "aurora_potential": "WEAK",
         "kp_estimate": "3-4",
-        "onset_time": "leading edge (northward)",
-        "duration_hours_low": 5.745123966942149,
-        "duration_hours_high": 14.362809917355372,
+        "onset_time": "early (0.7h post-shock)",
+        "duration_hours_low": 5.715036976170912,
+        "duration_hours_high": 14.287592440427279,
         "peak_bz_estimate": -15.65,
         "flux_rope_duration_hours": 24.0,
-        "bz_south_onset_hours": 0
+        "bz_south_onset_hours": 0.6666666666666666
       },
       "phi_events": [],
       "quality_flags": {
@@ -53,25 +53,25 @@
       "current": {
         "bs_type": "SWN",
         "bs_type_full": "South-West-North (Weakening - north trailing)",
-        "confidence": 75.5416573636178,
+        "confidence": 75.68473324042706,
         "confidence_trend": "STABLE",
         "locked": true,
         "chirality": "left-handed"
       },
       "signatures": {
         "structure_progress_pct": 100.0,
-        "bz_onset_timing": "leading edge (northward)"
+        "bz_onset_timing": "early (0.7h post-shock)"
       },
       "bz_predictions": {
         "description": "North trailing edge. Weakening.",
         "aurora_potential": "WEAK",
         "kp_estimate": "3-4",
-        "onset_time": "leading edge (northward)",
-        "duration_hours_low": 5.745123966942149,
-        "duration_hours_high": 14.362809917355372,
+        "onset_time": "early (0.7h post-shock)",
+        "duration_hours_low": 5.715036976170912,
+        "duration_hours_high": 14.287592440427279,
         "peak_bz_estimate": -15.65,
         "flux_rope_duration_hours": 24.0,
-        "bz_south_onset_hours": 0
+        "bz_south_onset_hours": 0.6666666666666666
       },
       "phi_events": [],
       "quality_flags": {
