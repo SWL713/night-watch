@@ -1,7 +1,45 @@
 {
   "metadata": {
-    "last_updated": "2026-04-04T19:19:49.471529+00:00",
+    "last_updated": "2026-04-04T20:18:11.810175+00:00",
     "active_cme_id": "CME_2026-04-02T20:46Z"
   },
-  "classifications": {}
+  "classifications": {
+    "CME_2026-04-02T20:46Z": {
+      "active": true,
+      "classification_window": {
+        "start": "2026-04-01T11:27:00",
+        "end": null,
+        "duration_hours": 24.0
+      },
+      "current": {
+        "bs_type": "SWN",
+        "bs_type_full": "South-West-North (Weakening - north trailing)",
+        "confidence": 75.70273170536143,
+        "confidence_trend": "STABLE",
+        "locked": true,
+        "chirality": "left-handed"
+      },
+      "signatures": {
+        "structure_progress_pct": 100.0,
+        "bz_onset_timing": "leading edge (northward)"
+      },
+      "bz_predictions": {
+        "description": "North trailing edge. Weakening.",
+        "aurora_potential": "WEAK",
+        "kp_estimate": "3-4",
+        "onset_time": "leading edge (northward)",
+        "duration_hours_low": 5.792026856903063,
+        "duration_hours_high": 14.48006714225766,
+        "peak_bz_estimate": -15.65
+      },
+      "phi_events": [],
+      "quality_flags": {
+        "nosedive_detected": false,
+        "reverted": false,
+        "boundary_detected": false,
+        "expert_review_needed": false
+      },
+      "notes": []
+    }
+  }
 }
