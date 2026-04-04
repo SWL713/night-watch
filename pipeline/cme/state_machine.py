@@ -10,34 +10,47 @@ class CMEStateMachine:
     def __init__(self, log):
         self.log = log
     
-    def update_state(self, cme, l1_mag, l1_plasma, stereo_a, epam):
-        """Update CME state based on sensor data"""
-        
+    def update_state(self, cme, l1_mag, l1_plasma, stereo_a, epam, g_level=None):
+        """Update CME state based on sensor data. Loops until stable."""
+
         # Extract lists from data if needed (defensive)
         l1_mag_list = self._extract_list(l1_mag)
         l1_plasma_list = self._extract_list(l1_plasma)
         stereo_a_list = self._extract_list(stereo_a)
         epam_list = self._extract_list(epam)
-        
-        current_state = cme['state']['current']
-        new_state = current_state
-        
-        # State transitions
-        if current_state == 'QUIET':
-            new_state = self._check_quiet_to_watch(cme, stereo_a_list, epam_list)
-        elif current_state == 'WATCH':
-            new_state = self._check_watch_to_inbound(cme, stereo_a_list, epam_list)
-        elif current_state == 'INBOUND':
-            new_state = self._check_inbound_to_imminent(cme, l1_mag_list, l1_plasma_list, epam_list)
-        elif current_state == 'IMMINENT':
-            new_state = self._check_imminent_to_arrived(cme, l1_mag_list, l1_plasma_list)
-        elif current_state == 'ARRIVED':
-            new_state = self._check_arrived_to_storm(cme, l1_mag_list)
-        elif current_state == 'STORM_ACTIVE':
-            new_state = self._check_storm_to_subsiding(cme, l1_mag_list)
-        
-        # Update state if changed
-        if new_state != current_state:
+
+        # Loop until state stabilizes (CME can advance multiple states per run)
+        for _ in range(6):
+            current_state = cme['state']['current']
+            new_state = current_state
+
+            # Check for confirmed arrival first (NOAA G-scale or L1 shock)
+            # Can fast-track from any pre-arrival state
+            if current_state in ['WATCH', 'INBOUND', 'IMMINENT']:
+                confirmed = self._check_confirmed_arrival(cme, l1_mag_list, l1_plasma_list, g_level)
+                if confirmed:
+                    new_state = 'ARRIVED'
+
+            # Normal state transitions (only if not fast-tracked)
+            if new_state == current_state:
+                if current_state == 'QUIET':
+                    new_state = self._check_quiet_to_watch(cme, stereo_a_list, epam_list)
+                elif current_state == 'WATCH':
+                    new_state = self._check_watch_to_inbound(cme, stereo_a_list, epam_list)
+                elif current_state == 'INBOUND':
+                    new_state = self._check_inbound_to_imminent(cme, l1_mag_list, l1_plasma_list, epam_list)
+                elif current_state == 'IMMINENT':
+                    new_state = self._check_imminent_to_arrived(cme, l1_mag_list, l1_plasma_list)
+                elif current_state == 'ARRIVED':
+                    new_state = self._check_arrived_to_storm(cme, l1_mag_list)
+                elif current_state == 'STORM_ACTIVE':
+                    new_state = self._check_storm_to_subsiding(cme, l1_mag_list)
+
+            if new_state == current_state:
+                break  # stable
+
+            # Record transition
+            self.log.info(f"CME {cme.get('id')}: {current_state} -> {new_state}")
             cme['state']['history'].append({
                 'from': current_state,
                 'to': new_state,
@@ -45,48 +58,51 @@ class CMEStateMachine:
             })
             cme['state']['current'] = new_state
             cme['state']['entered_at'] = datetime.now(timezone.utc).isoformat()
-            
-            # CRITICAL: Update speed_current when CME arrives at Earth!
-            # Show REAL L1 speed (700-800 km/s), not launch speed (400s km/s)
+
+            # Update speed_current when CME arrives at Earth
             if new_state == 'ARRIVED' and l1_plasma_list:
-                # Get most recent L1 speed measurements
-                recent_speeds = []
-                for p in l1_plasma_list[-30:]:  # Last 30 minutes
-                    if isinstance(p, (list, tuple)) and len(p) > 1:
-                        speed = p[1]
-                        if speed and speed > 0:
-                            recent_speeds.append(speed)
-                    elif isinstance(p, dict) and 'speed' in p:
-                        speed = p['speed']
-                        if speed and speed > 0:
-                            recent_speeds.append(speed)
-                
-                if recent_speeds:
-                    # Use average of recent measurements for stability
-                    avg_speed = sum(recent_speeds) / len(recent_speeds)
-                    cme['properties']['speed_current'] = round(avg_speed)
-                    # Also log it for debugging
-                    import logging
-                    log = logging.getLogger(__name__)
-                    log.info(f"CME {cme.get('id')} ARRIVED - updated speed_current to {round(avg_speed)} km/s (L1 measured)")
-        
-        # ALSO: Update speed for CMEs already in ARRIVED/STORM_ACTIVE/SUBSIDING states
-        # Keep showing real-time L1 speed, not stale launch speed
-        if current_state in ['ARRIVED', 'STORM_ACTIVE', 'SUBSIDING'] and l1_plasma_list:
-            recent_speeds = []
-            for p in l1_plasma_list[-30:]:
-                if isinstance(p, (list, tuple)) and len(p) > 1:
-                    speed = p[1]
-                    if speed and speed > 0:
-                        recent_speeds.append(speed)
-                elif isinstance(p, dict) and 'speed' in p:
-                    speed = p['speed']
-                    if speed and speed > 0:
-                        recent_speeds.append(speed)
-            
-            if recent_speeds:
-                avg_speed = sum(recent_speeds) / len(recent_speeds)
-                cme['properties']['speed_current'] = round(avg_speed)
+                self._update_speed_from_l1(cme, l1_plasma_list)
+
+        # Keep showing real-time L1 speed for post-arrival states
+        if cme['state']['current'] in ['ARRIVED', 'STORM_ACTIVE', 'SUBSIDING'] and l1_plasma_list:
+            self._update_speed_from_l1(cme, l1_plasma_list)
+
+    def _update_speed_from_l1(self, cme, l1_plasma_list):
+        """Update speed_current from recent L1 plasma measurements"""
+        # Plasma columns: [time(0), density(1), speed(2), temp(3)]
+        recent_speeds = []
+        for p in l1_plasma_list[-30:]:
+            if isinstance(p, (list, tuple)) and len(p) > 2:
+                speed = p[2]
+                if isinstance(speed, (int, float)) and speed > 0:
+                    recent_speeds.append(speed)
+            elif isinstance(p, dict) and 'speed' in p:
+                speed = p['speed']
+                if speed and speed > 0:
+                    recent_speeds.append(speed)
+        if recent_speeds:
+            avg_speed = sum(recent_speeds) / len(recent_speeds)
+            cme['properties']['speed_current'] = round(avg_speed)
+
+    def _check_confirmed_arrival(self, cme, l1_mag, l1_plasma, g_level):
+        """Check for confirmed CME arrival from official sources or clear L1 signatures"""
+
+        # Trigger 1: NOAA G-scale storm active (G1+) = confirmed geomagnetic impact
+        if g_level and g_level.startswith('G') and g_level != 'G0':
+            try:
+                g_num = int(g_level[1])
+                if g_num >= 1:
+                    self.log.info(f"CME {cme.get('id')}: Confirmed arrival — NOAA {g_level} active")
+                    return True
+            except (ValueError, IndexError):
+                pass
+
+        # Trigger 2: Direct ejecta detection in L1 (reuse existing method)
+        if self._detect_ejecta_in_situ(l1_mag, l1_plasma):
+            self.log.info(f"CME {cme.get('id')}: Confirmed arrival — L1 ejecta detected")
+            return True
+
+        return False
     
     def _extract_list(self, data):
         """Extract list from data - handles both list and dict formats"""
@@ -128,27 +144,32 @@ class CMEStateMachine:
         return 'QUIET'
     
     def _check_watch_to_inbound(self, cme, stereo_a, epam):
-        """WATCH → INBOUND triggers (need both)"""
-        
+        """WATCH → INBOUND triggers (sensors OR ETA-based)"""
+
         stereo_ok = False
         epam_ok = False
-        
+
         # Check STEREO-A sustained elevation
         if stereo_a and len(stereo_a) > 60:
             recent = stereo_a[-60:]
             speeds = [p.get('speed_KPS') for p in recent if isinstance(p, dict) and p.get('speed_KPS')]
             if speeds and sum(speeds) / len(speeds) > 525:  # baseline + 75
                 stereo_ok = True
-        
+
         # Check EPAM moderate signal
         if epam:
             flux_ratio = self._calc_epam_ratio(epam)
             if flux_ratio > 2.0:
                 epam_ok = True
-        
+
         if stereo_ok and epam_ok:
             return 'INBOUND'
-        
+
+        # ETA-based fallback: scoreboard says CME arrives within 24h
+        eta_hours = self._calculate_eta(cme)
+        if eta_hours is not None and eta_hours < 24:
+            return 'INBOUND'
+
         return 'WATCH'
     
     def _check_inbound_to_imminent(self, cme, l1_mag, l1_plasma, epam):
@@ -161,13 +182,15 @@ class CMEStateMachine:
                 return 'IMMINENT'
         
         # Trigger 2: L1 velocity rising
+        # Plasma columns: [time(0), density(1), speed(2), temp(3)]
         if l1_plasma and len(l1_plasma) > 30:
             recent = l1_plasma[-30:]
-            # Handle both list-of-lists and list-of-dicts
             speeds = []
             for p in recent:
-                if isinstance(p, (list, tuple)) and len(p) > 1:
-                    speeds.append(p[1])
+                if isinstance(p, (list, tuple)) and len(p) > 2:
+                    v = p[2]
+                    if isinstance(v, (int, float)):
+                        speeds.append(v)
                 elif isinstance(p, dict) and 'speed' in p:
                     speeds.append(p['speed'])
             
@@ -208,25 +231,30 @@ class CMEStateMachine:
                 return 'ARRIVED'
         
         # Trigger 2: Velocity spike (LOWERED: 550 → 500 km/s)
+        # Plasma columns: [time(0), density(1), speed(2), temp(3)]
         if l1_plasma and len(l1_plasma) > 10:
             recent = l1_plasma[-10:]
             speeds = []
             for p in recent:
-                if isinstance(p, (list, tuple)) and len(p) > 1:
-                    speeds.append(p[1])
+                if isinstance(p, (list, tuple)) and len(p) > 2:
+                    v = p[2]
+                    if isinstance(v, (int, float)):
+                        speeds.append(v)
                 elif isinstance(p, dict) and 'speed' in p:
                     speeds.append(p['speed'])
-            
+
             if speeds and max(speeds) > 500:  # LOWERED from 550
                 return 'ARRIVED'
-        
+
         # Trigger 3: Density spike (NEW)
         if l1_plasma and len(l1_plasma) > 10:
             recent = l1_plasma[-10:]
             densities = []
             for p in recent:
-                if isinstance(p, (list, tuple)) and len(p) > 2:
-                    densities.append(p[2])  # Density column
+                if isinstance(p, (list, tuple)) and len(p) > 1:
+                    d = p[1]  # Density is index 1
+                    if isinstance(d, (int, float)):
+                        densities.append(d)
                 elif isinstance(p, dict) and 'density' in p:
                     densities.append(p['density'])
             
@@ -275,20 +303,22 @@ class CMEStateMachine:
                 bt_values.append(p['bt'])
         
         # Extract Bz values
+        # Mag columns: [time(0), bx(1), by(2), bz(3), bt(4), phi(5)]
         bz_values = []
         for p in recent_mag:
-            if isinstance(p, (list, tuple)) and len(p) > 0:
-                if p[0] is not None:  # Bz is first column
-                    bz_values.append(p[0])
+            if isinstance(p, (list, tuple)) and len(p) > 3:
+                if isinstance(p[3], (int, float)):
+                    bz_values.append(p[3])
             elif isinstance(p, dict) and 'bz' in p and p['bz'] is not None:
                 bz_values.append(p['bz'])
-        
+
         # Extract V values
+        # Plasma columns: [time(0), density(1), speed(2), temp(3)]
         v_values = []
         for p in recent_plasma:
-            if isinstance(p, (list, tuple)) and len(p) > 1:
-                if p[1] is not None:  # V is second column
-                    v_values.append(p[1])
+            if isinstance(p, (list, tuple)) and len(p) > 2:
+                if isinstance(p[2], (int, float)):
+                    v_values.append(p[2])
             elif isinstance(p, dict) and 'speed' in p and p['speed'] is not None:
                 v_values.append(p['speed'])
         
@@ -305,13 +335,14 @@ class CMEStateMachine:
     
     def _check_arrived_to_storm(self, cme, l1_mag):
         """ARRIVED → STORM_ACTIVE triggers"""
-        
+        # Mag columns: [time(0), bx(1), by(2), bz(3), bt(4), phi(5)]
         if l1_mag and len(l1_mag) > 30:
             recent = l1_mag[-30:]
             bz_values = []
             for p in recent:
-                if isinstance(p, (list, tuple)) and len(p) > 0:
-                    bz_values.append(p[0])  # Bz column
+                if isinstance(p, (list, tuple)) and len(p) > 3:
+                    if isinstance(p[3], (int, float)):
+                        bz_values.append(p[3])
                 elif isinstance(p, dict) and 'bz' in p:
                     bz_values.append(p['bz'])
             
@@ -325,13 +356,14 @@ class CMEStateMachine:
     
     def _check_storm_to_subsiding(self, cme, l1_mag):
         """STORM_ACTIVE → SUBSIDING triggers"""
-        
+        # Mag columns: [time(0), bx(1), by(2), bz(3), bt(4), phi(5)]
         if l1_mag and len(l1_mag) > 30:
             recent = l1_mag[-30:]
             bz_values = []
             for p in recent:
-                if isinstance(p, (list, tuple)) and len(p) > 0:
-                    bz_values.append(p[0])
+                if isinstance(p, (list, tuple)) and len(p) > 3:
+                    if isinstance(p[3], (int, float)):
+                        bz_values.append(p[3])
                 elif isinstance(p, dict) and 'bz' in p:
                     bz_values.append(p['bz'])
             

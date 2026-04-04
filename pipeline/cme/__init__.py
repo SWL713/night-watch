@@ -65,34 +65,43 @@ def run_cme_pipeline(l1_mag, l1_plasma, stereo_a, epam, log):
         from .scraper import sync_queue_with_scoreboard
         queue = sync_queue_with_scoreboard(existing_queue, scoreboard, coronal_holes, log)
         
-        # 5. Update states for all CMEs
+        # 5. Read NOAA G-level for confirmed arrival detection
+        g_level = None
+        try:
+            sw_path = os.path.join(os.path.dirname(__file__), '..', '..', 'data', 'space_weather.json')
+            with open(sw_path, 'r') as f:
+                sw_data = json.load(f)
+            g_level = sw_data.get('g_level')
+        except Exception:
+            pass
+
+        # 6. Update states for all CMEs
         state_machine = CMEStateMachine(log)
         for cme in queue['cmes']:
-            state_machine.update_state(cme, l1_mag, l1_plasma, stereo_a, epam)
-        
-        # 6. Determine active CME
+            state_machine.update_state(cme, l1_mag, l1_plasma, stereo_a, epam, g_level=g_level)
+
+        # 7. Determine active CME
         queue['active_cme_id'] = state_machine.determine_active_cme(queue['cmes'])
-        
-        # 7. Run classifier on active CME if in appropriate state
-        # EXPANDED: Now classifies INBOUND/IMMINENT too (not just ARRIVED)
+
+        # 8. Run classifier on active CME
+        # Runs for all tracked states — classifier handles pre-arrival predictions
         classification_data = {
             'metadata': {'last_updated': None, 'active_cme_id': queue['active_cme_id']},
             'classifications': {}
         }
-        
+
         if queue['active_cme_id']:
             active_cme = next((c for c in queue['cmes'] if c['id'] == queue['active_cme_id']), None)
-            
-            # EXPANDED: Classify in INBOUND, IMMINENT, ARRIVED, STORM_ACTIVE states
-            if active_cme and active_cme['state']['current'] in ['INBOUND', 'IMMINENT', 'ARRIVED', 'STORM_ACTIVE']:
+
+            if active_cme and active_cme['state']['current'] in ['WATCH', 'INBOUND', 'IMMINENT', 'ARRIVED', 'STORM_ACTIVE']:
                 classifier = BothmerSchwennClassifier(log)
                 classification = classifier.classify(active_cme, l1_mag, l1_plasma)
                 classification_data['classifications'][queue['active_cme_id']] = classification
         
-        # 8. Calculate positions for all active CMEs
+        # 9. Calculate positions for all active CMEs
         positions = calculate_cme_positions(queue['cmes'], coronal_holes, log)
-        
-        # 9. Check for removals
+
+        # 10. Check for removals
         from .utils import check_removals
         queue = check_removals(queue, classification_data, log)
         

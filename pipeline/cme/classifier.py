@@ -39,6 +39,9 @@ class BothmerSchwennClassifier:
         )
         
         if result['insufficient_data']:
+            # Pre-arrival or early post-arrival: show predictive output
+            if cme['state']['current'] in ['WATCH', 'INBOUND', 'IMMINENT', 'ARRIVED', 'STORM_ACTIVE']:
+                return self._predictive_classification(cme, result.get('notes', []))
             return self._empty_classification()
         
         # Map to Night Watch classification format
@@ -127,6 +130,96 @@ class BothmerSchwennClassifier:
         }
         return mapping.get(bs_type, 'N/A')
     
+    def _predictive_classification(self, cme, flux_notes=None):
+        """Speed-based prediction when flux rope classification has insufficient data.
+
+        Confidence is low (10-30%) to clearly signal this is a forecast,
+        not an observed classification.  Users see the confidence gauge
+        and know it will sharpen as data arrives.
+        """
+        from datetime import datetime, timezone
+
+        speed = cme['properties'].get('speed_initial') or 500
+        state = cme['state']['current']
+        arrived = state in ['ARRIVED', 'STORM_ACTIVE']
+
+        # Calculate ETA
+        now_ts = datetime.now(timezone.utc).timestamp()
+        eta_hours = None
+        if cme.get('arrival', {}).get('median_prediction'):
+            eta_hours = (cme['arrival']['median_prediction'] - now_ts) / 3600
+        elif cme.get('arrival', {}).get('average_prediction'):
+            eta_hours = (cme['arrival']['average_prediction'] - now_ts) / 3600
+
+        # Speed-based impact estimate
+        if speed > 800:
+            aurora_potential, kp_estimate, confidence = 'EXCELLENT', '6-8', 25
+            desc = f'Fast CME ({speed:.0f} km/s). Strong storm potential if southward Bz.'
+        elif speed > 600:
+            aurora_potential, kp_estimate, confidence = 'GOOD', '5-7', 20
+            desc = f'Moderate CME ({speed:.0f} km/s). Moderate storm potential.'
+        else:
+            aurora_potential, kp_estimate, confidence = 'WEAK', '3-5', 15
+            desc = f'Slow CME ({speed:.0f} km/s). Mild impact expected.'
+
+        # Adjust for state
+        if arrived:
+            status_text = 'Classification in progress — collecting post-arrival L1 data'
+            eta_text = 'arrived'
+            confidence = min(confidence + 5, 30)
+            notes = [
+                'CME ARRIVED — flux rope classification building',
+                'Need ~1.5 hours of post-shock L1 data for Bothmer-Schwenn typing',
+                'Confidence will increase as magnetic structure is measured'
+            ]
+        else:
+            eta_text = f'{eta_hours:.1f}h' if eta_hours is not None else 'unknown'
+            status_text = f'Pre-arrival forecast (ETA {eta_text})'
+            if eta_hours is not None and eta_hours < 6:
+                confidence = min(confidence + 5, 30)
+            notes = [
+                'PRE-ARRIVAL FORECAST — based on CME speed and scoreboard predictions',
+                'Bz orientation unknown until CME passes L1 — confidence reflects this',
+                'Classification will sharpen automatically after arrival'
+            ]
+
+        if flux_notes:
+            notes.extend(flux_notes)
+
+        return {
+            'active': True,
+            'classification_window': None,
+            'current': {
+                'bs_type': 'unknown',
+                'bs_type_full': status_text,
+                'confidence': confidence,
+                'confidence_trend': 'STABLE',
+                'locked': False,
+                'chirality': 'unknown'
+            },
+            'signatures': {
+                'structure_progress_pct': 0,
+                'bz_onset_timing': f'ETA {eta_text}'
+            },
+            'bz_predictions': {
+                'description': desc,
+                'aurora_potential': aurora_potential,
+                'kp_estimate': kp_estimate,
+                'onset_time': f'ETA {eta_text}',
+                'duration_hours_low': None,
+                'duration_hours_high': None,
+                'peak_bz_estimate_nT': None
+            },
+            'phi_events': [],
+            'quality_flags': {
+                'nosedive_detected': False,
+                'reverted': False,
+                'boundary_detected': False,
+                'expert_review_needed': True
+            },
+            'notes': notes
+        }
+
     def _empty_classification(self):
         """Return empty classification when no data"""
         return {

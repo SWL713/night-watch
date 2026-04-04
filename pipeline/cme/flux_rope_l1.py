@@ -225,13 +225,20 @@ def classify_flux_rope_l1(l1_mag, l1_plasma, shock_time=None,
         dict with classification results
     """
     # Convert to DataFrames if needed
-    if isinstance(l1_mag, list):
-        l1_mag_df = _list_to_dataframe(l1_mag, ['time', 'Bz', 'By', 'Bx', 'Bt'])
+    # Data may arrive as: list-of-lists, dict with {columns, data}, or DataFrame
+    if isinstance(l1_mag, dict) and 'data' in l1_mag:
+        # Mag columns: [time, bx, by, bz, bt, phi] → remap to expected order
+        l1_mag_df = _list_to_dataframe(l1_mag['data'], ['time', 'Bx', 'By', 'Bz', 'Bt', 'phi'])
+    elif isinstance(l1_mag, list):
+        l1_mag_df = _list_to_dataframe(l1_mag, ['time', 'Bx', 'By', 'Bz', 'Bt'])
     else:
         l1_mag_df = l1_mag
-        
-    if isinstance(l1_plasma, list):
-        l1_plasma_df = _list_to_dataframe(l1_plasma, ['time', 'V', 'density', 'temp'])
+
+    if isinstance(l1_plasma, dict) and 'data' in l1_plasma:
+        # Plasma columns: [time, density, speed, temp]
+        l1_plasma_df = _list_to_dataframe(l1_plasma['data'], ['time', 'density', 'V', 'temp'])
+    elif isinstance(l1_plasma, list):
+        l1_plasma_df = _list_to_dataframe(l1_plasma, ['time', 'density', 'V', 'temp'])
     else:
         l1_plasma_df = l1_plasma
     
@@ -265,8 +272,12 @@ def classify_flux_rope_l1(l1_mag, l1_plasma, shock_time=None,
     if ejecta_start is None:
         return {**null_result, 'notes': ['No ejecta arrival detected in L1 data']}
     
-    # Check elapsed time
+    # Check elapsed time (normalize tz to avoid naive/aware mismatch)
     now = l1_mag_df.index.max()
+    if now.tzinfo is None and hasattr(ejecta_start, 'tzinfo') and ejecta_start.tzinfo is not None:
+        now = now.tz_localize('UTC')
+    elif now.tzinfo is not None and (not hasattr(ejecta_start, 'tzinfo') or ejecta_start.tzinfo is None):
+        ejecta_start = pd.Timestamp(ejecta_start, tz='UTC')
     elapsed_hrs = (now - ejecta_start).total_seconds() / 3600
     
     if elapsed_hrs < MIN_ELAPSED_HRS:
