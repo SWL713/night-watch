@@ -31,6 +31,8 @@ SW_PLASMA_PATH    = os.path.join(os.path.dirname(__file__), '..', 'data', 'sw_pl
 SW_EPAM_PATH      = os.path.join(os.path.dirname(__file__), '..', 'data', 'sw_epam.json')
 SW_STEREO_A_PATH  = os.path.join(os.path.dirname(__file__), '..', 'data', 'sw_stereo_a.json')
 SW_GOES_MAG_PATH  = os.path.join(os.path.dirname(__file__), '..', 'data', 'sw_goes_mag.json')
+SW_GOES_XRAY_PATH = os.path.join(os.path.dirname(__file__), '..', 'data', 'sw_goes_xray.json')
+GOES_FLARES_PATH  = os.path.join(os.path.dirname(__file__), '..', 'data', 'goes_flares.json')
 
 # ── Data source URLs ─────────────────────────────────────────────────────────
 DSCOVR_MAG_URL    = 'https://services.swpc.noaa.gov/json/rtsw/rtsw_mag_1m.json'
@@ -60,6 +62,9 @@ GOES_MAG_SECONDARY_CANDIDATES = [
     'https://services.swpc.noaa.gov/json/goes/secondary/magnetometers-7-day.json',
     'https://services.swpc.noaa.gov/json/goes/secondary/magnetometers-1-day.json',
 ]
+GOES_XRAY_URL     = 'https://services.swpc.noaa.gov/json/goes/primary/xrays-7-day.json'
+GOES_FLARE_PRIMARY_URL   = 'https://services.swpc.noaa.gov/json/goes/primary/xray-flares-7-day.json'
+GOES_FLARE_SECONDARY_URL = 'https://services.swpc.noaa.gov/json/goes/secondary/xray-flares-7-day.json'
 KP_1M_URL         = 'https://services.swpc.noaa.gov/json/planetary_k_index_1m.json'
 KP_FORECAST_URL   = 'https://services.swpc.noaa.gov/products/noaa-planetary-k-index-forecast.json'
 NOAA_SCALES_URL   = 'https://services.swpc.noaa.gov/products/noaa-scales.json'
@@ -1505,6 +1510,295 @@ def fetch_goes_mag():
     return True
 
 
+def fetch_goes_xray():
+    """
+    Fetch GOES X-ray flux data (XRS-B long channel 0.1-0.8nm and XRS-A short channel 0.05-0.4nm).
+    Endpoint: json/goes/primary/xrays-7-day.json
+    Each record: {time_tag, satellite, energy, flux}
+
+    Filters to both energy channels, pairs them by timestamp.
+    Stores compact column-array format in data/sw_goes_xray.json.
+    Uses merge+cache so history accumulates across runs.
+    8-day purge applied on every write.
+    """
+    try:
+        data = safe_get(GOES_XRAY_URL, timeout=30)
+        if not data:
+            log.warning('GOES X-ray: fetch failed or empty')
+            return False
+
+        # Separate by energy channel
+        long_channel = {}   # 0.1-0.8nm (XRS-B)
+        short_channel = {}  # 0.05-0.4nm (XRS-A)
+
+        for rec in data:
+            if not isinstance(rec, dict):
+                continue
+            t = str(rec.get('time_tag', '')).replace('Z', '+00:00')
+            if not t:
+                continue
+            energy = rec.get('energy', '')
+            flux = rec.get('flux')
+
+            # Filter out negative/null flux values
+            if flux is None:
+                continue
+            try:
+                flux_f = float(flux)
+                if flux_f < 0:
+                    continue
+            except (ValueError, TypeError):
+                continue
+
+            if energy == '0.1-0.8nm':
+                long_channel[t] = flux_f
+            elif energy == '0.05-0.4nm':
+                short_channel[t] = flux_f
+
+        # Pair long and short channel by timestamp
+        all_times = sorted(set(long_channel.keys()) | set(short_channel.keys()))
+        new_rows = []
+        for t in all_times:
+            fl = long_channel.get(t)
+            fs = short_channel.get(t)
+            new_rows.append([t, fl, fs])
+
+        log.info(f'GOES X-ray: {len(new_rows)} fresh rows ({len(long_channel)} long, {len(short_channel)} short)')
+
+        # Merge with existing cache so history accumulates
+        cached_rows = []
+        try:
+            with open(SW_GOES_XRAY_PATH) as f:
+                existing = json.load(f)
+            cached_rows = existing.get('data', [])
+            log.info(f'GOES X-ray: {len(cached_rows)} cached rows loaded')
+        except Exception:
+            log.info('GOES X-ray: no existing cache')
+
+        merged = {row[0]: row for row in cached_rows}
+        for row in new_rows:
+            merged[row[0]] = row
+        rows = sorted(merged.values(), key=lambda r: r[0])
+        rows = _purge_old(rows, time_key=0, cutoff_days=8)
+        log.info(f'GOES X-ray: {len(rows)} rows after merge+purge')
+
+        os.makedirs(os.path.dirname(SW_GOES_XRAY_PATH), exist_ok=True)
+        with open(SW_GOES_XRAY_PATH, 'w') as f:
+            json.dump({
+                'fetched_at': datetime.now(timezone.utc).isoformat(),
+                'columns': ['time', 'flux_long', 'flux_short'],
+                'units': 'W/m²',
+                'data': rows,
+            }, f, separators=(',', ':'))
+        log.info(f'sw_goes_xray.json written: {len(rows)} points')
+        return True
+
+    except Exception as e:
+        log.warning(f'GOES X-ray: failed ({e})')
+        return False
+
+
+def _classify_flare(flux):
+    """Classify X-ray flux into flare class string (e.g. 'M1.0', 'X2.5')."""
+    if flux is None or flux <= 0:
+        return None
+    if flux >= 1e-4:
+        return f'X{flux / 1e-4:.1f}'
+    elif flux >= 1e-5:
+        return f'M{flux / 1e-5:.1f}'
+    elif flux >= 1e-6:
+        return f'C{flux / 1e-6:.1f}'
+    elif flux >= 1e-7:
+        return f'B{flux / 1e-7:.1f}'
+    else:
+        return f'A{flux / 1e-8:.1f}'
+
+
+def _radio_blackout_scale(flux):
+    """Compute NOAA radio blackout scale from peak X-ray flux."""
+    if flux is None or flux <= 0:
+        return None
+    if flux >= 2e-3:     # X20+
+        return 'R5'
+    elif flux >= 1e-3:   # X10-X19
+        return 'R4'
+    elif flux >= 1e-4:   # X1-X9
+        return 'R3'
+    elif flux >= 5e-5:   # M5-M9
+        return 'R2'
+    elif flux >= 1e-5:   # M1-M4
+        return 'R1'
+    return None
+
+
+def fetch_goes_flares():
+    """
+    Fetch GOES X-ray flare events from NOAA SWPC (primary + secondary satellites).
+    Also performs LIVE flare detection from recent X-ray data.
+
+    Endpoints:
+      json/goes/primary/xray-flares-7-day.json
+      json/goes/secondary/xray-flares-7-day.json
+
+    Merges both, deduplicates by begin_time + max_class.
+    Computes radio blackout scale (R1-R5) for each flare.
+    Writes data/goes_flares.json.
+    """
+    try:
+        # Fetch from both primary and secondary
+        primary_data = safe_get(GOES_FLARE_PRIMARY_URL, timeout=15)
+        secondary_data = safe_get(GOES_FLARE_SECONDARY_URL, timeout=15)
+
+        all_raw = []
+        if primary_data and isinstance(primary_data, list):
+            all_raw.extend(primary_data)
+        if secondary_data and isinstance(secondary_data, list):
+            all_raw.extend(secondary_data)
+
+        if not all_raw:
+            log.warning('GOES flares: no data from either satellite')
+            return False
+
+        log.info(f'GOES flares: {len(all_raw)} raw records (primary+secondary)')
+
+        # Parse and deduplicate by begin_time + max_class
+        seen = set()
+        flares = []
+        for rec in all_raw:
+            if not isinstance(rec, dict):
+                continue
+            begin = str(rec.get('begin_time', '') or '').replace('Z', '+00:00')
+            max_class = str(rec.get('max_class', '') or '')
+            dedup_key = f'{begin}|{max_class}'
+            if dedup_key in seen:
+                continue
+            seen.add(dedup_key)
+
+            peak = str(rec.get('max_time', '') or rec.get('peak_time', '')).replace('Z', '+00:00')
+            end = str(rec.get('end_time', '') or '').replace('Z', '+00:00')
+
+            # Parse max_flux
+            max_flux = rec.get('max_xrlong', rec.get('max_flux', rec.get('flux')))
+            try:
+                max_flux = float(max_flux) if max_flux is not None else None
+            except (ValueError, TypeError):
+                max_flux = None
+
+            # Compute duration
+            duration_minutes = None
+            try:
+                if begin and end:
+                    dt_begin = datetime.fromisoformat(begin)
+                    dt_end = datetime.fromisoformat(end)
+                    if dt_begin.tzinfo is None:
+                        dt_begin = dt_begin.replace(tzinfo=timezone.utc)
+                    if dt_end.tzinfo is None:
+                        dt_end = dt_end.replace(tzinfo=timezone.utc)
+                    duration_minutes = round((dt_end - dt_begin).total_seconds() / 60, 1)
+            except Exception:
+                pass
+
+            # Build flare ID from begin time
+            flare_id = begin.replace(':', '').replace('-', '').replace('+00:00', '')[:15] if begin else None
+
+            flare = {
+                'id': flare_id,
+                'begin_time': begin or None,
+                'peak_time': peak or None,
+                'end_time': end or None,
+                'max_class': max_class or None,
+                'max_flux': max_flux,
+                'satellite': rec.get('satellite', None),
+                'location': rec.get('location', rec.get('source_location', None)),
+                'active_region': rec.get('active_region', rec.get('noaa_ar', rec.get('region', None))),
+                'status': rec.get('status', rec.get('current_int_xrlong', None)),
+                'duration_minutes': duration_minutes,
+                'radio_blackout': _radio_blackout_scale(max_flux),
+            }
+            flares.append(flare)
+
+        # Sort by begin_time descending (most recent first)
+        flares.sort(key=lambda f: f.get('begin_time') or '', reverse=True)
+        log.info(f'GOES flares: {len(flares)} unique flares after dedup')
+
+        # ── LIVE flare detection from recent X-ray data ──────────────────
+        live_events = []
+        try:
+            with open(SW_GOES_XRAY_PATH) as f:
+                xray_cache = json.load(f)
+            xray_data = xray_cache.get('data', [])
+
+            if xray_data:
+                # Scan for sustained flux >= 1e-5 (M1.0) for 3+ consecutive minutes
+                # Data is 1-minute cadence, sorted by time
+                # Use only the most recent 60 minutes for live detection
+                recent = xray_data[-60:]
+                above_threshold = []
+                streak_start = None
+                streak_rows = []
+
+                for row in recent:
+                    t = row[0]
+                    flux_long = row[1]  # XRS-B long channel
+                    if flux_long is not None and flux_long >= 1e-5:
+                        if not streak_rows:
+                            streak_start = t
+                        streak_rows.append(row)
+                    else:
+                        if len(streak_rows) >= 3:
+                            # Found a sustained event
+                            peak_row = max(streak_rows, key=lambda r: r[1] if r[1] is not None else 0)
+                            peak_flux = peak_row[1]
+                            live_events.append({
+                                'begin_time': streak_start,
+                                'peak_time': peak_row[0],
+                                'end_time': streak_rows[-1][0],
+                                'max_class': _classify_flare(peak_flux),
+                                'max_flux': peak_flux,
+                                'duration_minutes': len(streak_rows),
+                                'radio_blackout': _radio_blackout_scale(peak_flux),
+                                'source': 'live_detection',
+                            })
+                        streak_rows = []
+                        streak_start = None
+
+                # Check if a streak is still ongoing at the end of the data
+                if len(streak_rows) >= 3:
+                    peak_row = max(streak_rows, key=lambda r: r[1] if r[1] is not None else 0)
+                    peak_flux = peak_row[1]
+                    live_events.append({
+                        'begin_time': streak_start,
+                        'peak_time': peak_row[0],
+                        'end_time': None,  # ongoing
+                        'max_class': _classify_flare(peak_flux),
+                        'max_flux': peak_flux,
+                        'duration_minutes': len(streak_rows),
+                        'radio_blackout': _radio_blackout_scale(peak_flux),
+                        'source': 'live_detection',
+                        'status': 'ongoing',
+                    })
+
+                log.info(f'GOES flares: {len(live_events)} live events detected from X-ray data')
+
+        except Exception as e:
+            log.info(f'GOES flares: live detection skipped ({e})')
+
+        # Write output
+        os.makedirs(os.path.dirname(GOES_FLARES_PATH), exist_ok=True)
+        with open(GOES_FLARES_PATH, 'w') as f:
+            json.dump({
+                'last_updated': datetime.now(timezone.utc).isoformat(),
+                'flares': flares,
+                'live_events': live_events,
+            }, f, separators=(',', ':'))
+        log.info(f'goes_flares.json written: {len(flares)} flares, {len(live_events)} live events')
+        return True
+
+    except Exception as e:
+        log.warning(f'GOES flares: failed ({e})')
+        return False
+
+
 def _probe_url(candidates):
     """Try each URL in order, return (url, data) for first 200-OK JSON response."""
     for url in candidates:
@@ -1803,6 +2097,8 @@ def main():
     fetch_epam()
     fetch_sw_stereo_a()
     fetch_goes_mag()
+    fetch_goes_xray()
+    fetch_goes_flares()
 
 
 
@@ -2233,6 +2529,8 @@ def main_with_clouds():
     fetch_epam()
     fetch_sw_stereo_a()
     fetch_goes_mag()
+    fetch_goes_xray()
+    fetch_goes_flares()
 
     # ══════════════════════════════════════════════════════════════════════
     # CME PIPELINE - Integrated CME Dashboard

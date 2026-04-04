@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import CMEQueueTab from './CMEQueueTab';
 import CMEClassificationTab from './CMEClassificationTab';
+import XRayFluxTab from './XRayFluxTab';
 import useCMEData from '../hooks/useCMEData';
 
 const FONT = 'DejaVu Sans Mono, Consolas, monospace';
@@ -46,6 +47,24 @@ export default function CMEDashboard() {
         flexShrink: 0
       }}>
         <button
+          onClick={() => setActiveTab('xray')}
+          style={{
+            background: activeTab === 'xray' ? 'rgba(68,221,170,0.1)' : 'transparent',
+            border: `1px solid ${activeTab === 'xray' ? C.tabActive : C.tabInactive}`,
+            color: activeTab === 'xray' ? C.tabActive : C.tabInactive,
+            padding: '6px 16px',
+            fontSize: 10,
+            fontFamily: FONT,
+            fontWeight: activeTab === 'xray' ? 700 : 400,
+            cursor: 'pointer',
+            borderRadius: 3,
+            letterSpacing: 0.5,
+            transition: 'all 0.2s ease',
+          }}
+        >
+          X-RAY FLUX
+        </button>
+        <button
           onClick={() => setActiveTab('queue')}
           style={{
             background: activeTab === 'queue' ? 'rgba(68,221,170,0.1)' : 'transparent',
@@ -82,6 +101,10 @@ export default function CMEDashboard() {
           CLASSIFICATION
         </button>
       </div>
+
+      {activeTab === 'xray' && (
+        <XRayFluxTab />
+      )}
 
       {activeTab === 'queue' && (
         <CMEQueueTab cmes={cmes} positions={positions} />
