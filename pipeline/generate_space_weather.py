@@ -2242,89 +2242,90 @@ def main_with_clouds():
         
         # ──────────────────────────────────────────────────────────────────
         # PHASE 1: DONKI Scoreboard Integration
-        # Fetch Earth-directed CMEs from NASA DONKI and build queue
-        # ──────────────────────────────────────────────────────────────────
-        try:
-            from cme.donki import get_earth_directed_cmes
-            from cme.queue_manager import build_cme_queue_from_donki
-            import signal
-            
-            # Fast-fail timeout wrapper for DONKI (15 seconds max)
-            def timeout_handler(signum, frame):
-                raise TimeoutError("DONKI fetch exceeded 15 second timeout")
-            
-            log.info("DONKI: Fetching CME scoreboard data...")
-            
-            # Set 15-second timeout for DONKI fetch
-            signal.signal(signal.SIGALRM, timeout_handler)
-            signal.alarm(15)
-            
+        # DISABLED: DONKI API integration - unreliable/frequently down
+        # Using CCMC Scoreboard scraper instead (see line ~2363)
+        if False:
             try:
-                donki_data = get_earth_directed_cmes()
-                signal.alarm(0)  # Cancel timeout
-            except TimeoutError as e:
-                signal.alarm(0)
-                log.warning(f"DONKI: Fetch timeout after 15s - skipping CME update")
-                donki_data = None
-            
-            if donki_data and (donki_data['cmes'] or donki_data['enlil_sims']):
-                # Build CME queue from DONKI scoreboard
-                cme_queue = build_cme_queue_from_donki(
-                    donki_data['cmes'],
-                    donki_data['enlil_sims'],
-                    donki_data['ips_events']
-                )
+                from cme.donki import get_earth_directed_cmes
+                from cme.queue_manager import build_cme_queue_from_donki
+                import signal
                 
-                # Write DONKI-enhanced CME queue
-                cme_queue_output = {
-                    'metadata': {
-                        'last_updated': now.isoformat(),
-                        'donki_last_sync': now.isoformat(),
-                        'cmes_tracked': len(cme_queue)
-                    },
-                    'active_cme_id': cme_queue[0]['id'] if cme_queue else None,
-                    'cmes': cme_queue
-                }
+                # Fast-fail timeout wrapper for DONKI (15 seconds max)
+                def timeout_handler(signum, frame):
+                    raise TimeoutError("DONKI fetch exceeded 15 second timeout")
                 
-                cme_queue_path = os.path.join(os.path.dirname(__file__), '..', 'data', 'cme_queue.json')
-                os.makedirs(os.path.dirname(cme_queue_path), exist_ok=True)
-                with open(cme_queue_path, 'w') as f:
-                    json.dump(cme_queue_output, f, indent=2)
+                log.info("DONKI: Fetching CME scoreboard data...")
                 
-                log.info(f"DONKI: CME queue written - {len(cme_queue)} Earth-directed CMEs")
+                # Set 15-second timeout for DONKI fetch
+                signal.signal(signal.SIGALRM, timeout_handler)
+                signal.alarm(15)
                 
-                # Also update positions for visualization
-                cme_positions = []
-                for cme in cme_queue:
-                    cme_positions.append({
-                        'id': cme['id'],
-                        'distance_au': cme['position']['distance_au'],
-                        'progress_percent': cme['position']['progress_percent'],
-                        'speed': cme['properties']['speed_initial'],
-                        'state': cme['state']['current']
-                    })
+                try:
+                    donki_data = get_earth_directed_cmes()
+                    signal.alarm(0)  # Cancel timeout
+                except TimeoutError as e:
+                    signal.alarm(0)
+                    log.warning(f"DONKI: Fetch timeout after 15s - skipping CME update")
+                    donki_data = None
                 
-                cme_pos_output = {
-                    'metadata': {'last_updated': now.isoformat()},
-                    'positions': cme_positions
-                }
-                
-                cme_pos_path = os.path.join(os.path.dirname(__file__), '..', 'data', 'cme_positions.json')
-                with open(cme_pos_path, 'w') as f:
-                    json.dump(cme_pos_output, f, indent=2)
-                
-                log.info(f"DONKI: CME positions written - {len(cme_positions)} positions")
-            else:
-                log.info("DONKI: No Earth-directed CMEs on scoreboard")
-                
-        except ImportError as e:
-            log.warning(f"DONKI: Module import failed - {e}")
-            log.warning("DONKI: Ensure donki.py and queue_manager.py are in pipeline/cme/")
-        except Exception as e:
-            log.error(f"DONKI: Integration failed (non-fatal) - {e}")
-            import traceback
-            log.error(traceback.format_exc())
-            # Don't crash main pipeline if DONKI fails
+                if donki_data and (donki_data['cmes'] or donki_data['enlil_sims']):
+                    # Build CME queue from DONKI scoreboard
+                    cme_queue = build_cme_queue_from_donki(
+                        donki_data['cmes'],
+                        donki_data['enlil_sims'],
+                        donki_data['ips_events']
+                    )
+                    
+                    # Write DONKI-enhanced CME queue
+                    cme_queue_output = {
+                        'metadata': {
+                            'last_updated': now.isoformat(),
+                            'donki_last_sync': now.isoformat(),
+                            'cmes_tracked': len(cme_queue)
+                        },
+                        'active_cme_id': cme_queue[0]['id'] if cme_queue else None,
+                        'cmes': cme_queue
+                    }
+                    
+                    cme_queue_path = os.path.join(os.path.dirname(__file__), '..', 'data', 'cme_queue.json')
+                    os.makedirs(os.path.dirname(cme_queue_path), exist_ok=True)
+                    with open(cme_queue_path, 'w') as f:
+                        json.dump(cme_queue_output, f, indent=2)
+                    
+                    log.info(f"DONKI: CME queue written - {len(cme_queue)} Earth-directed CMEs")
+                    
+                    # Also update positions for visualization
+                    cme_positions = []
+                    for cme in cme_queue:
+                        cme_positions.append({
+                            'id': cme['id'],
+                            'distance_au': cme['position']['distance_au'],
+                            'progress_percent': cme['position']['progress_percent'],
+                            'speed': cme['properties']['speed_initial'],
+                            'state': cme['state']['current']
+                        })
+                    
+                    cme_pos_output = {
+                        'metadata': {'last_updated': now.isoformat()},
+                        'positions': cme_positions
+                    }
+                    
+                    cme_pos_path = os.path.join(os.path.dirname(__file__), '..', 'data', 'cme_positions.json')
+                    with open(cme_pos_path, 'w') as f:
+                        json.dump(cme_pos_output, f, indent=2)
+                    
+                    log.info(f"DONKI: CME positions written - {len(cme_positions)} positions")
+                else:
+                    log.info("DONKI: No Earth-directed CMEs on scoreboard")
+                    
+            except ImportError as e:
+                log.warning(f"DONKI: Module import failed - {e}")
+                log.warning(f"DONKI: Ensure donki.py and queue_manager.py are in pipeline/cme/")
+            except Exception as e:
+                log.error(f"DONKI: Integration failed (non-fatal) - {e}")
+                import traceback
+                log.error(traceback.format_exc())
+                # Don't crash main pipeline if DONKI fails
         
         # ──────────────────────────────────────────────────────────────────
         # END DONKI INTEGRATION
@@ -2360,10 +2361,10 @@ def main_with_clouds():
         except Exception as e:
             log.warning(f"Could not load sw_epam.json: {e}")
         
-        # DISABLED: Old CME pipeline - using DONKI pipeline instead (lines 2238-2302)
-        # The old pipeline was overwriting the DONKI queue with null when it crashed
-        if False:
-            # Run CME pipeline with shared data
+        # CME PIPELINE - Using CCMC Scoreboard (reliable)
+        # DONKI disabled - API unreliable/frequently down
+        try:
+            # Run CME pipeline with shared data (uses scoreboard scraper)
             cme_data = run_cme_pipeline(
                 l1_mag=mag_7day_data,
                 l1_plasma=plasma_7day_data,
@@ -2388,7 +2389,15 @@ def main_with_clouds():
         
     except Exception as e:
         log.error(f"CME pipeline failed (non-fatal): {e}")
-        # Don't crash main pipeline if CME fails
+        import traceback
+        log.error(traceback.format_exc())
+        # Write empty queue on failure so visualizer doesn't break
+        try:
+            cme_queue_path = os.path.join(os.path.dirname(__file__), '..', 'data', 'cme_queue.json')
+            with open(cme_queue_path, 'w') as f:
+                json.dump({'metadata': {'last_updated': now.isoformat()}, 'cmes': []}, f, indent=2)
+        except:
+            pass
 
     # Cloud cover — HRRR primary (3km, no rate limits, no seams)
     # Falls back to Open-Meteo if HRRR fails or covers < 80% of grid
