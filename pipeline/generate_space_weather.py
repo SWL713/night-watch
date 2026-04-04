@@ -2247,9 +2247,25 @@ def main_with_clouds():
         try:
             from cme.donki import get_earth_directed_cmes
             from cme.queue_manager import build_cme_queue_from_donki
+            import signal
+            
+            # Fast-fail timeout wrapper for DONKI (15 seconds max)
+            def timeout_handler(signum, frame):
+                raise TimeoutError("DONKI fetch exceeded 15 second timeout")
             
             log.info("DONKI: Fetching CME scoreboard data...")
-            donki_data = get_earth_directed_cmes()
+            
+            # Set 15-second timeout for DONKI fetch
+            signal.signal(signal.SIGALRM, timeout_handler)
+            signal.alarm(15)
+            
+            try:
+                donki_data = get_earth_directed_cmes()
+                signal.alarm(0)  # Cancel timeout
+            except TimeoutError as e:
+                signal.alarm(0)
+                log.warning(f"DONKI: Fetch timeout after 15s - skipping CME update")
+                donki_data = None
             
             if donki_data and (donki_data['cmes'] or donki_data['enlil_sims']):
                 # Build CME queue from DONKI scoreboard
