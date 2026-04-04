@@ -1264,10 +1264,10 @@ function ClassificationBox({ classData, metadata, cmeId }) {
 
       {/* RIGHT: Timing + impact */}
       <div style={{ flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'center', gap: 3, minWidth: 0 }}>
-        {sigs.bz_onset_timing && <Row label="Bz south onset" value={sigs.bz_onset_timing} />}
-        {bz.bz_south_onset_hours != null && <Row label="South begins" value={`~${bz.bz_south_onset_hours}h after shock`} />}
+        {sigs.bz_onset_timing && <Row label="-Bz onset" value={sigs.bz_onset_timing} />}
+        {bz.bz_south_onset_hours != null && <Row label="-Bz begins" value={`~${bz.bz_south_onset_hours}h after shock`} />}
         {(bz.duration_hours_low != null || bz.duration_hours_high != null) &&
-          <Row label="South Bz duration" value={`${bz.duration_hours_low?.toFixed(1)}–${bz.duration_hours_high?.toFixed(1)} hr`} />}
+          <Row label="-Bz duration" value={`${bz.duration_hours_low?.toFixed(1)}–${bz.duration_hours_high?.toFixed(1)} hr`} />}
         {bz.flux_rope_duration_hours != null && <Row label="Flux rope passage" value={`~${bz.flux_rope_duration_hours} hr total`} />}
         {bz.description && (
           <div style={{ fontSize: 8, color: C.text, background: C.panelBg, padding: '4px 6px', borderRadius: 2, lineHeight: 1.3, marginTop: 2 }}>
