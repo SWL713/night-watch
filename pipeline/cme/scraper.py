@@ -255,6 +255,14 @@ def finalize_event(evt):
     speed_match = re.search(r'(\d+)\s*km/s', note, re.IGNORECASE)
     if speed_match:
         speed = float(speed_match.group(1))
+
+    # Estimate speed from travel time if note didn't contain speed
+    if speed is None and launch_time and (avg_arrival or median_arrival):
+        arrival_ts = median_arrival or avg_arrival
+        travel_seconds = arrival_ts - launch_time.timestamp()
+        if travel_seconds > 0:
+            distance_km = 1.496e8  # 1 AU in km
+            speed = round(distance_km / travel_seconds, 1)
     
     # Better CME type extraction
     cme_type = extract_cme_type(note)

@@ -1,4 +1,73 @@
 {
-  "metadata": {},
-  "cmes": []
+  "metadata": {
+    "last_updated": "2026-04-04T19:19:49.471529+00:00"
+  },
+  "satellites": {
+    "l1": {
+      "distance_au": 0.01,
+      "distance_rsun": 215
+    },
+    "stereo_a": {
+      "distance_au": 1.02,
+      "angle_from_earth_deg": 48
+    }
+  },
+  "cmes": [
+    {
+      "id": "CME_2026-04-02T20:46Z",
+      "position": {
+        "distance_au": 0.654,
+        "distance_rsun": 140.5,
+        "velocity_current": 439.8,
+        "acceleration": 0,
+        "distance_source": "scoreboard_aligned"
+      },
+      "uncertainty": {
+        "cone_half_angle_deg": 35,
+        "distance_uncertainty_au": 0.05,
+        "velocity_uncertainty": 75
+      },
+      "propagation": {
+        "model": "DBM",
+        "gamma": 3e-08,
+        "w_ambient": 420,
+        "w_from_ch": false
+      },
+      "progress": {
+        "percent_to_l1": 65.4,
+        "eta_hours": 24.7,
+        "eta_timestamp": 1775419200.0,
+        "eta_source": "scoreboard_median"
+      },
+      "state": "WATCH"
+    },
+    {
+      "id": "CME_2026-04-01T03:00Z",
+      "position": {
+        "distance_au": 1.0,
+        "distance_rsun": 215.0,
+        "velocity_current": 422.4,
+        "acceleration": 0,
+        "distance_source": "scoreboard_aligned"
+      },
+      "uncertainty": {
+        "cone_half_angle_deg": 35,
+        "distance_uncertainty_au": 0.05,
+        "velocity_uncertainty": 75
+      },
+      "propagation": {
+        "model": "DBM",
+        "gamma": 3e-08,
+        "w_ambient": 420,
+        "w_from_ch": false
+      },
+      "progress": {
+        "percent_to_l1": 100,
+        "eta_hours": -13.3,
+        "eta_timestamp": 1775282400.0,
+        "eta_source": "scoreboard_median"
+      },
+      "state": "WATCH"
+    }
+  ]
 }

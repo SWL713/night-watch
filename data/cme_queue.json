@@ -1,5 +1,116 @@
 {
-  "metadata": {},
-  "active_cme_id": null,
-  "cmes": []
+  "metadata": {
+    "last_updated": "2026-04-04T19:19:49.471529+00:00"
+  },
+  "active_cme_id": "CME_2026-04-02T20:46Z",
+  "cmes": [
+    {
+      "id": "CME_2026-04-02T20:46Z",
+      "source": {
+        "launch_time": "2026-04-02T20:46:00+00:00",
+        "location": {
+          "latitude": 0,
+          "longitude": 0
+        },
+        "associated_flare": null,
+        "coronal_hole": null
+      },
+      "properties": {
+        "speed_initial": 583.4,
+        "speed_current": 583.4,
+        "half_angle": 35,
+        "type": "Unknown",
+        "direction_lat": 0,
+        "direction_lon": 0
+      },
+      "arrival": {
+        "average_prediction": 1775419200.0,
+        "median_prediction": 1775419200.0,
+        "earliest_prediction": 1775408400.0,
+        "latest_prediction": 1775430000.0,
+        "num_models": 1,
+        "confidence_spread_hours": 0.0,
+        "scoreboard_url": "https://kauai.ccmc.gsfc.nasa.gov/CMEscoreboard/"
+      },
+      "state": {
+        "current": "WATCH",
+        "entered_at": "2026-04-04T19:19:49.469533+00:00",
+        "history": [
+          {
+            "from": "QUIET",
+            "to": "WATCH",
+            "timestamp": "2026-04-04T19:19:49.469530+00:00"
+          }
+        ]
+      },
+      "classification": {
+        "status": "PENDING",
+        "window_start": null,
+        "window_end": null,
+        "bs_type": null,
+        "confidence": null
+      },
+      "position": {
+        "distance_au": 0.01,
+        "progress_percent": 0,
+        "eta_hours": null
+      },
+      "created_at": "2026-04-04T19:19:49.469397+00:00",
+      "last_updated": "2026-04-04T19:19:49.469399+00:00"
+    },
+    {
+      "id": "CME_2026-04-01T03:00Z",
+      "source": {
+        "launch_time": "2026-04-01T03:00:00+00:00",
+        "location": {
+          "latitude": 0,
+          "longitude": 0
+        },
+        "associated_flare": null,
+        "coronal_hole": null
+      },
+      "properties": {
+        "speed_initial": 554.1,
+        "speed_current": 554.1,
+        "half_angle": 35,
+        "type": "Faint CME",
+        "direction_lat": 0,
+        "direction_lon": 0
+      },
+      "arrival": {
+        "average_prediction": 1775282400.0,
+        "median_prediction": 1775282400.0,
+        "earliest_prediction": 1775271600.0,
+        "latest_prediction": 1775293200.0,
+        "num_models": 1,
+        "confidence_spread_hours": 0.0,
+        "scoreboard_url": "https://kauai.ccmc.gsfc.nasa.gov/CMEscoreboard/"
+      },
+      "state": {
+        "current": "WATCH",
+        "entered_at": "2026-04-04T19:19:49.469540+00:00",
+        "history": [
+          {
+            "from": "QUIET",
+            "to": "WATCH",
+            "timestamp": "2026-04-04T19:19:49.469538+00:00"
+          }
+        ]
+      },
+      "classification": {
+        "status": "PENDING",
+        "window_start": null,
+        "window_end": null,
+        "bs_type": null,
+        "confidence": null
+      },
+      "position": {
+        "distance_au": 0.01,
+        "progress_percent": 0,
+        "eta_hours": null
+      },
+      "created_at": "2026-04-04T19:19:49.469479+00:00",
+      "last_updated": "2026-04-04T19:19:49.469480+00:00"
+    }
+  ]
 }

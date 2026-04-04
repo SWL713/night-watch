@@ -41,7 +41,7 @@ def calculate_single_cme_position(cme, coronal_holes, log):
     elapsed_hours = (now - launch_time).total_seconds() / 3600
     
     # DBM parameters
-    v0 = cme['properties']['speed_initial']  # km/s
+    v0 = cme['properties']['speed_initial'] or 500  # km/s (default 500 if unknown)
     gamma = 0.3e-7  # km^-1 (drag coefficient)
     
     # Ambient wind speed (from coronal hole or default)
