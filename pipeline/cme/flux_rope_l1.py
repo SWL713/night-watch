@@ -374,19 +374,42 @@ def classify_flux_rope_l1(l1_mag, l1_plasma, shock_time=None,
         bz_south_dur_low = bz_south_dur_high = None
         observed_peak_bz = None
     
-    # Onset timing
-    onset_map = {
-        'NES': 'mid-passage',
-        'SEN': 'leading edge',
-        'ESW': 'throughout passage',
-        'WSE': 'throughout passage',
-        'NWS': 'trailing edge',
-        'SWN': 'leading edge (northward)',
-        'ENW': 'N/A (north throughout)',
-        'WNE': 'N/A (north throughout)',
-        'unknown': 'indeterminate'
-    }
-    bz_onset_timing = onset_map.get(best_type, 'indeterminate')
+    # Measure actual -Bz onset from observed data
+    bz_south_onset_hrs = None
+    bz_series = rope_df['Bz'].dropna()
+    if len(bz_series) >= 10:
+        # Find first sustained period where Bz < -2 nT for 10+ consecutive minutes
+        south_run = 0
+        for idx_pos in range(len(bz_series)):
+            if bz_series.iloc[idx_pos] < BZ_SOUTH:
+                south_run += 1
+                if south_run >= 10:
+                    onset_idx = idx_pos - south_run + 1
+                    onset_time = bz_series.index[onset_idx]
+                    bz_south_onset_hrs = (onset_time - ejecta_start).total_seconds() / 3600
+                    break
+            else:
+                south_run = 0
+
+    # Onset timing description
+    if bz_south_onset_hrs is not None:
+        if bz_south_onset_hrs < 0.5:
+            bz_onset_timing = 'immediate (<30 min)'
+        elif bz_south_onset_hrs < 3:
+            bz_onset_timing = f'early ({bz_south_onset_hrs:.1f}h post-shock)'
+        elif bz_south_onset_hrs < 8:
+            bz_onset_timing = f'mid-passage ({bz_south_onset_hrs:.1f}h post-shock)'
+        else:
+            bz_onset_timing = f'late ({bz_south_onset_hrs:.1f}h post-shock)'
+    else:
+        onset_map = {
+            'NES': 'mid-passage (est)', 'SEN': 'leading edge (est)',
+            'ESW': 'throughout (est)', 'WSE': 'throughout (est)',
+            'NWS': 'trailing edge (est)', 'SWN': 'leading edge (est)',
+            'ENW': 'N/A (+Bz throughout)', 'WNE': 'N/A (+Bz throughout)',
+            'unknown': 'indeterminate'
+        }
+        bz_onset_timing = onset_map.get(best_type, 'indeterminate')
     
     return {
         'type': best_type,
@@ -395,6 +418,7 @@ def classify_flux_rope_l1(l1_mag, l1_plasma, shock_time=None,
         'aurora_impact': TYPE_AURORA.get(best_type, ''),
         'structure_progress_pct': structure_progress_pct,
         'bz_onset_timing': bz_onset_timing,
+        'bz_south_onset_hrs': bz_south_onset_hrs,
         'bz_south_duration_hrs_low': bz_south_dur_low,
         'bz_south_duration_hrs_high': bz_south_dur_high,
         'peak_bz_estimate_nT': observed_peak_bz,

@@ -1,18 +1,18 @@
 {
-  "last_updated": "2026-04-04T21:33:37.221019+00:00",
+  "last_updated": "2026-04-04T21:31:56.901501+00:00",
   "state": "ARRIVED",
-  "bz_now": -0.09,
-  "by_now": -3.74,
-  "speed_kms": 581.0,
-  "density_ncc": 1.16,
-  "ey_adjusted": -0.52,
-  "intensity_label": "Weak",
-  "intensity_color": "#5599cc",
+  "bz_now": 0.7,
+  "by_now": -3.39,
+  "speed_kms": 574.0,
+  "density_ncc": 0.46,
+  "ey_adjusted": 4.02,
+  "intensity_label": "Calm",
+  "intensity_color": "#667788",
   "aurora_quality": "POOR",
   "aurora_quality_color": "#ff5566",
   "interference_pct": 91.1,
   "astro_dark_pct": 0,
-  "moon_illumination": 0.9108,
+  "moon_illumination": 0.9109,
   "moon_phase_index": 6,
   "moon_phase_name": "waning_gibbous",
   "moon_phase_label": "Waning Gibbous",
@@ -24,6 +24,14 @@
   "hss_watch": false,
   "kp_now": 5.67,
   "kp_observed": [
+    {
+      "time": "2026-04-04T18:32:00+00:00",
+      "kp": 2.0
+    },
+    {
+      "time": "2026-04-04T18:33:00+00:00",
+      "kp": 2.0
+    },
     {
       "time": "2026-04-04T18:34:00+00:00",
       "kp": 2.0
@@ -1175,6 +1183,11 @@
   ],
   "enlil_active": true,
   "enlil_timeline": [
+    {
+      "time": "2026-04-04T21:32:29+00:00",
+      "speed": 539.748,
+      "density": 3.0
+    },
     {
       "time": "2026-04-04T21:34:42+00:00",
       "speed": 539.503,
@@ -2389,56 +2402,56 @@
       "time": "2026-04-05T06:30:13+00:00",
       "speed": 510.431,
       "density": 1.829
-    },
-    {
-      "time": "2026-04-05T06:32:26+00:00",
-      "speed": 510.307,
-      "density": 1.829
     }
   ],
   "timeline": [
     {
       "offset": -1,
-      "bz": -0.1
+      "bz": 0.7
     },
     {
       "offset": 0,
-      "bz": -0.1
+      "bz": 0.7
     },
     {
       "offset": 1,
-      "bz": -0.1
+      "bz": 0.7
     },
     {
       "offset": 2,
-      "bz": -0.1
+      "bz": 0.7
     },
     {
       "offset": 3,
-      "bz": -0.1
+      "bz": 0.7
     },
     {
       "offset": 4,
-      "bz": -0.1
+      "bz": 0.7
     },
     {
       "offset": 5,
-      "bz": -0.0
+      "bz": 0.7
     },
     {
       "offset": 6,
-      "bz": -0.0
+      "bz": 0.7
     },
     {
       "offset": 7,
-      "bz": -0.0
+      "bz": 0.7
     },
     {
       "offset": 8,
-      "bz": -0.0
+      "bz": 0.7
     }
   ],
   "plasma_timeline": [
+    {
+      "time": "2026-04-04T15:32:00+00:00",
+      "speed": 584.0,
+      "density": 0.85
+    },
     {
       "time": "2026-04-04T15:34:00+00:00",
       "speed": 600.0,
@@ -2517,7 +2530,7 @@
     {
       "time": "2026-04-04T16:04:00+00:00",
       "speed": 580.0,
-      "density": 1.08
+      "density": 1.07
     },
     {
       "time": "2026-04-04T16:06:00+00:00",
@@ -2672,7 +2685,7 @@
     {
       "time": "2026-04-04T17:06:00+00:00",
       "speed": 579.0,
-      "density": 2.5
+      "density": 2.51
     },
     {
       "time": "2026-04-04T17:08:00+00:00",
@@ -3323,11 +3336,6 @@
       "time": "2026-04-04T21:26:00+00:00",
       "speed": 575.0,
       "density": 0.78
-    },
-    {
-      "time": "2026-04-04T21:28:00+00:00",
-      "speed": 570.0,
-      "density": 0.71
     }
   ],
   "ovation_oval": [

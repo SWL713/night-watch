@@ -68,7 +68,7 @@ class BothmerSchwennClassifier:
                 'duration_hours_high': result['bz_south_duration_hrs_high'],
                 'peak_bz_estimate': result['peak_bz_estimate_nT'],
                 'flux_rope_duration_hours': 24.0,
-                'bz_south_onset_hours': self._south_onset_hours(result['type']),
+                'bz_south_onset_hours': result.get('bz_south_onset_hrs') if result.get('bz_south_onset_hrs') is not None else self._south_onset_hours(result['type']),
             },
             'phi_events': [],
             'quality_flags': {
