@@ -90,13 +90,18 @@ def run_cme_pipeline(l1_mag, l1_plasma, stereo_a, epam, log):
             'classifications': {}
         }
 
-        if queue['active_cme_id']:
-            active_cme = next((c for c in queue['cmes'] if c['id'] == queue['active_cme_id']), None)
-
-            if active_cme and active_cme['state']['current'] in ['WATCH', 'INBOUND', 'IMMINENT', 'ARRIVED', 'STORM_ACTIVE']:
+        for cme in queue['cmes']:
+            if cme['state']['current'] in ['WATCH', 'INBOUND', 'IMMINENT', 'ARRIVED', 'STORM_ACTIVE']:
                 classifier = BothmerSchwennClassifier(log)
-                classification = classifier.classify(active_cme, l1_mag, l1_plasma)
-                classification_data['classifications'][queue['active_cme_id']] = classification
+                classification = classifier.classify(cme, l1_mag, l1_plasma)
+                classification_data['classifications'][cme['id']] = classification
+
+                # Upgrade aurora_rating with observed data when classification is real
+                if classification.get('active') and classification.get('current'):
+                    cur = classification['current']
+                    bz_pred = classification.get('bz_predictions') or {}
+                    progress = (classification.get('signatures') or {}).get('structure_progress_pct', 0)
+                    _upgrade_aurora_rating(cme, cur, bz_pred, progress)
         
         # 9. Calculate positions for all active CMEs
         positions = calculate_cme_positions(queue['cmes'], coronal_holes, log)
@@ -122,9 +127,56 @@ def run_cme_pipeline(l1_mag, l1_plasma, stereo_a, epam, log):
         
     except Exception as e:
         log.error(f"CME Pipeline failed: {e}")
+        import traceback
+        log.error(traceback.format_exc())
         # Return empty/fallback data so pipeline doesn't crash
         return {
             'queue': {'metadata': {}, 'active_cme_id': None, 'cmes': []},
             'classification': {'metadata': {}, 'classifications': {}},
             'positions': {'metadata': {}, 'cmes': []}
         }
+
+
+def _upgrade_aurora_rating(cme, cur, bz_pred, progress):
+    """Upgrade aurora_rating using observed classification data.
+
+    Pre-arrival rating is speed-only at 25-30% confidence.
+    Once we have real L1 observations, confidence scales with
+    structure progress and classifier confidence.
+    """
+    aurora_map = {
+        'EXTREME': 5, 'EXCELLENT': 4, 'GOOD': 3, 'WEAK': 2, 'NONE': 0, 'UNKNOWN': 1
+    }
+    bs_type = cur.get('bs_type', 'unknown')
+    cls_conf = cur.get('confidence', 0)
+    aurora_potential = bz_pred.get('aurora_potential', 'UNKNOWN')
+    peak_bz = bz_pred.get('peak_bz_estimate')
+
+    # Star rating from observed aurora potential
+    stars = aurora_map.get(aurora_potential, 1)
+
+    # Boost from observed peak Bz
+    if peak_bz is not None and peak_bz < -20:
+        stars = min(5, stars + 1)
+
+    # Confidence scales with how much data we've seen
+    # At 100% structure passed + high classifier confidence → up to 85%
+    if progress >= 80:
+        conf = min(85, 40 + cls_conf * 0.5)
+        basis = f'Observed: {bs_type} type, {aurora_potential} aurora'
+    elif progress >= 40:
+        conf = min(65, 30 + cls_conf * 0.4)
+        basis = f'Partial: {bs_type} type ({progress:.0f}% passed)'
+    else:
+        # Early post-arrival — moderate upgrade from speed-only
+        conf = min(45, 25 + cls_conf * 0.2)
+        basis = f'Early: {bs_type} type ({progress:.0f}% passed)'
+
+    if peak_bz is not None:
+        basis += f', peak {peak_bz:.1f} nT'
+
+    cme['aurora_rating'] = {
+        'stars': stars,
+        'confidence': round(conf),
+        'basis': basis
+    }
