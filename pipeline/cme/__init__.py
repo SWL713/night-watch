@@ -187,14 +187,15 @@ def _upgrade_aurora_rating(cme, cur, bz_pred, progress):
 
 
 def _build_bz_forecast(queue, classification_data, l1_mag, stereo_a, log):
-    """Generate Bz forecast timeline for the map page overlay.
+    """Generate Bz forecast for the map timeline overlay.
 
-    Priority:
-    1. CME classification-based: use BS type pattern to project Bz forward
-    2. STEREO-A fallback: use Bn (ecliptic-north ≈ Bz) with time delay
-    3. Empty: no forecast available
+    Only produces output during:
+    1. Active flux rope passage — blends real L1 Bz trend with BS-type
+       template.  Near-term points lean on the measured slope; further
+       out the template shape takes over.
+    2. STEREO-A fallback — time-shifted Bn as a Bz proxy.
 
-    Returns list of {time_iso, bz, source} points for the next 8 hours.
+    No forecast is produced during quiet (non-flux-rope) times.
     """
     from datetime import datetime, timezone, timedelta
     import numpy as np
@@ -202,66 +203,96 @@ def _build_bz_forecast(queue, classification_data, l1_mag, stereo_a, log):
     now = datetime.now(timezone.utc)
     forecast = {'metadata': {'last_updated': now.isoformat()}, 'points': [], 'source': None}
 
-    # --- Priority 1: CME classification-based forecast ---
+    # --- Priority 1: Flux rope in progress ---
     active_id = queue.get('active_cme_id')
     if active_id and active_id in classification_data.get('classifications', {}):
         cls = classification_data['classifications'][active_id]
-        if cls.get('active') and cls.get('current', {}).get('bs_type', 'unknown') != 'unknown':
-            bs_type = cls['current']['bs_type']
-            bz_pred = cls.get('bz_predictions') or {}
-            peak_bz = bz_pred.get('peak_bz_estimate') or -10
-            window = cls.get('classification_window') or {}
-            ejecta_start = window.get('start')
+        cur = cls.get('current') or {}
+        bs_type = cur.get('bs_type', 'unknown')
+        progress = (cls.get('signatures') or {}).get('structure_progress_pct', 0)
+        window = cls.get('classification_window') or {}
+        ejecta_start_str = window.get('start')
 
-            if ejecta_start:
-                try:
-                    ejecta_dt = datetime.fromisoformat(ejecta_start.replace('Z', '+00:00'))
-                    if ejecta_dt.tzinfo is None:
-                        ejecta_dt = ejecta_dt.replace(tzinfo=timezone.utc)
-                except Exception:
-                    ejecta_dt = now - timedelta(hours=24)
+        # Only forecast during an active, classified flux rope that hasn't fully passed
+        if (cls.get('active') and bs_type != 'unknown'
+                and ejecta_start_str and progress < 100):
 
-                # Generate 8-hour forecast based on BS type Bz profile
-                # Normalized profiles: fraction of peak_bz at each phase (0-1)
+            try:
+                ejecta_dt = datetime.fromisoformat(ejecta_start_str.replace('Z', '+00:00'))
+                if ejecta_dt.tzinfo is None:
+                    ejecta_dt = ejecta_dt.replace(tzinfo=timezone.utc)
+            except Exception:
+                ejecta_dt = None
+
+            if ejecta_dt:
+                # Get recent L1 Bz for trend
+                mag_list = l1_mag.get('data', []) if isinstance(l1_mag, dict) else (l1_mag if isinstance(l1_mag, list) else [])
+                recent_bz = []
+                for row in mag_list[-120:]:  # last ~2 hours
+                    if isinstance(row, (list, tuple)) and len(row) > 3:
+                        val = row[3]  # bz at index 3
+                        if isinstance(val, (int, float)):
+                            recent_bz.append(val)
+
+                # Current Bz and slope from real data
+                current_bz = recent_bz[-1] if recent_bz else 0
+                slope_nT_per_hr = 0
+                if len(recent_bz) >= 30:
+                    # 30-min smoothed slope
+                    smoothed = np.convolve(recent_bz[-60:], np.ones(15)/15, mode='valid')
+                    if len(smoothed) >= 2:
+                        slope_nT_per_hr = (smoothed[-1] - smoothed[0]) / (len(smoothed) / 60)
+
+                # BS-type template for shape guidance
+                # Normalized: -1 (deep south) to +1 (deep north)
                 profiles = {
-                    'SEN': [1.0, 0.8, 0.4, 0.0, -0.3, -0.5, -0.6, -0.7],  # south→north
-                    'SWN': [1.0, 0.7, 0.3, -0.1, -0.4, -0.6, -0.7, -0.8],
-                    'NES': [-0.8, -0.6, -0.2, 0.2, 0.5, 0.8, 1.0, 0.9],   # north→south
-                    'NWS': [-0.7, -0.5, -0.1, 0.1, 0.4, 0.7, 0.9, 1.0],
-                    'ESW': [0.6, 0.8, 1.0, 0.9, 0.8, 0.7, 0.5, 0.3],     # south throughout
-                    'WSE': [0.5, 0.7, 1.0, 0.9, 0.7, 0.6, 0.4, 0.2],
-                    'ENW': [-0.8, -0.9, -1.0, -0.9, -0.8, -0.7, -0.6, -0.5],  # north throughout
-                    'WNE': [-0.7, -0.8, -1.0, -0.9, -0.7, -0.6, -0.5, -0.4],
+                    'SEN': [1.0, 0.6, 0.1, -0.4, -0.7, -0.9, -0.8, -0.5],
+                    'SWN': [0.8, 0.4, -0.1, -0.5, -0.7, -0.6, -0.3, 0.1],
+                    'NES': [-0.5, -0.3, 0.1, 0.4, 0.7, 0.9, 0.8, 0.5],
+                    'NWS': [-0.3, -0.1, 0.2, 0.5, 0.7, 0.8, 0.9, 0.6],
+                    'ESW': [0.3, 0.7, 0.9, 1.0, 0.9, 0.7, 0.4, 0.1],
+                    'WSE': [0.2, 0.5, 0.8, 1.0, 0.8, 0.5, 0.2, -0.1],
+                    'ENW': [-0.3, -0.6, -0.9, -1.0, -0.9, -0.7, -0.4, -0.2],
+                    'WNE': [-0.2, -0.5, -0.8, -1.0, -0.8, -0.5, -0.3, -0.1],
                 }
                 profile = profiles.get(bs_type, [0]*8)
+                peak_bz = (cls.get('bz_predictions') or {}).get('peak_bz_estimate') or -10
                 structure_hrs = 24.0
 
                 points = []
-                for i in range(49):  # 10-min intervals, 8 hours
-                    t = now + timedelta(minutes=i * 10)
+                for i in range(49):  # 10-min steps, 8 hours
+                    dt_min = i * 10
+                    t = now + timedelta(minutes=dt_min)
+                    hours_out = dt_min / 60
+
+                    # --- Real data extrapolation ---
+                    trend_bz = current_bz + slope_nT_per_hr * hours_out
+
+                    # --- Template value at this phase ---
                     elapsed = (t - ejecta_dt).total_seconds() / 3600
                     phase = min(max(elapsed / structure_hrs, 0), 1.0)
-
-                    # Interpolate profile
                     idx = phase * (len(profile) - 1)
-                    lo = int(idx)
-                    hi = min(lo + 1, len(profile) - 1)
+                    lo, hi = int(idx), min(int(idx) + 1, len(profile) - 1)
                     frac = idx - lo
-                    bz_frac = profile[lo] * (1 - frac) + profile[hi] * frac
+                    template_bz = peak_bz * (profile[lo] * (1 - frac) + profile[hi] * frac)
 
-                    bz_val = peak_bz * bz_frac
+                    # --- Blend: real data dominates near-term, template far-out ---
+                    # weight_real goes from 1.0 at t=0 to 0.0 at t=4h
+                    weight_real = max(0, 1.0 - hours_out / 4.0)
+                    blended = trend_bz * weight_real + template_bz * (1 - weight_real)
+
                     points.append({
                         'time': t.isoformat(),
-                        'bz': round(bz_val, 1),
-                        'source': 'cme_classification'
+                        'bz': round(blended, 1),
+                        'source': 'flux_rope'
                     })
 
                 forecast['points'] = points
-                forecast['source'] = f'CME {bs_type} profile'
-                log.info(f"Bz forecast: {len(points)} points from CME {bs_type} classification")
+                forecast['source'] = f'Flux rope {bs_type} — L1 trend + template blend'
+                log.info(f"Bz forecast: {len(points)} pts, slope={slope_nT_per_hr:.2f} nT/hr, type={bs_type}")
                 return forecast
 
-    # --- Priority 2: STEREO-A Bn as Bz proxy with time delay ---
+    # --- Priority 2: STEREO-A Bn with time delay ---
     stereo_list = None
     if isinstance(stereo_a, dict) and 'data' in stereo_a:
         stereo_list = stereo_a['data']
@@ -269,18 +300,9 @@ def _build_bz_forecast(queue, classification_data, l1_mag, stereo_a, log):
         stereo_list = stereo_a
 
     if stereo_list and len(stereo_list) > 60:
-        # STEREO-A is ~48° ahead of Earth
-        # At 400 km/s solar wind, 48° ≈ 2.2 days delay
-        # Use recent plasma speed for better estimate
-        plasma_speed = 400  # default
-        if isinstance(l1_mag, dict) and 'data' in l1_mag:
-            # Can't easily get speed from mag, use default
-            pass
-
-        # Time delay: angular_separation / (360° / synodic_period)
-        # Simplified: at 400 km/s, 48° ≈ 53 hours
-        delay_hours = 48 * (27.27 * 24) / 360  # ~87h for 48°, scale by wind speed
-        delay_hours = delay_hours * (400 / plasma_speed)  # adjust for actual speed
+        # STEREO-A angular separation ~48° ahead of Earth
+        # Corotation delay: degrees / (360° / 27.27-day synodic period)
+        delay_hours = 48 * (27.27 * 24) / 360  # ~87h
 
         target_start = now - timedelta(hours=delay_hours)
         target_end = target_start + timedelta(hours=8)
@@ -296,7 +318,6 @@ def _build_bz_forecast(queue, classification_data, l1_mag, stereo_a, log):
                 continue
 
             if target_start <= t <= target_end:
-                # Bn is index 1 for list format, 'mag_hgrtn_n_nT' for dict
                 if isinstance(rec, (list, tuple)) and len(rec) > 6:
                     bn = rec[6]  # mag_hgrtn_n_nT
                 elif isinstance(rec, dict):
@@ -313,13 +334,13 @@ def _build_bz_forecast(queue, classification_data, l1_mag, stereo_a, log):
                     })
 
         if len(points) > 10:
-            # Downsample to ~10-min intervals
             step = max(1, len(points) // 48)
             points = points[::step]
             forecast['points'] = points
-            forecast['source'] = f'STEREO-A Bn (delayed {delay_hours:.0f}h)'
-            log.info(f"Bz forecast: {len(points)} points from STEREO-A Bn (delay {delay_hours:.0f}h)")
+            forecast['source'] = f'STEREO-A Bn (corotation delay {delay_hours:.0f}h)'
+            log.info(f"Bz forecast: {len(points)} pts from STEREO-A Bn")
             return forecast
 
+    # No forecast during quiet times — return empty
     forecast['source'] = 'none'
     return forecast
