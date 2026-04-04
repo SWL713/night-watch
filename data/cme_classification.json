@@ -1,6 +1,6 @@
 {
   "metadata": {
-    "last_updated": "2026-04-04T21:11:49.853516+00:00",
+    "last_updated": "2026-04-04T21:29:35.219339+00:00",
     "active_cme_id": "CME_2026-04-02T20:46Z"
   },
   "classifications": {
@@ -14,7 +14,7 @@
       "current": {
         "bs_type": "SWN",
         "bs_type_full": "South-West-North (Weakening - north trailing)",
-        "confidence": 75.44287477192684,
+        "confidence": 75.5416573636167,
         "confidence_trend": "STABLE",
         "locked": true,
         "chirality": "left-handed"
@@ -28,8 +28,8 @@
         "aurora_potential": "WEAK",
         "kp_estimate": "3-4",
         "onset_time": "leading edge (northward)",
-        "duration_hours_low": 5.766569888013272,
-        "duration_hours_high": 14.41642472003318,
+        "duration_hours_low": 5.745123966942149,
+        "duration_hours_high": 14.362809917355372,
         "peak_bz_estimate": -15.65,
         "flux_rope_duration_hours": 24.0,
         "bz_south_onset_hours": 0
