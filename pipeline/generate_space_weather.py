@@ -2344,28 +2344,31 @@ def main_with_clouds():
         except Exception as e:
             log.warning(f"Could not load sw_epam.json: {e}")
         
-        # Run CME pipeline with shared data
-        cme_data = run_cme_pipeline(
-            l1_mag=mag_7day_data,
-            l1_plasma=plasma_7day_data,
-            stereo_a=stereo_a_data,
-            epam=epam_data,
-            log=log
-        )
-        
-        # Write CME outputs
-        cme_queue_path = os.path.join(os.path.dirname(__file__), '..', 'data', 'cme_queue.json')
-        cme_class_path = os.path.join(os.path.dirname(__file__), '..', 'data', 'cme_classification.json')
-        cme_pos_path = os.path.join(os.path.dirname(__file__), '..', 'data', 'cme_positions.json')
-        
-        with open(cme_queue_path, 'w') as f:
-            json.dump(cme_data['queue'], f, indent=2)
-        with open(cme_class_path, 'w') as f:
-            json.dump(cme_data['classification'], f, indent=2)
-        with open(cme_pos_path, 'w') as f:
-            json.dump(cme_data['positions'], f, indent=2)
-        
-        log.info("CME pipeline complete")
+        # DISABLED: Old CME pipeline - using DONKI pipeline instead (lines 2238-2302)
+        # The old pipeline was overwriting the DONKI queue with null when it crashed
+        if False:
+            # Run CME pipeline with shared data
+            cme_data = run_cme_pipeline(
+                l1_mag=mag_7day_data,
+                l1_plasma=plasma_7day_data,
+                stereo_a=stereo_a_data,
+                epam=epam_data,
+                log=log
+            )
+            
+            # Write CME outputs
+            cme_queue_path = os.path.join(os.path.dirname(__file__), '..', 'data', 'cme_queue.json')
+            cme_class_path = os.path.join(os.path.dirname(__file__), '..', 'data', 'cme_classification.json')
+            cme_pos_path = os.path.join(os.path.dirname(__file__), '..', 'data', 'cme_positions.json')
+            
+            with open(cme_queue_path, 'w') as f:
+                json.dump(cme_data['queue'], f, indent=2)
+            with open(cme_class_path, 'w') as f:
+                json.dump(cme_data['classification'], f, indent=2)
+            with open(cme_pos_path, 'w') as f:
+                json.dump(cme_data['positions'], f, indent=2)
+            
+            log.info("CME pipeline complete")
         
     except Exception as e:
         log.error(f"CME pipeline failed (non-fatal): {e}")
