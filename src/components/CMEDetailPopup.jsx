@@ -1,315 +1,201 @@
 const FONT = 'DejaVu Sans Mono, Consolas, monospace';
+const DIM = '#7a8a90';
+const TEXT = '#e0e6ed';
 
 export default function CMEDetailPopup({ cme, cmeNumber, cmeColor, onClose }) {
-  const formatDate = (isoString) => {
-    if (!isoString) return 'Unknown';
-    return new Date(isoString).toLocaleString('en-US', {
-      month: 'short',
-      day: 'numeric',
-      year: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit'
-    });
+  const fmtDate = (v) => {
+    if (!v) return 'Unknown';
+    // Handle both ISO strings and Unix timestamps
+    const d = typeof v === 'number' ? new Date(v * 1000) : new Date(v);
+    if (isNaN(d)) return 'Unknown';
+    return d.toLocaleString('en-US', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit', timeZoneName: 'short' });
   };
 
+  const fmtDateShort = (v) => {
+    if (!v) return '?';
+    const d = typeof v === 'number' ? new Date(v * 1000) : new Date(v);
+    if (isNaN(d)) return '?';
+    return `${(d.getUTCMonth()+1)}/${d.getUTCDate()} ${d.getUTCHours().toString().padStart(2,'0')}:${d.getUTCMinutes().toString().padStart(2,'0')}`;
+  };
+
+  const arr = cme.arrival || {};
+  const pos = cme.position || {};
+  const props = cme.properties || {};
+  const cls = cme.classification || {};
+  const rating = cme.aurora_rating || {};
+
+  // Compute ± window from earliest/latest
+  const medianTs = arr.median_prediction || arr.average_prediction;
+  const earliestTs = arr.earliest_prediction;
+  const latestTs = arr.latest_prediction;
+  let plusMinusHours = null;
+  if (medianTs && earliestTs && latestTs) {
+    plusMinusHours = Math.round(((latestTs - earliestTs) / 2) / 3600);
+  }
+
+  // State badge colors
+  const stateColors = {
+    QUIET: '#556677', WATCH: '#FFA500', INBOUND: '#FF6B00', IMMINENT: '#FF0080',
+    ARRIVED: '#00cc88', STORM_ACTIVE: '#ee3355', SUBSIDING: '#8888aa',
+  };
+  const stateCol = stateColors[cme.state?.current] || '#4a6a70';
+  const stateDark = ['WATCH', 'ARRIVED'].includes(cme.state?.current);
+
+  // Aurora stars
+  const stars = rating.stars ?? 0;
+  const starStr = '★'.repeat(stars) + '☆'.repeat(5 - stars);
+
+  // Section header
+  const Hdr = ({ children }) => (
+    <h4 style={{ margin: '0 0 8px 0', fontSize: 9, textTransform: 'uppercase', letterSpacing: 1.2, fontWeight: 700, color: cmeColor }}>{children}</h4>
+  );
+
+  // Grid cell
+  const Cell = ({ label, children, wide }) => (
+    <div style={wide ? { gridColumn: '1 / -1' } : {}}>
+      <div style={{ color: DIM, fontSize: 7, marginBottom: 2, letterSpacing: 0.5 }}>{label}</div>
+      <div style={{ color: TEXT, fontSize: 11 }}>{children}</div>
+    </div>
+  );
+
   return (
-    <div
-      onClick={onClose}
-      style={{
-        position: 'fixed',
-        top: 0,
-        left: 0,
-        right: 0,
-        bottom: 0,
-        background: 'rgba(0, 0, 0, 0.9)',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        zIndex: 10000,
-        padding: '16px',
-        backdropFilter: 'blur(4px)',
-      }}
-    >
-      <div
-        onClick={(e) => e.stopPropagation()}
-        style={{
-          background: '#0f1419',
-          border: `2px solid ${cmeColor}`,
-          borderRadius: 8,
-          maxWidth: 600,
-          width: '100%',
-          maxHeight: '85vh',
-          overflowY: 'auto',
-          boxShadow: `0 0 30px ${cmeColor}88`,
-        }}
-      >
+    <div onClick={onClose} style={{
+      position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
+      background: 'rgba(0,0,0,0.9)', display: 'flex', alignItems: 'center', justifyContent: 'center',
+      zIndex: 10000, padding: 16, backdropFilter: 'blur(4px)',
+    }}>
+      <div onClick={e => e.stopPropagation()} style={{
+        background: '#0f1419', border: `2px solid ${cmeColor}`, borderRadius: 8,
+        maxWidth: 620, width: '100%', maxHeight: '85vh', overflowY: 'auto',
+        boxShadow: `0 0 30px ${cmeColor}88`, fontFamily: FONT,
+      }}>
         {/* Header */}
-        <div
-          style={{
-            background: '#0a0e1a',
-            padding: '12px 16px',
-            borderBottom: `2px solid ${cmeColor}`,
-            display: 'flex',
-            justifyContent: 'space-between',
-            alignItems: 'center',
-          }}
-        >
+        <div style={{
+          background: '#0a0e1a', padding: '10px 16px', borderBottom: `2px solid ${cmeColor}`,
+          display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+        }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-            <span style={{ color: cmeColor, fontSize: 20, fontWeight: 'bold' }}>
-              {cmeNumber}
-            </span>
-            <span style={{ color: '#e0e6ed', fontSize: 14, fontFamily: FONT }}>
-              {cme.id}
-            </span>
+            <span style={{ color: cmeColor, fontSize: 20, fontWeight: 'bold' }}>{cmeNumber}</span>
+            <span style={{ color: TEXT, fontSize: 13 }}>{cme.id}</span>
+            <span style={{
+              background: stateCol, color: stateDark ? '#000' : '#fff',
+              padding: '2px 8px', borderRadius: 3, fontSize: 8, fontWeight: 700, textTransform: 'uppercase',
+            }}>{cme.state?.current}</span>
           </div>
-          <button
-            onClick={onClose}
-            style={{
-              background: 'transparent',
-              border: '2px solid #7a8a90',
-              color: '#7a8a90',
-              width: 32,
-              height: 32,
-              borderRadius: '50%',
-              fontSize: 16,
-              cursor: 'pointer',
-              transition: 'all 0.2s ease',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-            }}
-            onMouseEnter={(e) => {
-              e.currentTarget.style.borderColor = '#FF0080';
-              e.currentTarget.style.color = '#FF0080';
-              e.currentTarget.style.boxShadow = '0 0 12px #FF008066';
-            }}
-            onMouseLeave={(e) => {
-              e.currentTarget.style.borderColor = '#7a8a90';
-              e.currentTarget.style.color = '#7a8a90';
-              e.currentTarget.style.boxShadow = 'none';
-            }}
-          >
-            ✕
-          </button>
+          <button onClick={onClose} style={{
+            background: 'transparent', border: '1px solid #555', color: '#888',
+            width: 28, height: 28, borderRadius: '50%', fontSize: 14, cursor: 'pointer',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+          }}>✕</button>
         </div>
 
-        {/* Body */}
-        <div style={{ padding: 16, display: 'flex', flexDirection: 'column', gap: 16 }}>
+        <div style={{ padding: '12px 16px', display: 'flex', flexDirection: 'column', gap: 14 }}>
+
+          {/* Aurora Rating */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '6px 0' }}>
+            <span style={{ fontSize: 22, color: stars >= 4 ? '#ffaa00' : stars >= 2 ? '#ffcc66' : '#667788', letterSpacing: 2 }}>{starStr}</span>
+            <div>
+              <div style={{ fontSize: 10, color: TEXT }}>Aurora potential {stars}/5 <span style={{ color: DIM, fontSize: 9 }}>({rating.confidence || 0}% conf)</span></div>
+              <div style={{ fontSize: 8, color: DIM }}>{rating.basis || ''}</div>
+            </div>
+          </div>
+
           {/* Source */}
           <div>
-            <h4
-              style={{
-                margin: '0 0 10px 0',
-                fontSize: 10,
-                textTransform: 'uppercase',
-                letterSpacing: 1,
-                fontWeight: 700,
-                color: cmeColor,
-              }}
-            >
-              Source
-            </h4>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, fontSize: 11 }}>
-              <div>
-                <div style={{ color: '#7a8a90', fontSize: 8, marginBottom: 3 }}>LAUNCH TIME</div>
-                <div style={{ color: '#e0e6ed' }}>{formatDate(cme.source.launch_time)}</div>
-              </div>
-              <div>
-                <div style={{ color: '#7a8a90', fontSize: 8, marginBottom: 3 }}>REGION</div>
-                <div style={{ color: '#e0e6ed' }}>{cme.source.region || 'Unknown'}</div>
-              </div>
+            <Hdr>Source</Hdr>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+              <Cell label="LAUNCH TIME">{fmtDate(cme.source?.launch_time)}</Cell>
+              <Cell label="SOURCE REGION">{cme.source?.region || cme.source?.associated_flare || 'Unknown'}</Cell>
+              {(cme.source?.location?.latitude !== 0 || cme.source?.location?.longitude !== 0) && (
+                <Cell label="LOCATION">{cme.source.location.latitude}° lat, {cme.source.location.longitude}° lon</Cell>
+              )}
+              {cme.source?.coronal_hole && <Cell label="CORONAL HOLE">Associated</Cell>}
             </div>
           </div>
 
           {/* Properties */}
           <div>
-            <h4
-              style={{
-                margin: '0 0 10px 0',
-                fontSize: 10,
-                textTransform: 'uppercase',
-                letterSpacing: 1,
-                fontWeight: 700,
-                color: cmeColor,
-              }}
-            >
-              Properties
-            </h4>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, fontSize: 11 }}>
-              <div>
-                <div style={{ color: '#7a8a90', fontSize: 8, marginBottom: 3 }}>TYPE</div>
-                <div style={{ color: '#e0e6ed' }}>{cme.properties.type || 'Unknown'}</div>
-              </div>
-              <div>
-                <div style={{ color: '#7a8a90', fontSize: 8, marginBottom: 3 }}>CURRENT SPEED</div>
-                <div style={{ color: '#e0e6ed' }}>
-                  {cme.properties.speed_current
-                    ? `${Math.round(cme.properties.speed_current)} km/s`
-                    : 'Unknown'}
-                </div>
-              </div>
-              <div>
-                <div style={{ color: '#7a8a90', fontSize: 8, marginBottom: 3 }}>INITIAL SPEED</div>
-                <div style={{ color: '#e0e6ed' }}>
-                  {cme.properties.speed_initial
-                    ? `${Math.round(cme.properties.speed_initial)} km/s`
-                    : 'Unknown'}
-                </div>
-              </div>
-              <div>
-                <div style={{ color: '#7a8a90', fontSize: 8, marginBottom: 3 }}>WIDTH</div>
-                <div style={{ color: '#e0e6ed' }}>
-                  {cme.properties.width ? `${cme.properties.width}°` : 'Unknown'}
-                </div>
-              </div>
+            <Hdr>Properties</Hdr>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 10 }}>
+              <Cell label="TYPE">{props.type || 'Unknown'}</Cell>
+              <Cell label="INITIAL SPEED">{props.speed_initial ? `${Math.round(props.speed_initial)} km/s` : 'Unknown'}</Cell>
+              <Cell label="CURRENT SPEED">{props.speed_current ? `${Math.round(props.speed_current)} km/s` : 'Unknown'}</Cell>
+              <Cell label="HALF ANGLE">{props.half_angle ? `${props.half_angle}°` : 'Unknown'}</Cell>
+              {(props.direction_lat !== 0 || props.direction_lon !== 0) && (
+                <Cell label="DIRECTION">{props.direction_lat}° lat, {props.direction_lon}° lon</Cell>
+              )}
             </div>
           </div>
 
-          {/* Position */}
+          {/* Arrival Prediction */}
           <div>
-            <h4
-              style={{
-                margin: '0 0 10px 0',
-                fontSize: 10,
-                textTransform: 'uppercase',
-                letterSpacing: 1,
-                fontWeight: 700,
-                color: cmeColor,
-              }}
-            >
-              Position
-            </h4>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, fontSize: 11 }}>
-              <div>
-                <div style={{ color: '#7a8a90', fontSize: 8, marginBottom: 3 }}>DISTANCE</div>
-                <div style={{ color: '#e0e6ed' }}>
-                  {cme.position.distance_au.toFixed(3)} AU ({cme.position.distance_rsun.toFixed(1)} R☉)
-                </div>
-              </div>
-              <div>
-                <div style={{ color: '#7a8a90', fontSize: 8, marginBottom: 3 }}>PROGRESS</div>
-                <div style={{ color: '#e0e6ed' }}>{cme.position.progress_percent.toFixed(1)}%</div>
-              </div>
-              <div>
-                <div style={{ color: '#7a8a90', fontSize: 8, marginBottom: 3 }}>ETA (HOURS)</div>
-                <div style={{ color: '#e0e6ed' }}>
-                  {cme.position.eta_hours ? Math.round(cme.position.eta_hours) : 'N/A'}
-                </div>
-              </div>
-              <div>
-                <div style={{ color: '#7a8a90', fontSize: 8, marginBottom: 3 }}>ETA</div>
-                <div style={{ color: '#e0e6ed', fontSize: 9 }}>
-                  {cme.position.eta_timestamp ? formatDate(cme.position.eta_timestamp) : 'N/A'}
-                </div>
-              </div>
+            <Hdr>Arrival Prediction</Hdr>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+              <Cell label="PREDICTED ARRIVAL" wide>
+                <span style={{ fontSize: 13, fontWeight: 600 }}>{fmtDate(medianTs)}</span>
+                {plusMinusHours != null && plusMinusHours > 0 && (
+                  <span style={{ color: '#ffaa33', fontWeight: 600, marginLeft: 6, fontSize: 11 }}>±{plusMinusHours}h</span>
+                )}
+              </Cell>
+              <Cell label="EARLIEST">{fmtDateShort(earliestTs)} UTC</Cell>
+              <Cell label="LATEST">{fmtDateShort(latestTs)} UTC</Cell>
+              <Cell label="MODELS">{arr.num_models || 'Unknown'}</Cell>
+              {arr.confidence_spread_hours != null && <Cell label="SPREAD">{arr.confidence_spread_hours.toFixed(1)}h</Cell>}
             </div>
           </div>
 
-          {/* State */}
+          {/* Position & Propagation */}
           <div>
-            <h4
-              style={{
-                margin: '0 0 10px 0',
-                fontSize: 10,
-                textTransform: 'uppercase',
-                letterSpacing: 1,
-                fontWeight: 700,
-                color: cmeColor,
-              }}
-            >
-              State
-            </h4>
+            <Hdr>Position</Hdr>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 10 }}>
+              <Cell label="DISTANCE">{pos.distance_au != null ? `${pos.distance_au.toFixed(3)} AU` : 'Unknown'}</Cell>
+              {pos.distance_rsun != null && <Cell label="SOLAR RADII">{pos.distance_rsun.toFixed(1)} R☉</Cell>}
+              <Cell label="PROGRESS">{pos.progress_percent != null ? `${pos.progress_percent.toFixed(1)}%` : 'Unknown'}</Cell>
+              {pos.eta_hours != null && (
+                <Cell label="ETA">
+                  {Math.round(pos.eta_hours)}h
+                  {plusMinusHours != null && plusMinusHours > 0 && (
+                    <span style={{ color: '#ffaa33', marginLeft: 4 }}>±{plusMinusHours}h</span>
+                  )}
+                </Cell>
+              )}
+            </div>
+          </div>
+
+          {/* Classification */}
+          {cls.bs_type && (
             <div>
-              <span
-                style={{
-                  background:
-                    cme.state.current === 'WATCH'
-                      ? '#FFA500'
-                      : cme.state.current === 'INBOUND'
-                      ? '#FF6B00'
-                      : cme.state.current === 'IMMINENT'
-                      ? '#FF0080'
-                      : '#4a6a70',
-                  color: cme.state.current === 'WATCH' ? '#000' : '#fff',
-                  padding: '4px 12px',
-                  borderRadius: 4,
-                  fontSize: 9,
-                  fontWeight: 700,
-                  textTransform: 'uppercase',
-                  display: 'inline-block',
-                }}
-              >
-                {cme.state.current}
-              </span>
+              <Hdr>Classification</Hdr>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 10 }}>
+                <Cell label="B-S TYPE"><span style={{ fontWeight: 700 }}>{cls.bs_type}</span></Cell>
+                {cls.confidence != null && <Cell label="CONFIDENCE">{cls.confidence.toFixed(0)}%</Cell>}
+                <Cell label="STATUS">{cls.status}</Cell>
+              </div>
             </div>
-          </div>
+          )}
 
-          {/* Arrival Models */}
-          <div>
-            <h4
-              style={{
-                margin: '0 0 10px 0',
-                fontSize: 10,
-                textTransform: 'uppercase',
-                letterSpacing: 1,
-                fontWeight: 700,
-                color: cmeColor,
-              }}
-            >
-              Arrival Prediction
-            </h4>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 8, fontSize: 11 }}>
-              <div style={{ display: 'flex', gap: 12 }}>
-                <div style={{ color: '#7a8a90', fontSize: 8, minWidth: 80 }}>MODELS:</div>
-                <div style={{ color: '#e0e6ed' }}>{cme.arrival.num_models}</div>
-              </div>
-              <div style={{ display: 'flex', gap: 12 }}>
-                <div style={{ color: '#7a8a90', fontSize: 8, minWidth: 80 }}>MEDIAN:</div>
-                <div style={{ color: '#e0e6ed', fontSize: 9 }}>
-                  {cme.arrival.median_time ? formatDate(cme.arrival.median_time) : 'N/A'}
-                </div>
-              </div>
-              <div style={{ display: 'flex', gap: 12 }}>
-                <div style={{ color: '#7a8a90', fontSize: 8, minWidth: 80 }}>RANGE:</div>
-                <div style={{ color: '#e0e6ed', fontSize: 9 }}>
-                  {cme.arrival.earliest_time && cme.arrival.latest_time
-                    ? `${formatDate(cme.arrival.earliest_time)} - ${formatDate(cme.arrival.latest_time)}`
-                    : 'N/A'}
-                </div>
+          {/* State History */}
+          {cme.state?.history?.length > 0 && (
+            <div>
+              <Hdr>State History</Hdr>
+              <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                {cme.state.history.map((h, i) => (
+                  <span key={i} style={{ fontSize: 8, color: DIM, background: '#0a0e1a', padding: '2px 6px', borderRadius: 3, border: '1px solid #1a2a3a' }}>
+                    {h.from} → {h.to}
+                  </span>
+                ))}
               </div>
             </div>
-          </div>
+          )}
 
           {/* Scoreboard Link */}
-          {cme.scoreboard_url && (
-            <a
-              href={cme.scoreboard_url}
-              target="_blank"
-              rel="noopener noreferrer"
-              style={{
-                display: 'block',
-                padding: '10px 16px',
-                background: cmeColor,
-                color: '#000',
-                textDecoration: 'none',
-                borderRadius: 6,
-                fontWeight: 600,
-                transition: 'all 0.3s ease',
-                textAlign: 'center',
-                textTransform: 'uppercase',
-                letterSpacing: 1,
-                fontSize: 10,
-              }}
-              onMouseEnter={(e) => {
-                e.currentTarget.style.transform = 'translateY(-2px)';
-                e.currentTarget.style.filter = 'brightness(1.2)';
-              }}
-              onMouseLeave={(e) => {
-                e.currentTarget.style.transform = 'none';
-                e.currentTarget.style.filter = 'none';
-              }}
-            >
-              View Scoreboard
+          {(arr.scoreboard_url || cme.scoreboard_url) && (
+            <a href={arr.scoreboard_url || cme.scoreboard_url} target="_blank" rel="noopener noreferrer" style={{
+              display: 'block', padding: '8px 16px', background: cmeColor, color: '#000',
+              textDecoration: 'none', borderRadius: 6, fontWeight: 600, textAlign: 'center',
+              textTransform: 'uppercase', letterSpacing: 1, fontSize: 9,
+            }}>
+              CCMC Scoreboard
             </a>
           )}
         </div>

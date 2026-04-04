@@ -364,10 +364,15 @@ def sync_queue_with_scoreboard(queue, scoreboard, coronal_holes, log):
                         'earliest_prediction': sb_cme['arrival_stats']['earliest'],
                         'latest_prediction': sb_cme['arrival_stats']['latest'],
                         'num_models': sb_cme['arrival_stats']['num_predictions'],
-                        'confidence_spread_hours': sb_cme['arrival_stats']['spread_hours']
+                        'confidence_spread_hours': sb_cme['arrival_stats']['spread_hours'],
+                        'scoreboard_url': "https://kauai.ccmc.gsfc.nasa.gov/CMEscoreboard/"
                     }
-                    cme['properties']['speed_current'] = sb_cme['speed']
-                    cme['properties']['type'] = sb_cme['type']  # Update type
+                    if sb_cme['speed']:
+                        cme['properties']['speed_current'] = sb_cme['speed']
+                    cme['properties']['type'] = sb_cme['type']
+                    cme['aurora_rating'] = _compute_aurora_rating(
+                        cme['properties'].get('speed_current') or cme['properties'].get('speed_initial')
+                    )
                     break
     
     queue['cmes'] = [
@@ -427,8 +432,27 @@ def create_cme_from_scoreboard(sb_cme, coronal_holes, log):
             'progress_percent': 0,
             'eta_hours': None
         },
+        'aurora_rating': _compute_aurora_rating(sb_cme['speed']),
         'created_at': datetime.now(timezone.utc).isoformat(),
         'last_updated': datetime.now(timezone.utc).isoformat()
     }
-    
+
     return cme
+
+
+def _compute_aurora_rating(speed):
+    """Speed-based aurora potential: 0-5 stars with confidence.
+    Confidence is low (25-35%) because Bz orientation is unknown pre-arrival."""
+    if not speed:
+        return {'stars': 0, 'confidence': 0, 'basis': 'no speed data'}
+    if speed > 1200:
+        return {'stars': 5, 'confidence': 30, 'basis': f'{speed:.0f} km/s — extreme'}
+    if speed > 900:
+        return {'stars': 4, 'confidence': 30, 'basis': f'{speed:.0f} km/s — very fast'}
+    if speed > 700:
+        return {'stars': 3, 'confidence': 28, 'basis': f'{speed:.0f} km/s — fast'}
+    if speed > 500:
+        return {'stars': 2, 'confidence': 25, 'basis': f'{speed:.0f} km/s — moderate'}
+    if speed > 350:
+        return {'stars': 1, 'confidence': 25, 'basis': f'{speed:.0f} km/s — slow'}
+    return {'stars': 0, 'confidence': 30, 'basis': f'{speed:.0f} km/s — very slow'}
