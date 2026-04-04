@@ -59,6 +59,7 @@ function CMEClassificationTab({ activeCME, classification }) {
   const [zoomMode, setZoomMode] = useState(false);
   const [zoomStart, setZoomStart] = useState(null);
   const [customRange, setCustomRange] = useState(null);
+  const [userChangedRange, setUserChangedRange] = useState(false);
   const [showAnnotations, setShowAnnotations] = useState(true);
   
   // Fetch L1 magnetic field data AND classification data
@@ -109,6 +110,7 @@ function CMEClassificationTab({ activeCME, classification }) {
       setCustomRange([t1, t2]);
       setZoomStart(null);
       setZoomMode(false);
+      setUserChangedRange(true);
     }
   }, [zoomStart]);
   
@@ -128,8 +130,8 @@ function CMEClassificationTab({ activeCME, classification }) {
     actualRange = customRange;
   } else {
     const defaultStart = Date.now() - timeRange * 3600000;
-    // If classification window starts before our default view, expand to 2h before it
-    if (classWindowStart && classWindowStart < defaultStart) {
+    // Auto-expand only on initial view — once user picks a range, respect it
+    if (!userChangedRange && classWindowStart && classWindowStart < defaultStart) {
       actualRange = [classWindowStart - 2 * 3600000, Date.now()];
     } else {
       actualRange = [defaultStart, Date.now()];
@@ -177,7 +179,7 @@ function CMEClassificationTab({ activeCME, classification }) {
               key={r.hours}
               label={r.label}
               active={timeRange === r.hours && !zoomMode}
-              onClick={() => { setTimeRange(r.hours); resetZoom(); }}
+              onClick={() => { setTimeRange(r.hours); resetZoom(); setUserChangedRange(true); }}
               color={C.phi}
             />
           ))}
