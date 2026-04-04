@@ -2387,17 +2387,17 @@ def main_with_clouds():
             
             log.info("CME pipeline complete")
         
-    except Exception as e:
-        log.error(f"CME pipeline failed (non-fatal): {e}")
-        import traceback
-        log.error(traceback.format_exc())
-        # Write empty queue on failure so visualizer doesn't break
-        try:
-            cme_queue_path = os.path.join(os.path.dirname(__file__), '..', 'data', 'cme_queue.json')
-            with open(cme_queue_path, 'w') as f:
-                json.dump({'metadata': {'last_updated': now.isoformat()}, 'cmes': []}, f, indent=2)
-        except:
-            pass
+        except Exception as e:
+            log.error(f"CME pipeline failed (non-fatal): {e}")
+            import traceback
+            log.error(traceback.format_exc())
+            # Write empty queue on failure so visualizer doesn't break
+            try:
+                cme_queue_path = os.path.join(os.path.dirname(__file__), '..', 'data', 'cme_queue.json')
+                with open(cme_queue_path, 'w') as f:
+                    json.dump({'metadata': {'last_updated': now.isoformat()}, 'cmes': []}, f, indent=2)
+            except:
+                pass
 
     # Cloud cover — HRRR primary (3km, no rate limits, no seams)
     # Falls back to Open-Meteo if HRRR fails or covers < 80% of grid
