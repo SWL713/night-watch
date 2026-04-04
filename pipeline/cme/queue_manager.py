@@ -78,46 +78,92 @@ def match_enlil_to_cme(cme_id, enlil_sims):
         'is_glancing_blow': False
     }
     
-    for sim in enlil_sims:
+    logger.debug(f"Matching CME {cme_id} against {len(enlil_sims)} ENLIL simulations")
+    
+    for sim_idx, sim in enumerate(enlil_sims):
         # Check if this CME was an input to this simulation
         cme_inputs = sim.get('cmeInputs', [])
         if not isinstance(cme_inputs, list):
+            logger.debug(f"  Sim {sim_idx}: cmeInputs not a list, skipping")
             continue
+        
+        logger.debug(f"  Sim {sim_idx}: has {len(cme_inputs)} CME inputs")
         
         # Look for our CME ID in the inputs
         cme_in_simulation = False
-        for cme_input in cme_inputs:
-            if cme_input.get('cmeid') == cme_id:
+        for input_idx, cme_input in enumerate(cme_inputs):
+            input_cmeid = cme_input.get('cmeid')
+            logger.debug(f"    Input {input_idx}: cmeid='{input_cmeid}' (looking for '{cme_id}')")
+            if input_cmeid == cme_id:
                 cme_in_simulation = True
+                logger.debug(f"    ✓ MATCH FOUND!")
                 break
         
         if not cme_in_simulation:
+            logger.debug(f"  Sim {sim_idx}: CME {cme_id} not in inputs, skipping")
             continue
         
         # This simulation includes our CME - check for Earth impact
-        impact_list = sim.get('impactList', [])
-        if not isinstance(impact_list, list):
-            continue
+        # DONKI indicates Earth impact in multiple ways:
+        # 1. estimatedShockArrivalTime field exists (primary indicator)
+        # 2. isEarthGB field is True (glancing blow)
+        # 3. impactList contains Earth location
         
-        for impact in impact_list:
-            location = impact.get('location', '')
-            if location and 'Earth' in location:
-                # Found Earth impact prediction
-                arrival_str = impact.get('arrivalTime')
-                arrival_time = _parse_iso_time(arrival_str)
-                
-                result['earth_impact'] = True
-                result['arrival_time'] = arrival_time
-                result['simulation_id'] = sim.get('simulationID')
-                result['is_glancing_blow'] = impact.get('isGlancingBlow', False)
-                result['kp_estimates'] = {
-                    'kp_90': _safe_float(sim.get('kp_90')),
-                    'kp_135': _safe_float(sim.get('kp_135')),
-                    'kp_180': _safe_float(sim.get('kp_180'))
-                }
-                
-                return result  # Return first Earth impact found
+        earth_impact = False
+        arrival_time = None
+        is_glancing = False
+        
+        # Method 1: Check estimatedShockArrivalTime (most reliable)
+        estimated_arrival = sim.get('estimatedShockArrivalTime')
+        if estimated_arrival:
+            logger.debug(f"  ✓ Earth impact: estimatedShockArrivalTime = {estimated_arrival}")
+            earth_impact = True
+            arrival_time = _parse_iso_time(estimated_arrival)
+            is_glancing = sim.get('isEarthGB', False)
+        
+        # Method 2: Check isEarthGB flag
+        if not earth_impact and sim.get('isEarthGB'):
+            logger.debug(f"  ✓ Earth impact: isEarthGB = True")
+            earth_impact = True
+            is_glancing = True
+            # Try to get arrival time from impactList
+            impact_list = sim.get('impactList', [])
+            if isinstance(impact_list, list):
+                for impact in impact_list:
+                    loc = impact.get('location', '')
+                    if 'Earth' in loc or 'earth' in loc.lower():
+                        arrival_time = _parse_iso_time(impact.get('arrivalTime'))
+                        break
+        
+        # Method 3: Check impactList explicitly
+        if not earth_impact:
+            impact_list = sim.get('impactList', [])
+            if isinstance(impact_list, list):
+                for impact in impact_list:
+                    location = impact.get('location', '')
+                    if location and ('Earth' in location or 'earth' in location.lower()):
+                        logger.debug(f"  ✓ Earth impact: found in impactList location = {location}")
+                        earth_impact = True
+                        arrival_time = _parse_iso_time(impact.get('arrivalTime'))
+                        is_glancing = impact.get('isGlancingBlow', False)
+                        break
+        
+        if earth_impact:
+            result['earth_impact'] = True
+            result['arrival_time'] = arrival_time
+            result['simulation_id'] = sim.get('simulationID')
+            result['is_glancing_blow'] = is_glancing
+            result['kp_estimates'] = {
+                'kp_90': _safe_float(sim.get('kp_90')),
+                'kp_135': _safe_float(sim.get('kp_135')),
+                'kp_180': _safe_float(sim.get('kp_180'))
+            }
+            
+            logger.debug(f"  ✓ FINAL: Earth impact confirmed | Arrival: {arrival_time} | Glancing: {is_glancing}")
+            return result  # Return first Earth impact found
     
+    # No Earth impact found in any simulation
+    logger.debug(f"CME {cme_id}: Checked {len(enlil_sims)} simulations - NO EARTH IMPACT")
     return result
 
 
@@ -188,9 +234,15 @@ def build_cme_queue_from_donki(cme_analysis_records, enlil_sims, ips_events):
         Empty list if no Earth-directed CMEs.
     """
     logger.info("Building CME queue from DONKI scoreboard...")
+    logger.info(f"Input data: {len(cme_analysis_records)} CME records, {len(enlil_sims)} ENLIL sims, {len(ips_events)} IPS events")
+    
+    # Enable debug logging for matching
+    original_level = logger.level
+    logger.setLevel(logging.DEBUG)
     
     now = datetime.now(timezone.utc)
     queue = []
+    skipped_no_earth = []
     
     for cme in cme_analysis_records:
         cme_id = cme.get('associatedCMEID')
@@ -198,12 +250,17 @@ def build_cme_queue_from_donki(cme_analysis_records, enlil_sims, ips_events):
             logger.debug("CME record missing associatedCMEID, skipping")
             continue
         
+        logger.debug(f"\n{'='*60}")
+        logger.debug(f"Processing CME: {cme_id}")
+        logger.debug(f"{'='*60}")
+        
         # Match ENLIL predictions
         enlil_match = match_enlil_to_cme(cme_id, enlil_sims)
         
         # Only add to queue if Earth impact predicted
         if not enlil_match['earth_impact']:
             logger.debug(f"CME {cme_id}: No Earth impact predicted, skipping")
+            skipped_no_earth.append(cme_id)
             continue
         
         # Match observed shock (if arrived)
@@ -327,6 +384,16 @@ def build_cme_queue_from_donki(cme_analysis_records, enlil_sims, ips_events):
     
     queue.sort(key=sort_key)
     
+    # Restore original logging level
+    logger.setLevel(original_level)
+    
+    # Summary
     logger.info(f"CME queue built: {len(queue)} Earth-directed CMEs")
+    if skipped_no_earth:
+        logger.info(f"Skipped {len(skipped_no_earth)} CMEs (no Earth impact predicted):")
+        for cme_id in skipped_no_earth[:5]:  # Show first 5
+            logger.info(f"  - {cme_id}")
+        if len(skipped_no_earth) > 5:
+            logger.info(f"  ... and {len(skipped_no_earth) - 5} more")
     
     return queue
