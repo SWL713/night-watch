@@ -2240,6 +2240,80 @@ def main_with_clouds():
     try:
         log.info("Running CME pipeline...")
         
+        # ──────────────────────────────────────────────────────────────────
+        # PHASE 1: DONKI Scoreboard Integration
+        # Fetch Earth-directed CMEs from NASA DONKI and build queue
+        # ──────────────────────────────────────────────────────────────────
+        try:
+            from cme.donki import get_earth_directed_cmes
+            from cme.queue_manager import build_cme_queue_from_donki
+            
+            log.info("DONKI: Fetching CME scoreboard data...")
+            donki_data = get_earth_directed_cmes()
+            
+            if donki_data and (donki_data['cmes'] or donki_data['enlil_sims']):
+                # Build CME queue from DONKI scoreboard
+                cme_queue = build_cme_queue_from_donki(
+                    donki_data['cmes'],
+                    donki_data['enlil_sims'],
+                    donki_data['ips_events']
+                )
+                
+                # Write DONKI-enhanced CME queue
+                cme_queue_output = {
+                    'metadata': {
+                        'last_updated': now.isoformat(),
+                        'donki_last_sync': now.isoformat(),
+                        'cmes_tracked': len(cme_queue)
+                    },
+                    'active_cme_id': cme_queue[0]['id'] if cme_queue else None,
+                    'cmes': cme_queue
+                }
+                
+                cme_queue_path = os.path.join(os.path.dirname(__file__), '..', 'data', 'cme_queue.json')
+                os.makedirs(os.path.dirname(cme_queue_path), exist_ok=True)
+                with open(cme_queue_path, 'w') as f:
+                    json.dump(cme_queue_output, f, indent=2)
+                
+                log.info(f"DONKI: CME queue written - {len(cme_queue)} Earth-directed CMEs")
+                
+                # Also update positions for visualization
+                cme_positions = []
+                for cme in cme_queue:
+                    cme_positions.append({
+                        'id': cme['id'],
+                        'distance_au': cme['position']['distance_au'],
+                        'progress_percent': cme['position']['progress_percent'],
+                        'speed': cme['properties']['speed_initial'],
+                        'state': cme['state']['current']
+                    })
+                
+                cme_pos_output = {
+                    'metadata': {'last_updated': now.isoformat()},
+                    'positions': cme_positions
+                }
+                
+                cme_pos_path = os.path.join(os.path.dirname(__file__), '..', 'data', 'cme_positions.json')
+                with open(cme_pos_path, 'w') as f:
+                    json.dump(cme_pos_output, f, indent=2)
+                
+                log.info(f"DONKI: CME positions written - {len(cme_positions)} positions")
+            else:
+                log.info("DONKI: No Earth-directed CMEs on scoreboard")
+                
+        except ImportError as e:
+            log.warning(f"DONKI: Module import failed - {e}")
+            log.warning("DONKI: Ensure donki.py and queue_manager.py are in pipeline/cme/")
+        except Exception as e:
+            log.error(f"DONKI: Integration failed (non-fatal) - {e}")
+            import traceback
+            log.error(traceback.format_exc())
+            # Don't crash main pipeline if DONKI fails
+        
+        # ──────────────────────────────────────────────────────────────────
+        # END DONKI INTEGRATION
+        # ──────────────────────────────────────────────────────────────────
+        
         # Load data from JSON files (already fetched above - zero duplicate API calls!)
         mag_7day_data = None
         plasma_7day_data = None
