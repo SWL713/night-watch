@@ -1170,14 +1170,6 @@ function ClassificationBox({ classData, metadata, cmeId }) {
                 bz.aurora_potential === 'EXCELLENT' ? '#ffaa00' :
                 bz.aurora_potential === 'GOOD' ? C.bz_north : C.textDim;
 
-  // Compact key-value row
-  const Row = ({ label, value, color }) => (
-    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 9, lineHeight: 1.3 }}>
-      <span style={{ color: C.textDim }}>{label}</span>
-      <span style={{ color: color || C.text, fontWeight: color ? 600 : 400 }}>{value}</span>
-    </div>
-  );
-
   const Row = ({ label, value, color }) => (
     <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 9, lineHeight: 1.2, padding: '1px 0' }}>
       <span style={{ color: C.textDim }}>{label}</span>
