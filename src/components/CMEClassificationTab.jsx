@@ -128,14 +128,16 @@ function CMEClassificationTab({ activeCME, classification }) {
   let actualRange;
   if (customRange) {
     actualRange = customRange;
+  } else if (!userChangedRange && classWindowStart) {
+    // Auto-scale to show the full classification window on initial view
+    const windowEnd = classWindowEnd || Date.now();
+    // Start 2h before window, end 2h after window or now (whichever is later)
+    actualRange = [
+      classWindowStart - 2 * 3600000,
+      Math.max(windowEnd + 2 * 3600000, Date.now())
+    ];
   } else {
-    const defaultStart = Date.now() - timeRange * 3600000;
-    // Auto-expand only on initial view — once user picks a range, respect it
-    if (!userChangedRange && classWindowStart && classWindowStart < defaultStart) {
-      actualRange = [classWindowStart - 2 * 3600000, Date.now()];
-    } else {
-      actualRange = [defaultStart, Date.now()];
-    }
+    actualRange = [Date.now() - timeRange * 3600000, Date.now()];
   }
   
   if (loading) {
