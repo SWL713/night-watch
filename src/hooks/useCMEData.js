@@ -56,7 +56,7 @@ function parseStereoData(raw) {
       const t = new Date(row[iTime]);
       if (isNaN(t.getTime())) return null;
       return {
-        time: t.getTime(),
+        time: t,
         bn: iBn >= 0 ? row[iBn] : null,
         bt_tot: iBt >= 0 ? row[iBt] : null,
         br: iBr >= 0 ? row[iBr] : null,
@@ -120,7 +120,7 @@ export function useCMEData() {
             setEpamData(epamJson.data.map(row => {
               const obj = {};
               cols.forEach((c, i) => { obj[c] = row[i]; });
-              if (obj.time) obj.time = new Date(obj.time).getTime();
+              if (obj.time) obj.time = new Date(obj.time);
               return obj;
             }).filter(d => d.time && !isNaN(d.time)));
           }

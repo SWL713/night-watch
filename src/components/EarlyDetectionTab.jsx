@@ -238,14 +238,6 @@ function EarlyDetectionTabInner({ epamData, stereoData, cmes }) {
 }
 
 export default function EarlyDetectionTab(props) {
-  // Debug: if this text doesn't show, the issue is outside this component
-  if (!props.epamData && !props.stereoData) {
-    return (
-      <div style={{ padding: 20, color: '#ffaa00', fontFamily: 'monospace', background: '#06080f', height: '100%' }}>
-        Early Detection loading... epam={String(!!props.epamData)} stereo={String(!!props.stereoData)} cmes={String(!!(props.cmes?.length))}
-      </div>
-    );
-  }
   return (
     <EarlyDetectionErrorBoundary>
       <EarlyDetectionTabInner {...props} />
