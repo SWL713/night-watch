@@ -1,6 +1,6 @@
 {
   "metadata": {
-    "last_updated": "2026-04-05T13:42:04.834382+00:00",
+    "last_updated": "2026-04-05T13:49:57.869805+00:00",
     "active_cme_id": "CME_2026-04-01T03:00Z"
   },
   "classifications": {
@@ -9,7 +9,7 @@
       "classification_window": null,
       "current": {
         "bs_type": "unknown",
-        "bs_type_full": "Pre-arrival forecast (ETA 6.3h)",
+        "bs_type_full": "Pre-arrival forecast (ETA 6.2h)",
         "confidence": 15,
         "confidence_trend": "STABLE",
         "locked": false,
@@ -17,13 +17,13 @@
       },
       "signatures": {
         "structure_progress_pct": 0,
-        "bz_onset_timing": "ETA 6.3h"
+        "bz_onset_timing": "ETA 6.2h"
       },
       "bz_predictions": {
         "description": "Slow CME (583 km/s). Mild impact expected.",
         "aurora_potential": "WEAK",
         "kp_estimate": "3-5",
-        "onset_time": "ETA 6.3h",
+        "onset_time": "ETA 6.2h",
         "duration_hours_low": null,
         "duration_hours_high": null,
         "peak_bz_estimate_nT": null
@@ -46,7 +46,7 @@
       "classification_window": {
         "start": "2026-04-01T11:27:00",
         "end": "2026-04-02T11:27:00+00:00",
-        "duration_hours": 98.2
+        "duration_hours": 98.33333333333334
       },
       "current": {
         "bs_type": "SWN",
@@ -58,7 +58,7 @@
         "chirality": "left-handed"
       },
       "signatures": {
-        "structure_progress_pct": 409.1666666666667,
+        "structure_progress_pct": 409.72222222222223,
         "bz_onset_timing": "early (0.7h post-shock)"
       },
       "bz_predictions": {
@@ -66,8 +66,8 @@
         "aurora_potential": "WEAK",
         "kp_estimate": "3-4",
         "onset_time": "early (0.7h post-shock)",
-        "duration_hours_low": 5.368399311531841,
-        "duration_hours_high": 13.420998278829604,
+        "duration_hours_low": 5.369365652398143,
+        "duration_hours_high": 13.423414130995358,
         "peak_bz_estimate": -15.65,
         "flux_rope_duration_hours": 24.0,
         "bz_south_onset_hours": 0.6666666666666666
