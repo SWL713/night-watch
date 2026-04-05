@@ -329,22 +329,7 @@ class CMEStateMachine:
         return bt_ok and v_ok and bz_ok
     
     def _check_arrived_to_storm(self, cme, l1_mag):
-        """ARRIVED → STORM_ACTIVE or SUBSIDING"""
-        # Check how long we've been in ARRIVED state
-        entered_at = cme['state'].get('entered_at')
-        if entered_at:
-            try:
-                from datetime import datetime, timezone
-                ea = datetime.fromisoformat(entered_at.replace('Z', '+00:00'))
-                if ea.tzinfo is None:
-                    ea = ea.replace(tzinfo=timezone.utc)
-                hours_in_state = (datetime.now(timezone.utc) - ea).total_seconds() / 3600
-                # If ARRIVED for 24h+ with no storm upgrade, the rope has passed
-                if hours_in_state > 24:
-                    return 'SUBSIDING'
-            except Exception:
-                pass
-
+        """ARRIVED → STORM_ACTIVE (SUBSIDING handled post-classification by confidence)"""
         # Mag columns: [time(0), bx(1), by(2), bz(3), bt(4), phi(5)]
         if l1_mag and len(l1_mag) > 30:
             recent = l1_mag[-30:]
@@ -357,22 +342,9 @@ class CMEStateMachine:
                     bz_values.append(p['bz'])
 
             if bz_values:
-                # Sustained southward Bz → storm
                 southward_count = sum(1 for bz in bz_values if bz < -5)
                 if southward_count > 15:
                     return 'STORM_ACTIVE'
-
-                # Quiet conditions (Bt < 8, no strong Bz) for 30+ min → subsiding
-                bt_values = []
-                for p in recent:
-                    if isinstance(p, (list, tuple)) and len(p) > 4:
-                        if isinstance(p[4], (int, float)):
-                            bt_values.append(p[4])
-                if bt_values and max(bt_values) < 8 and max(abs(bz) for bz in bz_values) < 5:
-                    eta = self._calculate_eta(cme)
-                    # Only subside if well past predicted arrival (6h+)
-                    if eta is not None and eta < -6:
-                        return 'SUBSIDING'
 
         return 'ARRIVED'
     

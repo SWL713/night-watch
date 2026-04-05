@@ -101,6 +101,54 @@ def run_cme_pipeline(l1_mag, l1_plasma, stereo_a, epam, log):
                     progress = (classification.get('signatures') or {}).get('structure_progress_pct', 0)
                     _upgrade_aurora_rating(cme, cur, bz_pred, progress)
 
+        # Post-classification state check: ARRIVED CMEs with <15% confidence
+        # and 2h+ in state → SUBSIDING. Stamp the classification end time.
+        from datetime import datetime, timezone
+        now_utc = datetime.now(timezone.utc)
+        for cme in queue['cmes']:
+            if cme['state']['current'] not in ['ARRIVED', 'STORM_ACTIVE']:
+                continue
+            cls = classification_data['classifications'].get(cme['id'])
+            if not cls:
+                continue
+            conf = (cls.get('current') or {}).get('confidence', 100)
+            # Check time in ARRIVED state
+            entered = cme['state'].get('entered_at', '')
+            try:
+                ea = datetime.fromisoformat(entered.replace('Z', '+00:00'))
+                if ea.tzinfo is None:
+                    ea = ea.replace(tzinfo=timezone.utc)
+                hours_in = (now_utc - ea).total_seconds() / 3600
+            except Exception:
+                hours_in = 0
+
+            if conf < 15 and hours_in >= 2:
+                # Transition to SUBSIDING
+                cme['state']['history'].append({
+                    'from': cme['state']['current'],
+                    'to': 'SUBSIDING',
+                    'timestamp': now_utc.isoformat(),
+                    'reason': f'confidence {conf:.0f}% < 15% after {hours_in:.1f}h'
+                })
+                cme['state']['current'] = 'SUBSIDING'
+                cme['state']['entered_at'] = now_utc.isoformat()
+                # Stamp the classification window end at this moment
+                w = cls.get('classification_window')
+                if w and not w.get('end'):
+                    w['end'] = now_utc.isoformat()
+                elif w:
+                    # Cap end to now if it was extending into future
+                    try:
+                        end_dt = datetime.fromisoformat(w['end'].replace('Z', '+00:00'))
+                        if end_dt > now_utc:
+                            w['end'] = now_utc.isoformat()
+                    except Exception:
+                        pass
+                cls['current']['passed'] = True
+                cls['current']['bs_type_full'] = (cls['current'].get('bs_type_full', '') + ' (passed)').replace(' (passed) (passed)', ' (passed)')
+                cls['active'] = False
+                log.info(f"CME {cme['id']}: SUBSIDING — confidence {conf:.0f}% after {hours_in:.1f}h")
+
         # Pick best active_cme_id for classification panel:
         # prefer highest-confidence non-passed classification
         best_cls_id = None
