@@ -1030,8 +1030,8 @@ function App() {
           {/* Slots 2-4 — tab buttons, equal flex:1 */}
           {[
             { key: 'spaceweather', label: <>SPACE<br/>WEATHER</> },
-            { key: 'substorm',     label: <>SUBSTORM<br/>TIMING</> },
             { key: 'cme',          label: <>CME<br/>DASHBOARD</> },
+            { key: 'substorm',     label: <>SUBSTORM<br/>TIMING</> },
           ].map(({ key, label }) => {
             const isActive = activeTab === key
             return (
