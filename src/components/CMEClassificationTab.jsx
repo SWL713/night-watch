@@ -312,11 +312,13 @@ function BzPlot({ data, timeRange, ejectaStart, classWindow, crosshairT, onCross
       return;
     }
     
-    // Y scale
+    // Y scale — auto-fit to data with small padding, no forced ±20
     const bzVals = visData.map(d => d.bz).filter(v => v !== null && !isNaN(v));
     const btVals = visData.map(d => d.bt).filter(v => v !== null && !isNaN(v));
-    const yMin = Math.min(-20, Math.min(...bzVals) - 2);
-    const yMax = Math.max(20, Math.max(...bzVals, ...btVals) + 2);
+    const dataMin = bzVals.length ? Math.min(...bzVals) : -5;
+    const dataMax = Math.max(...bzVals, ...btVals, 0);
+    const yMin = Math.min(dataMin - 3, -5);
+    const yMax = Math.max(dataMax + 3, 5);
     const yScale = (v) => PAD.t + pH - ((v - yMin) / (yMax - yMin)) * pH;
     const xScale = (t) => PAD.l + ((t - tMin) / (tMax - tMin)) * pW;
     
@@ -428,7 +430,7 @@ function BzPlot({ data, timeRange, ejectaStart, classWindow, crosshairT, onCross
     // Classification window highlight — always persists regardless of zoom
     if (classWindow?.start) {
       const cwStart = new Date(classWindow.start).getTime();
-      const cwEnd = classWindow.end ? new Date(classWindow.end).getTime() : tMax;
+      const cwEnd = classWindow.end ? new Date(classWindow.end).getTime() : (cwStart + 24 * 3600000);
       const dim = 'rgba(0,0,0,0.55)';
 
       if (cwEnd <= tMin || cwStart >= tMax) {
