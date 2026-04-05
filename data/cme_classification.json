@@ -1,6 +1,6 @@
 {
   "metadata": {
-    "last_updated": "2026-04-05T18:32:26.505522+00:00",
+    "last_updated": "2026-04-05T16:15:54.281175+00:00",
     "active_cme_id": "CME_2026-04-02T20:46Z"
   },
   "classifications": {
@@ -9,12 +9,12 @@
       "classification_window": {
         "start": "2026-04-04T10:54:00+00:00",
         "end": null,
-        "duration_hours": 31.4
+        "duration_hours": 25.449999999999996
       },
       "current": {
-        "bs_type": "ESW",
-        "bs_type_full": "East-South-West (South throughout - extreme storm) (STEREO-A preview)",
-        "confidence": 29.991410404007002,
+        "bs_type": "NES",
+        "bs_type_full": "North-East-South (South mid/trailing - sustained storm) (STEREO-A preview)",
+        "confidence": 28.525993742162342,
         "confidence_trend": "BUILDING",
         "locked": false,
         "passed": false,
@@ -22,16 +22,16 @@
         "data_source": "stereo_a"
       },
       "signatures": {
-        "structure_progress_pct": 130.83333333333334,
-        "bz_onset_timing": "throughout (est)"
+        "structure_progress_pct": 106.04166666666666,
+        "bz_onset_timing": "mid-passage (est)"
       },
       "bz_predictions": {
-        "description": "South throughout passage. Deep prolonged storm. (STEREO-A estimate \u2014 path may differ at Earth)",
+        "description": "South mid-to-trailing. Sustained storm. (STEREO-A estimate \u2014 path may differ at Earth)",
         "aurora_potential": "NONE",
         "kp_estimate": "2-3",
-        "onset_time": "throughout (est)",
-        "duration_hours_low": 0.05595854922279792,
-        "duration_hours_high": 0.13989637305699482,
+        "onset_time": "mid-passage (est)",
+        "duration_hours_low": 0.059097127222982215,
+        "duration_hours_high": 0.14774281805745554,
         "peak_bz_estimate": -2.243,
         "flux_rope_duration_hours": 24.0,
         "bz_south_onset_hours": null
@@ -48,6 +48,46 @@
         "STEREO-A is ~48\u00b0 ahead of Earth \u2014 path may differ",
         "Classification will update with L1 data on CME arrival"
       ]
+    },
+    "CME_2026-04-01T03:00Z": {
+      "active": true,
+      "classification_window": {
+        "start": "2026-04-01T11:27:00",
+        "end": "2026-04-05T16:12:00+00:00",
+        "duration_hours": 100.75
+      },
+      "current": {
+        "bs_type": "SWN",
+        "bs_type_full": "South-West-North (Weakening - north trailing)",
+        "confidence": 5,
+        "confidence_trend": "DECAYING",
+        "locked": false,
+        "passed": true,
+        "chirality": "left-handed"
+      },
+      "signatures": {
+        "structure_progress_pct": 419.7916666666667,
+        "bz_onset_timing": "early (0.7h post-shock)"
+      },
+      "bz_predictions": {
+        "description": "North trailing edge. Weakening.",
+        "aurora_potential": "WEAK",
+        "kp_estimate": "3-4",
+        "onset_time": "early (0.7h post-shock)",
+        "duration_hours_low": 5.403023177695666,
+        "duration_hours_high": 13.507557944239165,
+        "peak_bz_estimate": -15.65,
+        "flux_rope_duration_hours": 24.0,
+        "bz_south_onset_hours": 0.6666666666666666
+      },
+      "phi_events": [],
+      "quality_flags": {
+        "nosedive_detected": false,
+        "reverted": false,
+        "boundary_detected": false,
+        "expert_review_needed": false
+      },
+      "notes": []
     }
   }
 }
