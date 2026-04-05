@@ -875,8 +875,8 @@ export default function XRayFluxTab() {
           <div style={{ flex: 1, display: 'flex', minHeight: 0 }}>
             <FlareCard flare={lastMXFlare} />
           </div>
-          {/* Right: SDO/AIA 131Å full sun + red box + conditional zoomed inset */}
-          <div style={{ flex: 1, display: 'flex', minHeight: 0, background: '#0a0e18', border: `1px solid ${C.grid}`, borderRadius: 3, overflow: 'hidden', alignItems: 'center', justifyContent: 'center' }}>
+          {/* Right: SDO/AIA 131Å full sun + red box */}
+          <div style={{ flex: 1, display: 'flex', minHeight: 0, minWidth: 0, background: '#0a0e18', border: `1px solid ${C.grid}`, borderRadius: 3, overflow: 'hidden' }}>
             {lastMXFlare?.sdo_image_url ? (
               <SDOImagePanel flare={lastMXFlare} />
             ) : (

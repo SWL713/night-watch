@@ -1,39 +1,32 @@
 {
   "metadata": {
-    "last_updated": "2026-04-05T13:17:54.522104+00:00",
-    "active_cme_id": "CME_2026-04-02T20:46Z"
+    "last_updated": "2026-04-05T13:42:04.834382+00:00",
+    "active_cme_id": "CME_2026-04-01T03:00Z"
   },
   "classifications": {
     "CME_2026-04-02T20:46Z": {
       "active": true,
-      "classification_window": {
-        "start": "2026-04-05T07:38:52.925853",
-        "end": "2026-04-06T07:38:52.925853+00:00",
-        "duration_hours": 5.585298374166666
-      },
+      "classification_window": null,
       "current": {
-        "bs_type": "NES",
-        "bs_type_full": "North-East-South (South mid/trailing - sustained storm)",
-        "confidence": 46.57454269684642,
+        "bs_type": "unknown",
+        "bs_type_full": "Pre-arrival forecast (ETA 6.3h)",
+        "confidence": 15,
         "confidence_trend": "STABLE",
         "locked": false,
-        "passed": false,
-        "chirality": "right-handed"
+        "chirality": "unknown"
       },
       "signatures": {
-        "structure_progress_pct": 23.272076559027777,
-        "bz_onset_timing": "early (2.1h post-shock)"
+        "structure_progress_pct": 0,
+        "bz_onset_timing": "ETA 6.3h"
       },
       "bz_predictions": {
-        "description": "South mid-to-trailing. Sustained storm.",
-        "aurora_potential": "EXCELLENT",
-        "kp_estimate": "6-7",
-        "onset_time": "early (2.1h post-shock)",
-        "duration_hours_low": 3.3628742514970065,
-        "duration_hours_high": 8.407185628742516,
-        "peak_bz_estimate": -4.65,
-        "flux_rope_duration_hours": 24.0,
-        "bz_south_onset_hours": 2.1186317075
+        "description": "Slow CME (583 km/s). Mild impact expected.",
+        "aurora_potential": "WEAK",
+        "kp_estimate": "3-5",
+        "onset_time": "ETA 6.3h",
+        "duration_hours_low": null,
+        "duration_hours_high": null,
+        "peak_bz_estimate_nT": null
       },
       "phi_events": [],
       "quality_flags": {
@@ -42,45 +35,49 @@
         "boundary_detected": false,
         "expert_review_needed": true
       },
-      "notes": []
+      "notes": [
+        "PRE-ARRIVAL FORECAST \u2014 based on CME speed and scoreboard predictions",
+        "Bz orientation unknown until CME passes L1 \u2014 confidence reflects this",
+        "Classification will sharpen automatically after arrival"
+      ]
     },
     "CME_2026-04-01T03:00Z": {
       "active": true,
       "classification_window": {
-        "start": "2026-04-05T04:29:26.687796",
-        "end": "2026-04-06T04:29:26.687796+00:00",
-        "duration_hours": 8.742586723333334
+        "start": "2026-04-01T11:27:00",
+        "end": "2026-04-02T11:27:00+00:00",
+        "duration_hours": 98.2
       },
       "current": {
-        "bs_type": "NWS",
-        "bs_type_full": "North-West-South (South trailing - late onset)",
-        "confidence": 32.937981522277575,
-        "confidence_trend": "STABLE",
+        "bs_type": "SWN",
+        "bs_type_full": "South-West-North (Weakening - north trailing)",
+        "confidence": 5,
+        "confidence_trend": "DECAYING",
         "locked": false,
-        "passed": false,
-        "chirality": "indeterminate"
+        "passed": true,
+        "chirality": "left-handed"
       },
       "signatures": {
-        "structure_progress_pct": 36.42744468055556,
-        "bz_onset_timing": "early (2.1h post-shock)"
+        "structure_progress_pct": 409.1666666666667,
+        "bz_onset_timing": "early (0.7h post-shock)"
       },
       "bz_predictions": {
-        "description": "South trailing edge. Late onset.",
-        "aurora_potential": "GOOD",
-        "kp_estimate": "5-6",
-        "onset_time": "early (2.1h post-shock)",
-        "duration_hours_low": 3.5793499043977057,
-        "duration_hours_high": 8.948374760994264,
-        "peak_bz_estimate": -4.94,
+        "description": "North trailing edge. Weakening.",
+        "aurora_potential": "WEAK",
+        "kp_estimate": "3-4",
+        "onset_time": "early (0.7h post-shock)",
+        "duration_hours_low": 5.368399311531841,
+        "duration_hours_high": 13.420998278829604,
+        "peak_bz_estimate": -15.65,
         "flux_rope_duration_hours": 24.0,
-        "bz_south_onset_hours": 2.10925339
+        "bz_south_onset_hours": 0.6666666666666666
       },
       "phi_events": [],
       "quality_flags": {
         "nosedive_detected": false,
         "reverted": false,
         "boundary_detected": false,
-        "expert_review_needed": true
+        "expert_review_needed": false
       },
       "notes": []
     }

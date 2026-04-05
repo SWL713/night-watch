@@ -215,65 +215,45 @@ class CMEStateMachine:
         return 'INBOUND'
     
     def _check_imminent_to_arrived(self, cme, l1_mag, l1_plasma):
-        """IMMINENT → ARRIVED triggers with direct in-situ ejecta detection"""
-        
-        # PRIMARY: Direct in-situ ejecta detection (ported from CME_Watch)
-        # This catches CMEs where shock V-jump baseline was already elevated
-        # Requires: Bt > 10nT AND V > 450km/s AND sustained southward Bz
-        if self._detect_ejecta_in_situ(l1_mag, l1_plasma):
-            return 'ARRIVED'
-        
-        # SECONDARY: Traditional threshold checks
-        
-        # Trigger 1: Magnetic field jump (LOWERED: 15 → 10 nT)
-        if l1_mag and len(l1_mag) > 10:
-            recent = l1_mag[-10:]
-            bt_values = []
-            for p in recent:
-                if isinstance(p, (list, tuple)) and len(p) > 4:
-                    bt_values.append(p[4])  # Bt column
-                elif isinstance(p, dict) and 'bt' in p:
-                    bt_values.append(p['bt'])
-            
-            if bt_values and max(bt_values) > 10:  # LOWERED from 15
-                return 'ARRIVED'
-        
-        # Trigger 2: Velocity spike (LOWERED: 550 → 500 km/s)
-        # Plasma columns: [time(0), density(1), speed(2), temp(3)]
-        if l1_plasma and len(l1_plasma) > 10:
-            recent = l1_plasma[-10:]
-            speeds = []
-            for p in recent:
-                if isinstance(p, (list, tuple)) and len(p) > 2:
-                    v = p[2]
-                    if isinstance(v, (int, float)):
-                        speeds.append(v)
-                elif isinstance(p, dict) and 'speed' in p:
-                    speeds.append(p['speed'])
+        """IMMINENT → ARRIVED triggers — requires strong evidence of THIS CME arriving.
 
-            if speeds and max(speeds) > 500:  # LOWERED from 550
-                return 'ARRIVED'
-
-        # Trigger 3: Density spike (NEW)
-        if l1_plasma and len(l1_plasma) > 10:
-            recent = l1_plasma[-10:]
-            densities = []
-            for p in recent:
-                if isinstance(p, (list, tuple)) and len(p) > 1:
-                    d = p[1]  # Density is index 1
-                    if isinstance(d, (int, float)):
-                        densities.append(d)
-                elif isinstance(p, dict) and 'density' in p:
-                    densities.append(p['density'])
-            
-            if densities and max(densities) > 15:  # Density compression
-                return 'ARRIVED'
-        
-        # Trigger 4: ETA passed (NEW - fallback if CME missed detection)
+        L1 thresholds only trigger if ETA is close (within 3h) to prevent
+        ambient elevated conditions from a previous CME/HSS from false-triggering.
+        """
         eta_hours = self._calculate_eta(cme)
-        if eta_hours is not None and eta_hours <= 0:  # Past predicted arrival
+
+        # Only check L1 signatures if ETA is plausibly now (within 3h)
+        if eta_hours is not None and eta_hours <= 3:
+            # Direct ejecta detection (combined Bt + V + Bz signature)
+            if self._detect_ejecta_in_situ(l1_mag, l1_plasma):
+                return 'ARRIVED'
+
+            # Magnetic field jump (Bt > 15 nT — raised from 10 to reduce false triggers)
+            if l1_mag and len(l1_mag) > 10:
+                recent = l1_mag[-10:]
+                bt_values = []
+                for p in recent:
+                    if isinstance(p, (list, tuple)) and len(p) > 4:
+                        if isinstance(p[4], (int, float)):
+                            bt_values.append(p[4])
+                if bt_values and max(bt_values) > 15:
+                    return 'ARRIVED'
+
+            # Velocity spike (V > 600 — raised from 500 to avoid ambient HSS)
+            if l1_plasma and len(l1_plasma) > 10:
+                recent = l1_plasma[-10:]
+                speeds = []
+                for p in recent:
+                    if isinstance(p, (list, tuple)) and len(p) > 2:
+                        if isinstance(p[2], (int, float)):
+                            speeds.append(p[2])
+                if speeds and max(speeds) > 600:
+                    return 'ARRIVED'
+
+        # ETA well past (> 3h overdue) — likely arrived but missed detection
+        if eta_hours is not None and eta_hours <= -3:
             return 'ARRIVED'
-        
+
         return 'IMMINENT'
     
     def _detect_ejecta_in_situ(self, l1_mag, l1_plasma):
