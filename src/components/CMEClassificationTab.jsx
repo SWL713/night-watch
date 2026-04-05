@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect, useRef, useCallback, Component } from 'react';
 
 const FONT = 'DejaVu Sans Mono, Consolas, monospace';
 
@@ -1313,4 +1313,21 @@ function ClassificationBox({ classData, metadata, cmeId }) {
   );
 }
 
-export default CMEClassificationTab;
+class ClassificationErrorBoundary extends Component {
+  constructor(props) { super(props); this.state = { error: null }; }
+  static getDerivedStateFromError(error) { return { error }; }
+  render() {
+    if (this.state.error) return (
+      <div style={{ padding: 20, color: '#ee5577', fontFamily: 'monospace', background: '#06080f', height: '100%', whiteSpace: 'pre-wrap', fontSize: 11 }}>
+        Classification tab error:{'\n'}{String(this.state.error?.message || this.state.error)}{'\n'}{String(this.state.error?.stack || '').slice(0, 500)}
+      </div>
+    );
+    return this.props.children;
+  }
+}
+
+function CMEClassificationTabSafe(props) {
+  return <ClassificationErrorBoundary><CMEClassificationTab {...props} /></ClassificationErrorBoundary>;
+}
+
+export default CMEClassificationTabSafe;
