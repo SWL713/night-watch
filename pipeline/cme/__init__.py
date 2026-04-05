@@ -73,10 +73,20 @@ def run_cme_pipeline(l1_mag, l1_plasma, stereo_a, epam, log):
         except Exception:
             pass
 
-        # 6. Update states for all CMEs
+        # 6. Update states for all CMEs + EPAM analysis
         state_machine = CMEStateMachine(log)
         for cme in queue['cmes']:
             state_machine.update_state(cme, l1_mag, l1_plasma, stereo_a, epam, g_level=g_level)
+            # Run EPAM analysis and store on CME for display
+            epam_list = state_machine._extract_list(epam)
+            epam_analysis = state_machine.analyze_epam(cme, epam_list)
+            cme['epam_analysis'] = epam_analysis
+            # Apply EPAM confidence boost to aurora rating
+            if epam_analysis['confidence_boost'] > 0:
+                ar = cme.get('aurora_rating', {})
+                ar['confidence'] = min(95, (ar.get('confidence', 0) + epam_analysis['confidence_boost']))
+                ar['basis'] = (ar.get('basis', '') + f' | EPAM: {epam_analysis["description"]}')[:100]
+                cme['aurora_rating'] = ar
 
         # 7. Determine active CME
         queue['active_cme_id'] = state_machine.determine_active_cme(queue['cmes'])

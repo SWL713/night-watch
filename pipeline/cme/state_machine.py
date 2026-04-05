@@ -182,11 +182,16 @@ class CMEStateMachine:
     
     def _check_inbound_to_imminent(self, cme, l1_mag, l1_plasma, epam):
         """INBOUND → IMMINENT triggers"""
-        
-        # Trigger 1: EPAM strong
+
+        # Trigger 1: EPAM strong ratio or ESP event
         if epam:
             flux_ratio = self._calc_epam_ratio(epam)
             if flux_ratio > 5.0:
+                return 'IMMINENT'
+            # ESP event = shock within 1-3h
+            epam_info = cme.get('epam_analysis', {})
+            if epam_info.get('esp_detected'):
+                self.log.info(f"CME {cme.get('id')}: ESP event detected — advancing to IMMINENT")
                 return 'IMMINENT'
         
         # Trigger 2: L1 velocity rising
@@ -373,25 +378,92 @@ class CMEStateMachine:
         """Calculate EPAM flux ratio (high/low energy)"""
         if not epam or len(epam) < 5:
             return 1.0
-        
+
         recent = epam[-5:]
         p6_vals = []
         p1_vals = []
-        
+
         for p in recent:
             if isinstance(p, dict):
                 if 'p6' in p:
                     p6_vals.append(p['p6'])
                 if 'p1' in p:
                     p1_vals.append(p['p1'])
-        
+
         if p6_vals and p1_vals:
             avg_high = sum(p6_vals) / len(p6_vals)
             avg_low = sum(p1_vals) / len(p1_vals)
             if avg_low > 0:
                 return avg_high / avg_low
-        
+
         return 1.0
+
+    def analyze_epam(self, cme, epam):
+        """Comprehensive EPAM analysis for CME confidence and ETA refinement.
+
+        Returns dict with:
+        - flux_ratio: high/low energy ratio (>2 = CME approaching)
+        - slope: proton flux slope (positive = rising = approaching)
+        - esp_detected: True if rapid flux surge (shock within 1-3h)
+        - confidence_boost: 0-30% confidence to add to aurora rating
+        - eta_modifier: hours to adjust ETA (negative = arriving sooner)
+        """
+        result = {
+            'flux_ratio': 1.0, 'slope': 0.0, 'esp_detected': False,
+            'confidence_boost': 0, 'eta_modifier': 0, 'description': 'quiet'
+        }
+
+        if not epam or len(epam) < 10:
+            return result
+
+        # Extract proton p3 (115-195 keV) — best CME precursor channel
+        p3_vals = []
+        for p in epam:
+            if isinstance(p, dict) and 'p3' in p:
+                v = p['p3']
+                if isinstance(v, (int, float)) and v > 0:
+                    p3_vals.append(v)
+
+        if len(p3_vals) < 10:
+            return result
+
+        result['flux_ratio'] = self._calc_epam_ratio(epam)
+
+        # Compute slope over last 2 hours (24 points at 5-min cadence)
+        window = min(24, len(p3_vals))
+        recent = p3_vals[-window:]
+        if len(recent) >= 6:
+            # Log-space slope for exponential rise detection
+            import math
+            log_vals = [math.log10(max(v, 1)) for v in recent]
+            n = len(log_vals)
+            x = list(range(n))
+            mean_x = sum(x) / n
+            mean_y = sum(log_vals) / n
+            num = sum((x[i] - mean_x) * (log_vals[i] - mean_y) for i in range(n))
+            den = sum((x[i] - mean_x) ** 2 for i in range(n))
+            slope = num / den if den > 0 else 0
+            result['slope'] = slope  # log10(flux) per 5-min step
+
+            # ESP detection: rapid rise (>0.1 log10 per step = 10x per 10 steps)
+            if slope > 0.08 and recent[-1] > 1000:
+                result['esp_detected'] = True
+                result['description'] = 'ESP event — shock within 1-3h'
+                result['confidence_boost'] = 25
+                result['eta_modifier'] = -3  # arriving sooner than predicted
+
+            # Moderate rise: particles approaching but no ESP yet
+            elif slope > 0.03 and recent[-1] > 100:
+                result['description'] = 'rising — CME approaching'
+                result['confidence_boost'] = 15
+                result['eta_modifier'] = -1
+
+            # Gentle rise: early precursor signal
+            elif slope > 0.01 and result['flux_ratio'] > 1.5:
+                result['description'] = 'elevated — possible precursor'
+                result['confidence_boost'] = 5
+
+        return result
     
     def _calculate_eta(self, cme):
         """Calculate ETA hours - PRIORITIZE SCOREBOARD (NASA consensus)"""
