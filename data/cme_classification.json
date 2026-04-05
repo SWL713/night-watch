@@ -21,7 +21,7 @@
         "chirality": "left-handed"
       },
       "signatures": {
-        "structure_progress_pct": 447.9861111111111,
+        "structure_progress_pct": 452.1527777777778,
         "bz_onset_timing": "early (0.7h post-shock)"
       },
       "bz_predictions": {
@@ -29,8 +29,8 @@
         "aurora_potential": "GOOD",
         "kp_estimate": "4-5",
         "onset_time": "early (0.7h post-shock)",
-        "duration_hours_low": 5.108506616257088,
-        "duration_hours_high": 12.77126654064272,
+        "duration_hours_low": 5.067415730337078,
+        "duration_hours_high": 12.668539325842696,
         "peak_bz_estimate": -15.65,
         "flux_rope_duration_hours": 24.0,
         "bz_south_onset_hours": 0.6666666666666666

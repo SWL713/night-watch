@@ -20,7 +20,7 @@
       },
       "properties": {
         "speed_initial": 583.4,
-        "speed_current": 542,
+        "speed_current": 521,
         "half_angle": 16.0,
         "type": "Common",
         "direction_lat": 20.0,
