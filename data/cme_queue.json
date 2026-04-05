@@ -1,8 +1,8 @@
 {
   "metadata": {
-    "last_updated": "2026-04-05T03:34:30.116711+00:00"
+    "last_updated": "2026-04-05T03:36:18.654511+00:00"
   },
-  "active_cme_id": "CME_2026-04-01T03:00Z",
+  "active_cme_id": "CME_2026-04-02T20:46Z",
   "cmes": [
     {
       "id": "CME_2026-04-02T20:46Z",
@@ -20,7 +20,7 @@
       },
       "properties": {
         "speed_initial": 583.4,
-        "speed_current": 583.4,
+        "speed_current": 547,
         "half_angle": 16.0,
         "type": "Common",
         "direction_lat": 20.0,
@@ -36,8 +36,8 @@
         "scoreboard_url": "https://kauai.ccmc.gsfc.nasa.gov/CMEscoreboard/"
       },
       "state": {
-        "current": "INBOUND",
-        "entered_at": "2026-04-05T03:13:55.437527+00:00",
+        "current": "ARRIVED",
+        "entered_at": "2026-04-05T03:36:14.540542+00:00",
         "history": [
           {
             "from": "QUIET",
@@ -48,6 +48,16 @@
             "from": "WATCH",
             "to": "INBOUND",
             "timestamp": "2026-04-05T03:13:55.437524+00:00"
+          },
+          {
+            "from": "INBOUND",
+            "to": "IMMINENT",
+            "timestamp": "2026-04-05T03:36:14.540355+00:00"
+          },
+          {
+            "from": "IMMINENT",
+            "to": "ARRIVED",
+            "timestamp": "2026-04-05T03:36:14.540534+00:00"
           }
         ]
       },
@@ -59,9 +69,9 @@
         "confidence": null
       },
       "position": {
-        "distance_au": 0.769,
-        "distance_rsun": 165.4,
-        "progress_percent": 76.9,
+        "distance_au": 0.77,
+        "distance_rsun": 165.5,
+        "progress_percent": 77.0,
         "eta_hours": 16.4,
         "velocity_current": 433.6,
         "speed_estimated": false
@@ -90,7 +100,7 @@
       },
       "properties": {
         "speed_initial": 554.1,
-        "speed_current": 545,
+        "speed_current": 547,
         "half_angle": 13.0,
         "type": "Faint CME",
         "direction_lat": 10.0,
