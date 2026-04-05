@@ -1746,7 +1746,7 @@ def fetch_goes_flares():
                 if loc_str and len(loc_str) >= 4:
                     try:
                         lat_v = int(loc_str[1:3]) * (1 if loc_str[0] == 'N' else -1)
-                        lon_v = int(loc_str[4:]) * (-1 if loc_str[3] == 'W' else 1)
+                        lon_v = int(loc_str[4:]) * (1 if loc_str[3] == 'W' else -1)  # W = positive in HPC
                         x_arc = round(960 * _m.sin(_m.radians(lon_v)) * _m.cos(_m.radians(lat_v)))
                         y_arc = round(960 * _m.sin(_m.radians(lat_v)))
                         sdo_zoom_url = f'{base}?date={peak_z}&imageScale=1.2&x0={x_arc}&y0={y_arc}&width=512&height=512{layers}'
@@ -1822,7 +1822,7 @@ def fetch_goes_flares():
                 continue
             try:
                 lat_v = int(loc[1:3]) * (1 if loc[0] == 'N' else -1)
-                lon_v = int(loc[4:]) * (-1 if loc[3] == 'W' else 1)
+                lon_v = int(loc[4:]) * (1 if loc[3] == 'W' else -1)  # W = positive in HPC
                 x_arc = round(960 * _m.sin(_m.radians(lon_v)) * _m.cos(_m.radians(lat_v)))
                 y_arc = round(960 * _m.sin(_m.radians(lat_v)))
                 peak_z = flare['peak_time'].replace('+00:00', 'Z')

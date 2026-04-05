@@ -620,6 +620,7 @@ function FlareCard({ flare }) {
 function SDOImagePanel({ flare }) {
   const containerRef = useRef(null);
   const canvasRef = useRef(null);
+  const imgRef = useRef(null);
   const [zoomed, setZoomed] = useState(false);
 
   // Helio coords to pixel on 512px image at imageScale=4.5
@@ -628,7 +629,7 @@ function SDOImagePanel({ flare }) {
     if (!loc || loc.length < 4) return null;
     try {
       const lat = parseInt(loc.substring(1, 3)) * (loc[0] === 'N' ? 1 : -1);
-      const lon = parseInt(loc.substring(4)) * (loc[3] === 'W' ? -1 : 1);
+      const lon = parseInt(loc.substring(4)) * (loc[3] === 'W' ? 1 : -1);  // W = positive in HPC (right side of solar image)
       return { lat, lon };
     } catch { return null; }
   };
@@ -648,28 +649,25 @@ function SDOImagePanel({ flare }) {
   const drawBox = useCallback(() => {
     const canvas = canvasRef.current;
     const container = containerRef.current;
-    if (!canvas || !container || !pixelPos || zoomed) return;
-    const rect = container.getBoundingClientRect();
+    const img = imgRef.current;
+    if (!canvas || !container || !img || !pixelPos || zoomed) return;
+
+    const contRect = container.getBoundingClientRect();
+    const imgRect = img.getBoundingClientRect();
     const dpr = window.devicePixelRatio || 1;
-    canvas.width = rect.width * dpr;
-    canvas.height = rect.height * dpr;
-    canvas.style.width = rect.width + 'px';
-    canvas.style.height = rect.height + 'px';
+    canvas.width = contRect.width * dpr;
+    canvas.height = contRect.height * dpr;
+    canvas.style.width = contRect.width + 'px';
+    canvas.style.height = contRect.height + 'px';
     const ctx = canvas.getContext('2d');
     ctx.scale(dpr, dpr);
-    ctx.clearRect(0, 0, rect.width, rect.height);
+    ctx.clearRect(0, 0, contRect.width, contRect.height);
 
-    // The image uses objectFit:contain — find where the 512px image sits
-    const imgAspect = 1;  // square
-    const contAspect = rect.width / rect.height;
-    let imgW, imgH, offX, offY;
-    if (contAspect > imgAspect) {
-      imgH = rect.height; imgW = rect.height;
-      offX = (rect.width - imgW) / 2; offY = 0;
-    } else {
-      imgW = rect.width; imgH = rect.width;
-      offX = 0; offY = (rect.height - imgH) / 2;
-    }
+    // Use the actual rendered image position and size from DOM
+    const offX = imgRect.left - contRect.left;
+    const offY = imgRect.top - contRect.top;
+    const imgW = imgRect.width;
+    const imgH = imgRect.height;
     const scale = imgW / 512;
 
     const px = offX + pixelPos.x * scale;
@@ -692,6 +690,7 @@ function SDOImagePanel({ flare }) {
     <div ref={containerRef} style={{ position: 'relative', width: '100%', height: '100%', display: 'flex', alignItems: 'start', justifyContent: 'center', cursor: flare.sdo_zoom_url ? 'pointer' : 'default' }}
          onClick={() => flare.sdo_zoom_url && setZoomed(!zoomed)}>
       <img
+        ref={imgRef}
         src={currentUrl}
         alt={`SDO AIA 131Å — ${flare.class_label || ''}`}
         style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain' }}
