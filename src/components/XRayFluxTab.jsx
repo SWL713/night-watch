@@ -22,9 +22,7 @@ const C = {
 const TIME_RANGES = [
   { label: '12H', hours: 12 },
   { label: '24H', hours: 24 },
-  { label: '2D', hours: 48 },
-  { label: '3D', hours: 72 },
-  { label: '5D', hours: 120 },
+  { label: '72H', hours: 72 },
   { label: '7D', hours: 168 },
 ];
 
@@ -120,27 +118,18 @@ function parseXrayData(raw) {
 
 function parseFlareData(raw) {
   if (!raw) return [];
-  // Support both array and {columns, data} format
-  if (Array.isArray(raw)) {
-    return raw.map(f => ({
-      ...f,
-      start_time: f.start_time ? new Date(f.start_time).getTime() : null,
-      peak_time: f.peak_time ? new Date(f.peak_time).getTime() : null,
-      end_time: f.end_time ? new Date(f.end_time).getTime() : null,
-    })).filter(f => f.peak_time);
-  }
-  if (raw.columns && raw.data) {
-    const cols = raw.columns;
-    return raw.data.map(row => {
-      const obj = {};
-      cols.forEach((c, i) => { obj[c] = row[i]; });
-      obj.start_time = obj.start_time ? new Date(obj.start_time).getTime() : null;
-      obj.peak_time = obj.peak_time ? new Date(obj.peak_time).getTime() : null;
-      obj.end_time = obj.end_time ? new Date(obj.end_time).getTime() : null;
-      return obj;
-    }).filter(f => f.peak_time);
-  }
-  return [];
+  // goes_flares.json has {flares: [...], live_events: [...]}
+  const list = raw.flares || (Array.isArray(raw) ? raw : []);
+  const live = raw.live_events || [];
+  const all = [...list, ...live];
+  return all.map(f => ({
+    ...f,
+    start_time: (f.begin_time || f.start_time) ? new Date(f.begin_time || f.start_time).getTime() : null,
+    peak_time: (f.peak_time || f.max_time) ? new Date(f.peak_time || f.max_time).getTime() : null,
+    end_time: f.end_time ? new Date(f.end_time).getTime() : null,
+    peak_flux: f.max_flux || f.peak_flux || null,
+    class_label: f.max_class || null,
+  })).filter(f => f.peak_time);
 }
 
 // --- Toggle Button ---
@@ -194,8 +183,14 @@ function XRayPlot({ data, flares, timeRange, showXrsB, showXrsA, showFlares, cro
     const [tMin, tMax] = timeRange;
     const visData = (data || []).filter(d => d.time >= tMin && d.time <= tMax);
 
-    const logMin = Math.log10(Y_MIN);
-    const logMax = Math.log10(Y_MAX);
+    // Auto-scale Y: find min/max flux in visible data, pad by 1 decade
+    let dataMin = 1e-8, dataMax = 1e-4;
+    for (const d of visData) {
+      if (d.fluxLong > 0) { dataMin = Math.min(dataMin, d.fluxLong); dataMax = Math.max(dataMax, d.fluxLong); }
+      if (d.fluxShort > 0) { dataMin = Math.min(dataMin, d.fluxShort); dataMax = Math.max(dataMax, d.fluxShort); }
+    }
+    const logMin = Math.floor(Math.log10(dataMin)) - 1;
+    const logMax = Math.ceil(Math.log10(dataMax)) + 0.5;
 
     const xScale = (t) => PAD.l + ((t - tMin) / (tMax - tMin)) * pW;
     const yScale = (v) => {
@@ -830,13 +825,19 @@ function FlareCard({ flare }) {
       <Row label="Start" value={formatUTCShort(flare.start_time)} />
       <Row label="Peak" value={formatUTCShort(flare.peak_time)} />
       <Row label="End" value={flare.end_time ? formatUTCShort(flare.end_time) : '--'} />
-      {durationMin != null && <Row label="Duration" value={`${durationMin} min`} />}
-      {peakFlux != null && <Row label="Peak flux" value={`${formatFlux(peakFlux)} W/m\u00b2`} />}
-      {flare.satellite && <Row label="Satellite" value={flare.satellite} />}
+      {(flare.duration_minutes || durationMin) != null && <Row label="Duration" value={`${flare.duration_minutes || durationMin} min`} />}
+      {flare.rise_minutes != null && <Row label="Rise time" value={`${flare.rise_minutes} min`} />}
+      {peakFlux != null && <Row label="Peak flux" value={`${formatFlux(peakFlux)} W/m²`} />}
+      {flare.integrated_flux != null && <Row label="Integrated" value={`${flare.integrated_flux.toFixed(4)} J/m²`} />}
+      {flare.satellite && <Row label="Satellite" value={`GOES-${flare.satellite}`} />}
       {flare.active_region && <Row label="Active region" value={`AR${flare.active_region}`} />}
       {flare.location && <Row label="Location" value={flare.location} />}
-      <Row label="Radio blackout" value={radioBlackout(peakFlux)} color={peakFlux >= 1e-4 ? C.classX : peakFlux >= 1e-5 ? C.classM : C.textDim} />
-      {flare.associated_cme && <Row label="Associated CME" value={flare.associated_cme} color="#44aaff" />}
+      <Row label="Radio blackout" value={flare.radio_blackout || radioBlackout(peakFlux)} color={peakFlux >= 1e-4 ? C.classX : peakFlux >= 1e-5 ? C.classM : C.textDim} />
+      {flare.radio_burst && <Row label="Radio burst" value="Type II/IV detected" color="#ffaa44" />}
+      {flare.proton_event && <Row label="Proton event" value="SEP detected" color={C.classX} />}
+      {flare.cme_association && (
+        <Row label="CME" value={flare.cme_association.cme_id} color={flare.cme_association.confirmed ? '#44ddaa' : '#ffaa44'} />
+      )}
     </div>
   );
 }
@@ -844,7 +845,7 @@ function FlareCard({ flare }) {
 // --- Main Component ---
 
 export default function XRayFluxTab() {
-  const [timeRange, setTimeRange] = useState(72);
+  const [timeRange, setTimeRange] = useState(24);
   const [xrayData, setXrayData] = useState([]);
   const [flareData, setFlareData] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -908,10 +909,11 @@ export default function XRayFluxTab() {
     ? customRange
     : [Date.now() - timeRange * 3600000, Date.now()];
 
-  // Find last M/X flare
+  // Find last M/X flare from entire 7-day catalog (lookback)
   const lastMXFlare = [...flareData]
     .filter(f => {
-      const cls = f.class_type || (f.peak_flux ? flareClass(f.peak_flux) : '');
+      const mc = f.class_label || f.max_class || f.class_type || '';
+      const cls = mc.charAt(0) || (f.peak_flux ? flareClass(f.peak_flux) : '');
       return cls === 'M' || cls === 'X';
     })
     .sort((a, b) => b.peak_time - a.peak_time)[0] || null;
@@ -1005,9 +1007,21 @@ export default function XRayFluxTab() {
           <div style={{ flex: 1, display: 'flex', minHeight: 0 }}>
             <FlareCard flare={lastMXFlare} />
           </div>
-          {/* Right: Zoomed flare plot */}
-          <div style={{ flex: 1, display: 'flex', minHeight: 0 }}>
-            <FlareZoomPlot data={xrayData} flare={lastMXFlare} />
+          {/* Right: SDO/AIA 131Å image of flare */}
+          <div style={{ flex: 1, display: 'flex', minHeight: 0, background: '#0a0e18', border: `1px solid ${C.grid}`, borderRadius: 3, overflow: 'hidden', alignItems: 'center', justifyContent: 'center' }}>
+            {lastMXFlare?.sdo_image_url ? (
+              <img
+                src={lastMXFlare.sdo_image_url}
+                alt={`SDO AIA 131Å — ${lastMXFlare.class_label || ''} flare`}
+                style={{ width: '100%', height: '100%', objectFit: 'contain' }}
+                onError={(e) => { e.target.style.display = 'none'; e.target.nextSibling.style.display = 'flex'; }}
+              />
+            ) : null}
+            <div style={{ display: lastMXFlare?.sdo_image_url ? 'none' : 'flex', alignItems: 'center', justifyContent: 'center', width: '100%', height: '100%' }}>
+              <div style={{ fontSize: 9, color: C.textDim, textAlign: 'center', fontFamily: FONT }}>
+                {lastMXFlare ? 'SDO image unavailable' : 'No flare data'}
+              </div>
+            </div>
           </div>
         </div>
       </div>

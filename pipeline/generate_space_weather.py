@@ -1701,6 +1701,36 @@ def fetch_goes_flares():
             # Build flare ID from begin time
             flare_id = begin.replace(':', '').replace('-', '').replace('+00:00', '')[:15] if begin else None
 
+            # Compute rise time (begin → peak)
+            rise_minutes = None
+            try:
+                if begin and peak:
+                    dt_begin = datetime.fromisoformat(begin)
+                    dt_peak = datetime.fromisoformat(peak)
+                    if dt_begin.tzinfo is None: dt_begin = dt_begin.replace(tzinfo=timezone.utc)
+                    if dt_peak.tzinfo is None: dt_peak = dt_peak.replace(tzinfo=timezone.utc)
+                    rise_minutes = round((dt_peak - dt_begin).total_seconds() / 60, 1)
+            except Exception:
+                pass
+
+            # Integrated flux (from NOAA catalog)
+            integrated_flux = rec.get('current_int_xrlong')
+            try:
+                integrated_flux = float(integrated_flux) if integrated_flux is not None else None
+            except (ValueError, TypeError):
+                integrated_flux = None
+
+            # SDO/AIA 131Å image URL via Helioviewer API (for M/X flares)
+            sdo_image_url = None
+            if max_class and max_class[0] in ('M', 'X') and peak:
+                sdo_image_url = (
+                    f'https://api.helioviewer.org/v2/takeScreenshot/'
+                    f'?date={peak.replace("+00:00","Z")}'
+                    f'&imageScale=2.4&layers=[SDO,AIA,AIA,131,1,100]'
+                    f'&x0=0&y0=0&width=512&height=512'
+                    f'&display=true&watermark=false'
+                )
+
             flare = {
                 'id': flare_id,
                 'begin_time': begin or None,
@@ -1708,18 +1738,81 @@ def fetch_goes_flares():
                 'end_time': end or None,
                 'max_class': max_class or None,
                 'max_flux': max_flux,
+                'integrated_flux': integrated_flux,
+                'rise_minutes': rise_minutes,
                 'satellite': rec.get('satellite', None),
                 'location': rec.get('location', rec.get('source_location', None)),
                 'active_region': rec.get('active_region', rec.get('noaa_ar', rec.get('region', None))),
-                'status': rec.get('status', rec.get('current_int_xrlong', None)),
+                'status': 'completed' if end else 'in_progress',
                 'duration_minutes': duration_minutes,
                 'radio_blackout': _radio_blackout_scale(max_flux),
+                'sdo_image_url': sdo_image_url,
             }
             flares.append(flare)
 
         # Sort by begin_time descending (most recent first)
         flares.sort(key=lambda f: f.get('begin_time') or '', reverse=True)
         log.info(f'GOES flares: {len(flares)} unique flares after dedup')
+
+        # Enrich M/X flares with CME association + proton/radio events
+        try:
+            cme_queue_path = os.path.join(os.path.dirname(__file__), '..', 'data', 'cme_queue.json')
+            with open(cme_queue_path) as f:
+                cme_queue = json.load(f)
+            cme_list = cme_queue.get('cmes', [])
+        except Exception:
+            cme_list = []
+
+        # Check NOAA alerts for radio burst / proton event associations
+        try:
+            alerts_data = safe_get('https://services.swpc.noaa.gov/products/alerts.json', timeout=15) or []
+        except Exception:
+            alerts_data = []
+
+        for flare in flares:
+            mc = flare.get('max_class', '') or ''
+            if not mc or mc[0] not in ('M', 'X'):
+                continue
+
+            # CME association: check if any CME launched within 3h of flare peak
+            flare['cme_association'] = None
+            try:
+                fp = datetime.fromisoformat(flare['peak_time'])
+                if fp.tzinfo is None: fp = fp.replace(tzinfo=timezone.utc)
+                for cme in cme_list:
+                    lt = cme.get('source', {}).get('launch_time')
+                    if not lt: continue
+                    ct = datetime.fromisoformat(lt.replace('Z', '+00:00'))
+                    if ct.tzinfo is None: ct = ct.replace(tzinfo=timezone.utc)
+                    if abs((ct - fp).total_seconds()) < 3 * 3600:
+                        flare['cme_association'] = {'cme_id': cme['id'], 'confirmed': True}
+                        break
+            except Exception:
+                pass
+
+            # Radio burst / proton event from NOAA alerts (check ±6h of flare)
+            flare['radio_burst'] = False
+            flare['proton_event'] = False
+            try:
+                fp = datetime.fromisoformat(flare['peak_time'])
+                if fp.tzinfo is None: fp = fp.replace(tzinfo=timezone.utc)
+                for alert in alerts_data:
+                    if not isinstance(alert, dict): continue
+                    msg = (str(alert.get('message', '')) + str(alert.get('product_id', ''))).lower()
+                    at_str = alert.get('issue_datetime', alert.get('issue_time', ''))
+                    try:
+                        at = datetime.fromisoformat(str(at_str).replace('Z', '+00:00'))
+                        if at.tzinfo is None: at = at.replace(tzinfo=timezone.utc)
+                        if abs((at - fp).total_seconds()) > 6 * 3600:
+                            continue
+                    except Exception:
+                        continue
+                    if any(k in msg for k in ['type ii', 'type iv', 'radio burst', 'tenflare']):
+                        flare['radio_burst'] = True
+                    if any(k in msg for k in ['proton', 'sep ', 'pca', 's1', 's2', 's3', 's4', 's5']):
+                        flare['proton_event'] = True
+            except Exception:
+                pass
 
         # ── LIVE flare detection from recent X-ray data ──────────────────
         live_events = []
