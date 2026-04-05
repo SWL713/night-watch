@@ -240,28 +240,36 @@ def _upgrade_aurora_rating(cme, cur, bz_pred, progress):
     aurora_potential = bz_pred.get('aurora_potential', 'UNKNOWN')
     peak_bz = bz_pred.get('peak_bz_estimate')
 
-    # Star rating from observed aurora potential
-    stars = aurora_map.get(aurora_potential, 1)
+    is_stereo = cur.get('data_source') == 'stereo_a'
 
-    # Boost from observed peak Bz
-    if peak_bz is not None and peak_bz < -20:
-        stars = min(5, stars + 1)
-
-    # Confidence scales with how much data we've seen
-    # At 100% structure passed + high classifier confidence → up to 85%
-    if progress >= 80:
-        conf = min(85, 40 + cls_conf * 0.5)
-        basis = f'Observed: {bs_type} type, {aurora_potential} aurora'
-    elif progress >= 40:
-        conf = min(65, 30 + cls_conf * 0.4)
-        basis = f'Partial: {bs_type} type ({progress:.0f}% passed)'
+    # Star rating: for STEREO-A use type-based potential (peak Bz from different path)
+    # For L1, use the actual observed aurora potential
+    if is_stereo:
+        # Type-based stars — STEREO-A peak Bz doesn't represent Earth conditions
+        type_stars = {
+            'ESW': 4, 'WSE': 4, 'NES': 3, 'SEN': 3, 'NWS': 2, 'SWN': 2,
+            'ENW': 0, 'WNE': 0, 'unknown': 1
+        }
+        stars = type_stars.get(bs_type, 1)
+        conf = min(35, 15 + cls_conf * 0.3)
+        basis = f'STEREO-A preview: {bs_type} type'
     else:
-        # Early post-arrival — moderate upgrade from speed-only
-        conf = min(45, 25 + cls_conf * 0.2)
-        basis = f'Early: {bs_type} type ({progress:.0f}% passed)'
+        stars = aurora_map.get(aurora_potential, 1)
+        if peak_bz is not None and peak_bz < -20:
+            stars = min(5, stars + 1)
 
-    if peak_bz is not None:
-        basis += f', peak {peak_bz:.1f} nT'
+        if progress >= 80:
+            conf = min(85, 40 + cls_conf * 0.5)
+            basis = f'Observed: {bs_type} type, {aurora_potential} aurora'
+        elif progress >= 40:
+            conf = min(65, 30 + cls_conf * 0.4)
+            basis = f'Partial: {bs_type} type ({progress:.0f}% passed)'
+        else:
+            conf = min(45, 25 + cls_conf * 0.2)
+            basis = f'Early: {bs_type} type ({progress:.0f}% passed)'
+
+        if peak_bz is not None:
+            basis += f', peak {peak_bz:.1f} nT'
 
     cme['aurora_rating'] = {
         'stars': stars,
