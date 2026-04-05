@@ -603,7 +603,7 @@ function FlareCard({ flare }) {
       {peakFlux != null && <Row label="Peak flux" value={`${formatFlux(peakFlux)} W/m²`} />}
       {flare.integrated_flux != null && <Row label="Integrated" value={`${flare.integrated_flux.toFixed(4)} J/m²`} />}
       {flare.satellite && <Row label="Satellite" value={`GOES-${flare.satellite}`} />}
-      {flare.active_region && <Row label="Active region" value={`AR${flare.active_region}`} />}
+      {flare.active_region && <Row label="Active region" value={`AR${String(flare.active_region).replace(/^1(\d{4})$/, '$1')}`} />}
       {flare.location && <Row label="Location" value={flare.location} />}
       <Row label="Radio blackout" value={flare.radio_blackout || radioBlackout(peakFlux)} color={peakFlux >= 1e-4 ? C.classX : peakFlux >= 1e-5 ? C.classM : C.textDim} />
       {flare.radio_burst && <Row label="Radio burst" value="Type II/IV detected" color="#ffaa44" />}

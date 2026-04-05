@@ -105,7 +105,7 @@ export default function CMEDetailPopup({ cme, cmeNumber, cmeColor, onClose }) {
             <Hdr>Source</Hdr>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
               <Cell label="LAUNCH TIME">{fmtDate(cme.source?.launch_time)}</Cell>
-              <Cell label="SOURCE REGION">{cme.source?.region || cme.source?.associated_flare || 'Unknown'}</Cell>
+              <Cell label="SOURCE REGION">{cme.source?.region || cme.source?.associated_flare || 'Unknown'}{cme.source?.active_region ? ` (AR${String(cme.source.active_region).replace(/^1(\d{4})$/, '$1')})` : ''}</Cell>
               {(cme.source?.location?.latitude !== 0 || cme.source?.location?.longitude !== 0) && (
                 <Cell label="LOCATION">{cme.source.location.latitude}° lat, {cme.source.location.longitude}° lon</Cell>
               )}
