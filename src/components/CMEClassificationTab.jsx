@@ -49,7 +49,7 @@ const TIME_RANGES = [
   { label: '48H', hours: 48 },
 ];
 
-function CMEClassificationTab({ classifications, classificationMetadata, magData: magDataProp }) {
+function CMEClassificationTab({ cmes, classifications, classificationMetadata, magData: magDataProp, stereoData: stereoDataProp }) {
   const [timeRange, setTimeRange] = useState(24);
   const [crosshairT, setCrosshairT] = useState(null);
   const [zoomMode, setZoomMode] = useState(false);
@@ -57,24 +57,45 @@ function CMEClassificationTab({ classifications, classificationMetadata, magData
   const [customRange, setCustomRange] = useState(null);
   const [userChangedRange, setUserChangedRange] = useState(false);
   const [showAnnotations, setShowAnnotations] = useState(true);
+  const [selectedCMEId, setSelectedCMEId] = useState(null);
 
-  // Derive classification data from props (provided by CMEDashboard via useCMEData)
+  const allCMEs = cmes || [];
   const magData = magDataProp || [];
-  const classMetadata = classificationMetadata || null;
-  const activeCMEId = classMetadata?.active_cme_id;
-  const classData = (activeCMEId && classifications && classifications[activeCMEId])
-    ? classifications[activeCMEId]
-    : null;
+  const stereoData = stereoDataProp || [];
   const loading = !classifications && !magDataProp;
 
-  // Memoize classWindow so it persists even when classData briefly nulls during refresh
-  const [stableClassWindow, setStableClassWindow] = useState(null);
+  // Default selection: pick the active/ongoing CME (highest-priority non-passed)
   useEffect(() => {
-    if (classData?.classification_window) {
-      setStableClassWindow(classData.classification_window);
-    }
-  }, [classData]);
-  
+    if (selectedCMEId || !allCMEs.length) return;
+    // Prefer ARRIVED/STORM_ACTIVE > IMMINENT > INBOUND > WATCH
+    const priority = { STORM_ACTIVE: 6, ARRIVED: 5, IMMINENT: 4, INBOUND: 3, WATCH: 2, QUIET: 1 };
+    const sorted = [...allCMEs].sort((a, b) => (priority[b.state?.current] || 0) - (priority[a.state?.current] || 0));
+    if (sorted.length) setSelectedCMEId(sorted[0].id);
+  }, [allCMEs, selectedCMEId]);
+
+  // Derive data for the selected CME
+  const selectedCME = allCMEs.find(c => c.id === selectedCMEId) || null;
+  const selectedState = selectedCME?.state?.current || '';
+  const isPreArrival = ['WATCH', 'INBOUND', 'IMMINENT'].includes(selectedState);
+  const classData = (selectedCMEId && classifications?.[selectedCMEId]) || null;
+
+  // Plot data: STEREO-A for pre-arrival, L1 for arrived/passed
+  // Map stereo Bn→bz, Bt→bt, Br→bx for plot compatibility
+  const plotData = isPreArrival ? stereoData.map(d => ({
+    time: d.time, bz: d.bn, by: null, bx: d.br, bt: d.bt, phi: null
+  })) : magData;
+  const plotLabel = isPreArrival ? 'STEREO-A (RTN)' : 'L1 (GSM)';
+
+  // Highlight window as primitive timestamps (not object refs)
+  const hlStart = classData?.classification_window?.start
+    ? new Date(classData.classification_window.start).getTime() : null;
+  const hlEnd = classData?.classification_window?.end
+    ? new Date(classData.classification_window.end).getTime()
+    : (hlStart ? hlStart + 24 * 3600000 : null);
+  // For active ropes (progress < 100%), extend end to now
+  const progress = classData?.signatures?.structure_progress_pct || 0;
+  const effectiveHlEnd = (hlStart && progress > 0 && progress <= 100) ? Date.now() : hlEnd;
+
   const handleZoomClick = useCallback((t) => {
     if (!zoomStart) {
       setZoomStart(t);
@@ -87,17 +108,17 @@ function CMEClassificationTab({ classifications, classificationMetadata, magData
       setUserChangedRange(true);
     }
   }, [zoomStart]);
-  
+
   const resetZoom = () => {
     setCustomRange(null);
     setZoomStart(null);
     setZoomMode(false);
   };
-  
-  // Calculate actual time range — auto-expand if classification window extends beyond default
+
+  // Calculate actual time range — auto-expand to show classification window on initial load
   const ejectaStart = classData?.classification_window?.start;
-  const classWindowStart = ejectaStart ? new Date(ejectaStart).getTime() : null;
-  const classWindowEnd = classData?.classification_window?.end ? new Date(classData.classification_window.end).getTime() : null;
+  const classWindowStart = hlStart;
+  const classWindowEnd = effectiveHlEnd;
 
   let actualRange;
   if (customRange) {
@@ -184,45 +205,81 @@ function CMEClassificationTab({ classifications, classificationMetadata, magData
         {/* Plots area - top 70% */}
         <div style={{ flex: 7, display: 'flex', flexDirection: 'column', gap: 4, padding: '4px 10px 0', minHeight: 0 }}>
           <BzPlot
-            data={magData}
+            data={plotData}
             timeRange={actualRange}
             ejectaStart={ejectaStart}
-            classWindow={stableClassWindow}
+            hlStart={hlStart}
+            hlEnd={effectiveHlEnd}
             crosshairT={zoomMode ? null : crosshairT}
             onCrosshair={zoomMode ? handleZoomClick : setCrosshairT}
             zoomMode={zoomMode}
             zoomStart={zoomStart}
+            plotLabel={plotLabel}
           />
           <ByPlot
-            data={magData}
+            data={plotData}
             timeRange={actualRange}
             ejectaStart={ejectaStart}
-            classWindow={stableClassWindow}
+            hlStart={hlStart}
+            hlEnd={effectiveHlEnd}
             crosshairT={zoomMode ? null : crosshairT}
             onCrosshair={zoomMode ? handleZoomClick : setCrosshairT}
             zoomMode={zoomMode}
             zoomStart={zoomStart}
+            plotLabel={plotLabel}
           />
-          <PhiPlot
-            data={magData}
-            timeRange={actualRange}
-            ejectaStart={ejectaStart}
-            classWindow={stableClassWindow}
-            crosshairT={zoomMode ? null : crosshairT}
-            onCrosshair={zoomMode ? handleZoomClick : setCrosshairT}
-            zoomMode={zoomMode}
-            zoomStart={zoomStart}
-            showAnnotations={showAnnotations}
-          />
+          {!isPreArrival && (
+            <PhiPlot
+              data={plotData}
+              timeRange={actualRange}
+              ejectaStart={ejectaStart}
+              hlStart={hlStart}
+              hlEnd={effectiveHlEnd}
+              crosshairT={zoomMode ? null : crosshairT}
+              onCrosshair={zoomMode ? handleZoomClick : setCrosshairT}
+              zoomMode={zoomMode}
+              zoomStart={zoomStart}
+              showAnnotations={showAnnotations}
+              plotLabel={plotLabel}
+            />
+          )}
         </div>
 
         {/* Classification panel - bottom 30% */}
-        <div style={{ flex: 3, padding: '4px 10px 6px', minHeight: 0 }}>
+        {/* Classification panel — bottom 30% */}
+        <div style={{ flex: 3, padding: '4px 10px 6px', minHeight: 0, display: 'flex', flexDirection: 'column', gap: 4 }}>
           <ClassificationBox
             classData={classData}
-            metadata={classMetadata}
-            cmeId={activeCMEId}
+            metadata={classificationMetadata}
+            cmeId={selectedCMEId}
           />
+          {/* CME Selector Buttons */}
+          {allCMEs.length > 0 && (
+            <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap', justifyContent: 'center' }}>
+              {allCMEs.map((cme, i) => {
+                const colors = ['#44aaff', '#ffaa33', '#ff5577', '#44ddaa', '#aa88ff', '#ff8844'];
+                const col = colors[i % colors.length];
+                const isSelected = cme.id === selectedCMEId;
+                const label = `CME ${i + 1}`;
+                const stateLabel = cme.state?.current || '?';
+                return (
+                  <button key={cme.id} onClick={() => {
+                    setSelectedCMEId(cme.id);
+                    setUserChangedRange(false); // reset to auto-expand for new CME
+                    setCustomRange(null);
+                  }} style={{
+                    background: isSelected ? `${col}22` : 'transparent',
+                    border: `1px solid ${isSelected ? col : '#1a2a3a'}`,
+                    color: isSelected ? col : '#556677',
+                    padding: '2px 8px', borderRadius: 3, fontSize: 8, fontFamily: 'DejaVu Sans Mono, Consolas, monospace',
+                    cursor: 'pointer', fontWeight: isSelected ? 700 : 400, letterSpacing: 0.3,
+                  }}>
+                    {label} · {stateLabel}
+                  </button>
+                );
+              })}
+            </div>
+          )}
         </div>
       </div>
     </div>
@@ -250,7 +307,7 @@ function ToggleButton({ label, active, onClick, color }) {
 }
 
 // Bz Plot Component
-function BzPlot({ data, timeRange, ejectaStart, classWindow, crosshairT, onCrosshair, zoomMode, zoomStart }) {
+function BzPlot({ data, timeRange, ejectaStart, hlStart, hlEnd, crosshairT, onCrosshair, zoomMode, zoomStart, plotLabel }) {
   const canvasRef = useRef(null);
   
   const draw = useCallback(() => {
@@ -401,46 +458,20 @@ function BzPlot({ data, timeRange, ejectaStart, classWindow, crosshairT, onCross
       ctx.stroke();
     }
     
-    // Classification window highlight — always persists regardless of zoom
-    if (classWindow?.start) {
-      const cwStart = new Date(classWindow.start).getTime();
-      const cwEnd = classWindow.end ? new Date(classWindow.end).getTime() : (cwStart + 24 * 3600000);
+    // Classification data highlight — uses primitive timestamps, persists across all views
+    if (hlStart && hlEnd) {
       const dim = 'rgba(0,0,0,0.55)';
-
-      if (cwEnd <= tMin || cwStart >= tMax) {
-        // Entire view is outside the classification window — dim everything
-        ctx.fillStyle = dim;
-        ctx.fillRect(PAD.l, PAD.t, pW, pH);
+      if (hlEnd <= tMin || hlStart >= tMax) {
+        ctx.fillStyle = dim; ctx.fillRect(PAD.l, PAD.t, pW, pH);
       } else {
-        // Dim the portion before the window
-        if (cwStart > tMin) {
-          ctx.fillStyle = dim;
-          ctx.fillRect(PAD.l, PAD.t, xScale(cwStart) - PAD.l, pH);
-        }
-        // Dim the portion after the window
-        if (cwEnd < tMax) {
-          ctx.fillStyle = dim;
-          ctx.fillRect(xScale(cwEnd), PAD.t, PAD.l + pW - xScale(cwEnd), pH);
-        }
-        // Subtle tint inside the visible classification region
-        const xL = xScale(Math.max(cwStart, tMin));
-        const xR = xScale(Math.min(cwEnd, tMax));
+        if (hlStart > tMin) { ctx.fillStyle = dim; ctx.fillRect(PAD.l, PAD.t, xScale(hlStart) - PAD.l, pH); }
+        if (hlEnd < tMax) { ctx.fillStyle = dim; ctx.fillRect(xScale(hlEnd), PAD.t, PAD.l + pW - xScale(hlEnd), pH); }
         ctx.fillStyle = 'rgba(68,170,255,0.04)';
-        ctx.fillRect(xL, PAD.t, xR - xL, pH);
+        ctx.fillRect(xScale(Math.max(hlStart, tMin)), PAD.t, xScale(Math.min(hlEnd, tMax)) - xScale(Math.max(hlStart, tMin)), pH);
       }
-
-      // Edge markers (only when visible)
-      ctx.setLineDash([3, 3]);
-      ctx.lineWidth = 1.2;
-      ctx.strokeStyle = 'rgba(68,170,255,0.5)';
-      if (cwStart > tMin && cwStart < tMax) {
-        const x = xScale(cwStart);
-        ctx.beginPath(); ctx.moveTo(x, PAD.t); ctx.lineTo(x, PAD.t + pH); ctx.stroke();
-      }
-      if (cwEnd > tMin && cwEnd < tMax) {
-        const x = xScale(cwEnd);
-        ctx.beginPath(); ctx.moveTo(x, PAD.t); ctx.lineTo(x, PAD.t + pH); ctx.stroke();
-      }
+      ctx.setLineDash([4, 3]); ctx.lineWidth = 1.5; ctx.strokeStyle = 'rgba(68,170,255,0.6)';
+      if (hlStart > tMin && hlStart < tMax) { const x = xScale(hlStart); ctx.beginPath(); ctx.moveTo(x, PAD.t); ctx.lineTo(x, PAD.t + pH); ctx.stroke(); }
+      if (hlEnd > tMin && hlEnd < tMax) { const x = xScale(hlEnd); ctx.beginPath(); ctx.moveTo(x, PAD.t); ctx.lineTo(x, PAD.t + pH); ctx.stroke(); }
       ctx.setLineDash([]);
     }
 
@@ -539,7 +570,7 @@ function BzPlot({ data, timeRange, ejectaStart, classWindow, crosshairT, onCross
     ctx.font = `bold 9px ${FONT}`;
     ctx.textAlign = 'left';
     ctx.fillStyle = 'rgba(68,187,255,0.5)';
-    ctx.fillText('Bz nT', PAD.l + 3, PAD.t + 10);
+    ctx.fillText(plotLabel?.includes('STEREO') ? `Bn nT · ${plotLabel}` : 'Bz nT', PAD.l + 3, PAD.t + 10);
     const latest = visData[visData.length - 1];
     if (latest && latest.bz !== null && !isNaN(latest.bz)) {
       ctx.font = `bold 10px ${FONT}`;
@@ -548,7 +579,7 @@ function BzPlot({ data, timeRange, ejectaStart, classWindow, crosshairT, onCross
       ctx.fillText(`${latest.bz > 0 ? '+' : ''}${latest.bz.toFixed(1)}`, W - PAD.r - 2, PAD.t + 10);
     }
     
-  }, [data, timeRange, ejectaStart, classWindow, crosshairT, zoomMode, zoomStart]);
+  }, [data, timeRange, ejectaStart, hlStart, hlEnd, crosshairT, zoomMode, zoomStart, plotLabel]);
   
   useEffect(() => { draw(); }, [draw]);
   
@@ -601,7 +632,7 @@ function BzPlot({ data, timeRange, ejectaStart, classWindow, crosshairT, onCross
 }
 
 // By Plot Component  
-function ByPlot({ data, timeRange, ejectaStart, classWindow, crosshairT, onCrosshair, zoomMode, zoomStart }) {
+function ByPlot({ data, timeRange, ejectaStart, hlStart, hlEnd, crosshairT, onCrosshair, zoomMode, zoomStart, plotLabel }) {
   const canvasRef = useRef(null);
   
   const draw = useCallback(() => {
@@ -685,23 +716,20 @@ function ByPlot({ data, timeRange, ejectaStart, classWindow, crosshairT, onCross
       ctx.stroke();
     }
     
-    // Classification window highlight — persists across all zoom/time changes
-    if (classWindow?.start) {
-      const cwStart = new Date(classWindow.start).getTime();
-      const cwEnd = classWindow.end ? new Date(classWindow.end).getTime() : (cwStart + 24 * 3600000);
+    // Classification data highlight — primitive timestamps, persists across all views
+    if (hlStart && hlEnd) {
       const dim = 'rgba(0,0,0,0.55)';
-      if (cwEnd <= tMin || cwStart >= tMax) {
-        ctx.fillStyle = dim;
-        ctx.fillRect(PAD.l, PAD.t, pW, pH);
+      if (hlEnd <= tMin || hlStart >= tMax) {
+        ctx.fillStyle = dim; ctx.fillRect(PAD.l, PAD.t, pW, pH);
       } else {
-        if (cwStart > tMin) { ctx.fillStyle = dim; ctx.fillRect(PAD.l, PAD.t, xScale(cwStart) - PAD.l, pH); }
-        if (cwEnd < tMax) { ctx.fillStyle = dim; ctx.fillRect(xScale(cwEnd), PAD.t, PAD.l + pW - xScale(cwEnd), pH); }
+        if (hlStart > tMin) { ctx.fillStyle = dim; ctx.fillRect(PAD.l, PAD.t, xScale(hlStart) - PAD.l, pH); }
+        if (hlEnd < tMax) { ctx.fillStyle = dim; ctx.fillRect(xScale(hlEnd), PAD.t, PAD.l + pW - xScale(hlEnd), pH); }
         ctx.fillStyle = 'rgba(68,170,255,0.04)';
-        ctx.fillRect(xScale(Math.max(cwStart, tMin)), PAD.t, xScale(Math.min(cwEnd, tMax)) - xScale(Math.max(cwStart, tMin)), pH);
+        ctx.fillRect(xScale(Math.max(hlStart, tMin)), PAD.t, xScale(Math.min(hlEnd, tMax)) - xScale(Math.max(hlStart, tMin)), pH);
       }
-      ctx.setLineDash([3, 3]); ctx.lineWidth = 1.2; ctx.strokeStyle = 'rgba(68,170,255,0.5)';
-      if (cwStart > tMin && cwStart < tMax) { const x = xScale(cwStart); ctx.beginPath(); ctx.moveTo(x, PAD.t); ctx.lineTo(x, PAD.t + pH); ctx.stroke(); }
-      if (cwEnd > tMin && cwEnd < tMax) { const x = xScale(cwEnd); ctx.beginPath(); ctx.moveTo(x, PAD.t); ctx.lineTo(x, PAD.t + pH); ctx.stroke(); }
+      ctx.setLineDash([4, 3]); ctx.lineWidth = 1.5; ctx.strokeStyle = 'rgba(68,170,255,0.6)';
+      if (hlStart > tMin && hlStart < tMax) { const x = xScale(hlStart); ctx.beginPath(); ctx.moveTo(x, PAD.t); ctx.lineTo(x, PAD.t + pH); ctx.stroke(); }
+      if (hlEnd > tMin && hlEnd < tMax) { const x = xScale(hlEnd); ctx.beginPath(); ctx.moveTo(x, PAD.t); ctx.lineTo(x, PAD.t + pH); ctx.stroke(); }
       ctx.setLineDash([]);
     }
 
@@ -780,7 +808,7 @@ function ByPlot({ data, timeRange, ejectaStart, classWindow, crosshairT, onCross
     ctx.font = `bold 9px ${FONT}`;
     ctx.textAlign = 'left';
     ctx.fillStyle = 'rgba(255,170,51,0.5)';
-    ctx.fillText('By nT', PAD.l + 3, PAD.t + 10);
+    ctx.fillText(plotLabel?.includes('STEREO') ? `Bt nT · ${plotLabel}` : 'By nT', PAD.l + 3, PAD.t + 10);
     const latest = visData[visData.length - 1];
     if (latest && latest.by !== null && !isNaN(latest.by)) {
       ctx.font = `bold 10px ${FONT}`;
@@ -789,7 +817,7 @@ function ByPlot({ data, timeRange, ejectaStart, classWindow, crosshairT, onCross
       ctx.fillText(`${latest.by > 0 ? '+' : ''}${latest.by.toFixed(1)}`, W - PAD.r - 2, PAD.t + 10);
     }
     
-  }, [data, timeRange, ejectaStart, classWindow, crosshairT, zoomMode, zoomStart]);
+  }, [data, timeRange, ejectaStart, hlStart, hlEnd, crosshairT, zoomMode, zoomStart, plotLabel]);
   
   useEffect(() => { draw(); }, [draw]);
   
@@ -842,7 +870,7 @@ function ByPlot({ data, timeRange, ejectaStart, classWindow, crosshairT, onCross
 }
 
 // Phi Plot Component
-function PhiPlot({ data, timeRange, ejectaStart, classWindow, crosshairT, onCrosshair, zoomMode, zoomStart, showAnnotations }) {
+function PhiPlot({ data, timeRange, ejectaStart, hlStart, hlEnd, crosshairT, onCrosshair, zoomMode, zoomStart, showAnnotations, plotLabel }) {
   const canvasRef = useRef(null);
   
   const draw = useCallback(() => {
@@ -957,23 +985,20 @@ function PhiPlot({ data, timeRange, ejectaStart, classWindow, crosshairT, onCros
       }
     }
     
-    // Classification window highlight — persists across all zoom/time changes
-    if (classWindow?.start) {
-      const cwStart = new Date(classWindow.start).getTime();
-      const cwEnd = classWindow.end ? new Date(classWindow.end).getTime() : (cwStart + 24 * 3600000);
+    // Classification data highlight — primitive timestamps, persists across all views
+    if (hlStart && hlEnd) {
       const dim = 'rgba(0,0,0,0.55)';
-      if (cwEnd <= tMin || cwStart >= tMax) {
-        ctx.fillStyle = dim;
-        ctx.fillRect(PAD.l, PAD.t, pW, pH);
+      if (hlEnd <= tMin || hlStart >= tMax) {
+        ctx.fillStyle = dim; ctx.fillRect(PAD.l, PAD.t, pW, pH);
       } else {
-        if (cwStart > tMin) { ctx.fillStyle = dim; ctx.fillRect(PAD.l, PAD.t, xScale(cwStart) - PAD.l, pH); }
-        if (cwEnd < tMax) { ctx.fillStyle = dim; ctx.fillRect(xScale(cwEnd), PAD.t, PAD.l + pW - xScale(cwEnd), pH); }
+        if (hlStart > tMin) { ctx.fillStyle = dim; ctx.fillRect(PAD.l, PAD.t, xScale(hlStart) - PAD.l, pH); }
+        if (hlEnd < tMax) { ctx.fillStyle = dim; ctx.fillRect(xScale(hlEnd), PAD.t, PAD.l + pW - xScale(hlEnd), pH); }
         ctx.fillStyle = 'rgba(68,170,255,0.04)';
-        ctx.fillRect(xScale(Math.max(cwStart, tMin)), PAD.t, xScale(Math.min(cwEnd, tMax)) - xScale(Math.max(cwStart, tMin)), pH);
+        ctx.fillRect(xScale(Math.max(hlStart, tMin)), PAD.t, xScale(Math.min(hlEnd, tMax)) - xScale(Math.max(hlStart, tMin)), pH);
       }
-      ctx.setLineDash([3, 3]); ctx.lineWidth = 1.2; ctx.strokeStyle = 'rgba(68,170,255,0.5)';
-      if (cwStart > tMin && cwStart < tMax) { const x = xScale(cwStart); ctx.beginPath(); ctx.moveTo(x, PAD.t); ctx.lineTo(x, PAD.t + pH); ctx.stroke(); }
-      if (cwEnd > tMin && cwEnd < tMax) { const x = xScale(cwEnd); ctx.beginPath(); ctx.moveTo(x, PAD.t); ctx.lineTo(x, PAD.t + pH); ctx.stroke(); }
+      ctx.setLineDash([4, 3]); ctx.lineWidth = 1.5; ctx.strokeStyle = 'rgba(68,170,255,0.6)';
+      if (hlStart > tMin && hlStart < tMax) { const x = xScale(hlStart); ctx.beginPath(); ctx.moveTo(x, PAD.t); ctx.lineTo(x, PAD.t + pH); ctx.stroke(); }
+      if (hlEnd > tMin && hlEnd < tMax) { const x = xScale(hlEnd); ctx.beginPath(); ctx.moveTo(x, PAD.t); ctx.lineTo(x, PAD.t + pH); ctx.stroke(); }
       ctx.setLineDash([]);
     }
 
@@ -1060,7 +1085,7 @@ function PhiPlot({ data, timeRange, ejectaStart, classWindow, crosshairT, onCros
       ctx.fillText(latest.phi.toFixed(0) + '°', W - PAD.r - 2, PAD.t + 10);
     }
     
-  }, [data, timeRange, ejectaStart, classWindow, crosshairT, zoomMode, zoomStart, showAnnotations]);
+  }, [data, timeRange, ejectaStart, hlStart, hlEnd, crosshairT, zoomMode, zoomStart, showAnnotations, plotLabel]);
   
   useEffect(() => { draw(); }, [draw]);
   

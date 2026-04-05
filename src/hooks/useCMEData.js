@@ -40,24 +40,48 @@ function parseMagData(raw) {
   }).filter(Boolean);
 }
 
+function parseStereoData(raw) {
+  if (!raw || !raw.columns || !raw.data) return [];
+  const cols = raw.columns;
+  const iTime = cols.indexOf('time');
+  const iBn = cols.indexOf('bn');
+  const iBt = cols.indexOf('bt_tot');
+  const iBr = cols.indexOf('br');
+  if (iTime === -1) return [];
+  return raw.data.map(row => {
+    try {
+      const t = new Date(row[iTime]);
+      if (isNaN(t.getTime())) return null;
+      return {
+        time: t.getTime(),
+        bn: iBn >= 0 ? row[iBn] : null,
+        bt: iBt >= 0 ? row[iBt] : null,
+        br: iBr >= 0 ? row[iBr] : null,
+      };
+    } catch { return null; }
+  }).filter(Boolean);
+}
+
 export function useCMEData() {
   const [cmeQueue, setCmeQueue] = useState([]);
   const [cmePositions, setCmePositions] = useState({});
   const [cmeClassifications, setCmeClassifications] = useState({});
   const [classificationMetadata, setClassificationMetadata] = useState(null);
   const [magData, setMagData] = useState([]);
+  const [stereoData, setStereoData] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
   useEffect(() => {
     const fetchData = async () => {
       try {
-        // Fetch all four files in parallel
-        const [queueRes, positionsRes, classificationsRes, magRes] = await Promise.all([
+        // Fetch all five files in parallel
+        const [queueRes, positionsRes, classificationsRes, magRes, stereoRes] = await Promise.all([
           fetch(`/night-watch/data/cme_queue.json?t=${Date.now()}`),
           fetch(`/night-watch/data/cme_positions.json?t=${Date.now()}`),
           fetch(`/night-watch/data/cme_classification.json?t=${Date.now()}`),
-          fetch(`${MAG_BASE}/sw_mag_7day.json?t=${Date.now()}`)
+          fetch(`${MAG_BASE}/sw_mag_7day.json?t=${Date.now()}`),
+          fetch(`${MAG_BASE}/sw_stereo_a.json?t=${Date.now()}`)
         ]);
 
         if (!queueRes.ok) throw new Error('Failed to load CME queue');
@@ -72,6 +96,12 @@ export function useCMEData() {
         if (magRes.ok) {
           const magJson = await magRes.json();
           setMagData(parseMagData(magJson));
+        }
+
+        // Parse STEREO-A data (soft-fail)
+        if (stereoRes.ok) {
+          const stereoJson = await stereoRes.json();
+          setStereoData(parseStereoData(stereoJson));
         }
 
         // Merge queue with positions data
@@ -125,6 +155,7 @@ export function useCMEData() {
     classifications: cmeClassifications,
     classificationMetadata,
     magData,
+    stereoData,
     loading,
     error
   };

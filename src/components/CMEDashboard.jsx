@@ -15,7 +15,7 @@ const C = {
 
 export default function CMEDashboard() {
   const [activeTab, setActiveTab] = useState('queue');
-  const { cmes, classifications, classificationMetadata, positions, magData, loading, error } = useCMEData();
+  const { cmes, classifications, classificationMetadata, positions, magData, stereoData, loading, error } = useCMEData();
 
   if (loading) {
     return (
@@ -110,9 +110,11 @@ export default function CMEDashboard() {
 
       {activeTab === 'classification' && (
         <CMEClassificationTab
+          cmes={cmes}
           classifications={classifications}
           classificationMetadata={classificationMetadata}
           magData={magData}
+          stereoData={stereoData}
         />
       )}
     </div>
