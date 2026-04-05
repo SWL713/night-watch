@@ -85,15 +85,23 @@ class CMEStateMachine:
             cme['properties']['speed_current'] = round(avg_speed)
 
     def _check_confirmed_arrival(self, cme, l1_mag, l1_plasma, g_level):
-        """Check for confirmed CME arrival from official sources or clear L1 signatures"""
+        """Check for confirmed CME arrival from official sources or clear L1 signatures.
 
-        # Trigger 1: NOAA G-scale storm active (G1+) = confirmed geomagnetic impact
+        G-level confirmation only applies to CMEs whose predicted arrival
+        is in the past or within 6 hours — prevents marking future CMEs
+        as arrived just because an earlier CME caused a storm.
+        """
+
+        # Trigger 1: NOAA G-scale storm active (G1+) — but only if this CME's
+        # predicted arrival is plausibly now (ETA past or within 6h)
         if g_level and g_level.startswith('G') and g_level != 'G0':
             try:
                 g_num = int(g_level[1])
                 if g_num >= 1:
-                    self.log.info(f"CME {cme.get('id')}: Confirmed arrival — NOAA {g_level} active")
-                    return True
+                    eta = self._calculate_eta(cme)
+                    if eta is not None and eta <= 6:
+                        self.log.info(f"CME {cme.get('id')}: Confirmed arrival — NOAA {g_level} + ETA {eta:.1f}h")
+                        return True
             except (ValueError, IndexError):
                 pass
 
