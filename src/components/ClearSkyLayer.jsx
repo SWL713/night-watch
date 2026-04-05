@@ -131,11 +131,13 @@ export default function ClearSkyLayer({
           Math.min(lat - minLat, maxLat - lat, lon - minLon, maxLon - lon) / FADE
         )), 0.4)
         const idx = (py * CANVAS_W + px) * 4
-        if (cf <= p60) {
-          // Linear alpha: fully opaque at 0% cloud, transparent at p60
-          const range = Math.max(p60, 5)  // avoid division by zero
+        // Render teal: threshold is max of p60 or the best grid point +10
+        // This ensures visible teal wherever the "% clear" metric found clearings
+        const tealThresh = Math.max(p60, (100 - bestClear) + 10)
+        if (cf <= tealThresh) {
+          const range = Math.max(tealThresh, 5)
           const frac = Math.max(0, 1 - cf / range)
-          const aAlpha = Math.round(30 + 123 * frac)  // 30 at p60 edge, 153 at 0% cloud
+          const aAlpha = Math.round(25 + 128 * frac)
           if (aAlpha > 2) {
             d[idx]=0; d[idx+1]=210; d[idx+2]=160; d[idx+3]=Math.round(aAlpha * edgeFade)
           }
