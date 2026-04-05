@@ -25,9 +25,14 @@ def check_removals(queue, classification_data, log):
                             next_classified = True
                             break
             
-            if next_classified or hours_in_subsiding >= 6:
+            # Also check if classification already expired (passed + inactive)
+            cls = classification_data.get('classifications', {}).get(cme['id'], {})
+            cls_passed = (cls.get('current') or {}).get('passed', False)
+            cls_inactive = not cls.get('active', True)
+
+            if next_classified or hours_in_subsiding >= 6 or (cls_passed and cls_inactive):
                 cmes_to_remove.append(cme['id'])
-                log.info(f"Removing CME {cme['id']} from queue")
+                log.info(f"Removing CME {cme['id']} from queue (subsiding {hours_in_subsiding:.1f}h, passed={cls_passed})")
     
     # Remove from queue
     queue['cmes'] = [c for c in queue['cmes'] if c['id'] not in cmes_to_remove]
