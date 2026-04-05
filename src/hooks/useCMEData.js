@@ -48,6 +48,8 @@ function parseStereoData(raw) {
   const iBt = cols.indexOf('bt_tot');
   const iBr = cols.indexOf('br');
   const iBtan = cols.indexOf('bt_tan');
+  const iSpd = cols.indexOf('speed');
+  const iDen = cols.indexOf('density');
   if (iTime === -1) return [];
   return raw.data.map(row => {
     try {
@@ -56,9 +58,11 @@ function parseStereoData(raw) {
       return {
         time: t.getTime(),
         bn: iBn >= 0 ? row[iBn] : null,
-        bt: iBt >= 0 ? row[iBt] : null,
+        bt_tot: iBt >= 0 ? row[iBt] : null,
         br: iBr >= 0 ? row[iBr] : null,
         bt_tan: iBtan >= 0 ? row[iBtan] : null,
+        speed: iSpd >= 0 ? row[iSpd] : null,
+        density: iDen >= 0 ? row[iDen] : null,
       };
     } catch { return null; }
   }).filter(Boolean);
@@ -71,6 +75,7 @@ export function useCMEData() {
   const [classificationMetadata, setClassificationMetadata] = useState(null);
   const [magData, setMagData] = useState([]);
   const [stereoData, setStereoData] = useState([]);
+  const [epamData, setEpamData] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
@@ -78,12 +83,13 @@ export function useCMEData() {
     const fetchData = async () => {
       try {
         // Fetch all five files in parallel
-        const [queueRes, positionsRes, classificationsRes, magRes, stereoRes] = await Promise.all([
+        const [queueRes, positionsRes, classificationsRes, magRes, stereoRes, epamRes] = await Promise.all([
           fetch(`/night-watch/data/cme_queue.json?t=${Date.now()}`),
           fetch(`/night-watch/data/cme_positions.json?t=${Date.now()}`),
           fetch(`/night-watch/data/cme_classification.json?t=${Date.now()}`),
           fetch(`${MAG_BASE}/sw_mag_7day.json?t=${Date.now()}`),
-          fetch(`${MAG_BASE}/sw_stereo_a.json?t=${Date.now()}`)
+          fetch(`${MAG_BASE}/sw_stereo_a.json?t=${Date.now()}`),
+          fetch(`${MAG_BASE}/sw_epam.json?t=${Date.now()}`)
         ]);
 
         if (!queueRes.ok) throw new Error('Failed to load CME queue');
@@ -104,6 +110,20 @@ export function useCMEData() {
         if (stereoRes.ok) {
           const stereoJson = await stereoRes.json();
           setStereoData(parseStereoData(stereoJson));
+        }
+
+        // Parse EPAM data (soft-fail) — same format as SpaceWeatherHistory
+        if (epamRes.ok) {
+          const epamJson = await epamRes.json();
+          if (epamJson?.columns && epamJson?.data) {
+            const cols = epamJson.columns;
+            setEpamData(epamJson.data.map(row => {
+              const obj = {};
+              cols.forEach((c, i) => { obj[c] = row[i]; });
+              if (obj.time) obj.time = new Date(obj.time).getTime();
+              return obj;
+            }).filter(d => d.time && !isNaN(d.time)));
+          }
         }
 
         // Merge queue with positions data
@@ -158,6 +178,7 @@ export function useCMEData() {
     classificationMetadata,
     magData,
     stereoData,
+    epamData,
     loading,
     error
   };

@@ -162,7 +162,7 @@ function detectAnnotations(mag, plasma) {
 }
 
 // ── Single plot canvas ────────────────────────────────────────────────────────
-function PlotCanvas({ data, series, yMin, yMax, logScale, timeRange, crosshairTime, onCrosshair,
+export function PlotCanvas({ data, series, yMin, yMax, logScale, timeRange, crosshairTime, onCrosshair,
                       annotations, phiMode, speedKms, showParker, showSector,
                       showLabels, yLabel, nowTime, zoomMode, thresholds, symmetric }) {
   const canvasRef = useRef(null)
@@ -531,7 +531,7 @@ function PlotCanvas({ data, series, yMin, yMax, logScale, timeRange, crosshairTi
 }
 
 // ── Toggle button ─────────────────────────────────────────────────────────────
-function Toggle({ label, active, color, onClick }) {
+export function Toggle({ label, active, color, onClick }) {
   return (
     <button onClick={onClick} style={{
       background: active ? 'rgba(255,255,255,0.05)' : 'transparent',

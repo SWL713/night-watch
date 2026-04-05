@@ -2,6 +2,7 @@ import { useState } from 'react';
 import CMEQueueTab from './CMEQueueTab';
 import CMEClassificationTab from './CMEClassificationTab';
 import XRayFluxTab from './XRayFluxTab';
+import EarlyDetectionTab from './EarlyDetectionTab';
 import useCMEData from '../hooks/useCMEData';
 
 const FONT = 'DejaVu Sans Mono, Consolas, monospace';
@@ -15,7 +16,7 @@ const C = {
 
 export default function CMEDashboard() {
   const [activeTab, setActiveTab] = useState('queue');
-  const { cmes, classifications, classificationMetadata, positions, magData, stereoData, loading, error } = useCMEData();
+  const { cmes, classifications, classificationMetadata, positions, magData, stereoData, epamData, loading, error } = useCMEData();
 
   if (loading) {
     return (
@@ -63,6 +64,24 @@ export default function CMEDashboard() {
           X-RAY FLUX
         </button>
         <button
+          onClick={() => setActiveTab('early')}
+          style={{
+            background: activeTab === 'early' ? 'rgba(68,221,170,0.1)' : 'transparent',
+            border: `1px solid ${activeTab === 'early' ? C.tabActive : C.tabInactive}`,
+            color: activeTab === 'early' ? C.tabActive : C.tabInactive,
+            padding: '6px 16px',
+            fontSize: 10,
+            fontFamily: FONT,
+            fontWeight: activeTab === 'early' ? 700 : 400,
+            cursor: 'pointer',
+            borderRadius: 3,
+            letterSpacing: 0.5,
+            transition: 'all 0.2s ease',
+          }}
+        >
+          EARLY DETECTION
+        </button>
+        <button
           onClick={() => setActiveTab('queue')}
           style={{
             background: activeTab === 'queue' ? 'rgba(68,221,170,0.1)' : 'transparent',
@@ -102,6 +121,10 @@ export default function CMEDashboard() {
 
       {activeTab === 'xray' && (
         <XRayFluxTab />
+      )}
+
+      {activeTab === 'early' && (
+        <EarlyDetectionTab epamData={epamData} stereoData={stereoData} />
       )}
 
       {activeTab === 'queue' && (
