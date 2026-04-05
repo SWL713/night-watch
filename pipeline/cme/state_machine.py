@@ -217,18 +217,25 @@ class CMEStateMachine:
     def _check_imminent_to_arrived(self, cme, l1_mag, l1_plasma):
         """IMMINENT → ARRIVED triggers — requires strong evidence of THIS CME arriving.
 
-        L1 thresholds only trigger if ETA is close (within 3h) to prevent
-        ambient elevated conditions from a previous CME/HSS from false-triggering.
+        Three paths:
+        1. Relative-change ejecta detection (always on for scoreboard CMEs)
+           — uses background comparison, won't false-trigger on ambient
+        2. Absolute thresholds (gated to ETA ≤ 3h)
+        3. ETA overdue fallback (> 3h past predicted arrival)
         """
         eta_hours = self._calculate_eta(cme)
+        has_scoreboard = cme.get('arrival', {}).get('num_models', 0) > 0
 
-        # Only check L1 signatures if ETA is plausibly now (within 3h)
+        # Relative-change ejecta detection — safe to run anytime there's
+        # a scoreboard CME because it compares against 6h baseline,
+        # not absolute values. Skip when scoreboard is empty.
+        if has_scoreboard and self._detect_ejecta_in_situ(l1_mag, l1_plasma):
+            self.log.info(f"CME {cme.get('id')}: ejecta detected in L1 (relative change)")
+            return 'ARRIVED'
+
+        # Absolute thresholds — only when ETA is close (within 3h)
         if eta_hours is not None and eta_hours <= 3:
-            # Direct ejecta detection (combined Bt + V + Bz signature)
-            if self._detect_ejecta_in_situ(l1_mag, l1_plasma):
-                return 'ARRIVED'
-
-            # Magnetic field jump (Bt > 15 nT — raised from 10 to reduce false triggers)
+            # Magnetic field jump (Bt > 15 nT)
             if l1_mag and len(l1_mag) > 10:
                 recent = l1_mag[-10:]
                 bt_values = []
