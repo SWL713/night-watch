@@ -59,7 +59,10 @@ def calculate_single_cme_position(cme, coronal_holes, log):
     # where t is in seconds
     t_seconds = elapsed_hours * 3600
     v_current = w + (v0 - w) * math.exp(-gamma * w * t_seconds)
-    
+
+    # DBM acceleration: dv/dt = -gamma * w * (v - w) [km/s²]
+    acceleration = -gamma * w * (v_current - w)
+
     # Calculate distance - ALIGN WITH SCOREBOARD if available
     km_per_au = 1.496e8
     target_au = 1.0  # Distance to L1
@@ -135,7 +138,7 @@ def calculate_single_cme_position(cme, coronal_holes, log):
             'distance_au': round(distance_au, 3),
             'distance_rsun': round(distance_au * 215, 1),
             'velocity_current': round(v_current, 1),
-            'acceleration': 0,  # Placeholder
+            'acceleration': round(acceleration * 1000, 4),  # m/s² (converted from km/s²)
             'distance_source': distance_source,
             'speed_estimated': speed_estimated
         },

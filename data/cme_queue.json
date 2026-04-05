@@ -1,6 +1,6 @@
 {
   "metadata": {
-    "last_updated": "2026-04-05T03:18:00.485202+00:00"
+    "last_updated": "2026-04-05T03:34:30.116711+00:00"
   },
   "active_cme_id": "CME_2026-04-01T03:00Z",
   "cmes": [
@@ -9,19 +9,22 @@
       "source": {
         "launch_time": "2026-04-02T20:46:00+00:00",
         "location": {
-          "latitude": 0,
-          "longitude": 0
+          "latitude": 12,
+          "longitude": -15
         },
         "associated_flare": null,
-        "coronal_hole": null
+        "coronal_hole": null,
+        "region": "N12W15",
+        "active_region": 14404,
+        "donki_note": "Updated measurement using SOHO C2, C3 and GOES CCOR-1 which suggests the filament eruption CME is wider than previously thought--its width increases as it propagates outward into the field of view, es"
       },
       "properties": {
         "speed_initial": 583.4,
-        "speed_current": 552,
-        "half_angle": 35,
-        "type": "Unknown",
-        "direction_lat": 0,
-        "direction_lon": 0
+        "speed_current": 583.4,
+        "half_angle": 16.0,
+        "type": "Common",
+        "direction_lat": 20.0,
+        "direction_lon": 15.0
       },
       "arrival": {
         "average_prediction": 1775419200.0,
@@ -56,9 +59,12 @@
         "confidence": null
       },
       "position": {
-        "distance_au": 0.01,
-        "progress_percent": 0,
-        "eta_hours": null
+        "distance_au": 0.769,
+        "distance_rsun": 165.4,
+        "progress_percent": 76.9,
+        "eta_hours": 16.4,
+        "velocity_current": 433.6,
+        "speed_estimated": false
       },
       "aurora_rating": {
         "stars": 2,
@@ -73,19 +79,22 @@
       "source": {
         "launch_time": "2026-04-01T03:00:00+00:00",
         "location": {
-          "latitude": 0,
-          "longitude": 0
+          "latitude": 20,
+          "longitude": -11
         },
         "associated_flare": null,
-        "coronal_hole": null
+        "coronal_hole": null,
+        "region": "N20W11",
+        "active_region": 14403,
+        "donki_note": "3D SOHO LASCO C2 only analysis, using the W11 source longitude, finding a further southern latitude than expected. With the filement ejecta poorly erupting and coronal hole proximity, deflection is li"
       },
       "properties": {
         "speed_initial": 554.1,
-        "speed_current": 552,
-        "half_angle": 35,
+        "speed_current": 545,
+        "half_angle": 13.0,
         "type": "Faint CME",
-        "direction_lat": 0,
-        "direction_lon": 0
+        "direction_lat": 10.0,
+        "direction_lon": 11.0
       },
       "arrival": {
         "average_prediction": 1775282400.0,
@@ -130,9 +139,12 @@
         "confidence": null
       },
       "position": {
-        "distance_au": 0.01,
-        "progress_percent": 0,
-        "eta_hours": null
+        "distance_au": 1.0,
+        "distance_rsun": 215.0,
+        "progress_percent": 100,
+        "eta_hours": -21.6,
+        "velocity_current": 421.7,
+        "speed_estimated": false
       },
       "aurora_rating": {
         "stars": 2,

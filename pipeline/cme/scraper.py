@@ -379,6 +379,9 @@ def sync_queue_with_scoreboard(queue, scoreboard, coronal_holes, log):
         cme for cme in queue['cmes']
         if cme['id'] in scoreboard_ids or cme['state']['current'] not in ['QUIET', 'SUBSIDING']
     ]
+
+    # Enrich with DONKI data (source region, lat/lon, half angle, linked flares)
+    _enrich_from_donki(queue['cmes'], log)
     
     return queue
 
@@ -456,3 +459,132 @@ def _compute_aurora_rating(speed):
     if speed > 350:
         return {'stars': 1, 'confidence': 25, 'basis': f'{speed:.0f} km/s — slow'}
     return {'stars': 0, 'confidence': 30, 'basis': f'{speed:.0f} km/s — very slow'}
+
+
+def _enrich_from_donki(cmes, log):
+    """Enrich CMEs with DONKI data: source region, lat/lon, half angle, linked events.
+
+    Queries the DONKI CME API and matches by launch time (±2h).
+    Falls back gracefully — never crashes the pipeline.
+    """
+    from datetime import datetime, timezone, timedelta
+
+    if not cmes:
+        return
+
+    try:
+        start = (datetime.now(timezone.utc) - timedelta(days=10)).strftime('%Y-%m-%d')
+        end = (datetime.now(timezone.utc) + timedelta(days=1)).strftime('%Y-%m-%d')
+        url = f'https://kauai.ccmc.gsfc.nasa.gov/DONKI/WS/get/CME?startDate={start}&endDate={end}'
+        resp = requests.get(url, timeout=15)
+        if resp.status_code != 200:
+            log.info(f'DONKI CME enrichment: HTTP {resp.status_code}')
+            return
+        donki_cmes = resp.json()
+        if not donki_cmes:
+            return
+    except Exception as e:
+        log.info(f'DONKI CME enrichment skipped: {e}')
+        return
+
+    enriched = 0
+    for cme in cmes:
+        launch_str = cme.get('source', {}).get('launch_time')
+        if not launch_str:
+            continue
+        try:
+            cme_launch = datetime.fromisoformat(launch_str.replace('Z', '+00:00'))
+            if cme_launch.tzinfo is None:
+                cme_launch = cme_launch.replace(tzinfo=timezone.utc)
+        except Exception:
+            continue
+
+        # Find best DONKI match by startTime proximity (±2h)
+        best_match = None
+        best_delta = 7200  # 2 hours max
+        for dc in donki_cmes:
+            if not isinstance(dc, dict):
+                continue
+            st = dc.get('startTime', '')
+            try:
+                dt = datetime.fromisoformat(str(st).replace('Z', '+00:00'))
+                if dt.tzinfo is None:
+                    dt = dt.replace(tzinfo=timezone.utc)
+                delta = abs((dt - cme_launch).total_seconds())
+                if delta < best_delta:
+                    best_delta = delta
+                    best_match = dc
+            except Exception:
+                continue
+
+        if not best_match:
+            continue
+
+        # Extract best CME analysis (prefer the most complete one)
+        analyses = best_match.get('cmeAnalyses') or []
+        best_analysis = None
+        for a in analyses:
+            if isinstance(a, dict) and a.get('isMostAccurate'):
+                best_analysis = a
+                break
+        if not best_analysis and analyses:
+            best_analysis = analyses[0]
+
+        # Populate source region
+        src_loc = best_match.get('sourceLocation', '')
+        if src_loc:
+            cme['source']['region'] = src_loc
+            # Parse lat/lon from e.g. "N15W55"
+            try:
+                lat_str = src_loc[:3]  # e.g. "N15"
+                lon_str = src_loc[3:]  # e.g. "W55"
+                lat = int(lat_str[1:]) * (1 if lat_str[0] == 'N' else -1)
+                lon = int(lon_str[1:]) * (1 if lon_str[0] == 'E' else -1)
+                cme['source']['location']['latitude'] = lat
+                cme['source']['location']['longitude'] = lon
+            except Exception:
+                pass
+
+        # Active region number
+        ar = best_match.get('activeRegionNum')
+        if ar:
+            cme['source']['active_region'] = ar
+
+        # Linked events (flares, SEPs)
+        linked = best_match.get('linkedEvents') or []
+        flare_links = [e.get('activityID', '') for e in linked if 'FLR' in str(e.get('activityID', ''))]
+        if flare_links:
+            cme['source']['associated_flare'] = flare_links[0]
+
+        # From CME analysis
+        if best_analysis:
+            ha = best_analysis.get('halfAngle')
+            if ha is not None:
+                cme['properties']['half_angle'] = ha
+
+            spd = best_analysis.get('speed')
+            if spd is not None and not cme['properties'].get('speed_initial'):
+                cme['properties']['speed_initial'] = spd
+                cme['properties']['speed_current'] = spd
+
+            d_lat = best_analysis.get('latitude')
+            d_lon = best_analysis.get('longitude')
+            if d_lat is not None:
+                cme['properties']['direction_lat'] = d_lat
+            if d_lon is not None:
+                cme['properties']['direction_lon'] = d_lon
+
+            cme_type = best_analysis.get('type', '')
+            if cme_type and cme['properties'].get('type') in (None, 'Unknown'):
+                type_map = {'S': 'Slow', 'C': 'Common', 'O': 'Occasional', 'R': 'Rare'}
+                cme['properties']['type'] = type_map.get(cme_type, cme_type)
+
+            # Note for additional context
+            note = best_analysis.get('note', '')
+            if note:
+                cme['source']['donki_note'] = note[:200]
+
+        enriched += 1
+
+    if enriched:
+        log.info(f'DONKI CME enrichment: {enriched}/{len(cmes)} CMEs enriched')

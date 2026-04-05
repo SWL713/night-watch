@@ -106,6 +106,20 @@ def run_cme_pipeline(l1_mag, l1_plasma, stereo_a, epam, log):
         # 9. Calculate positions for all active CMEs
         positions = calculate_cme_positions(queue['cmes'], coronal_holes, log)
 
+        # 9b. Sync position data back into queue (so cme_queue.json has current values)
+        for pos_cme in positions.get('cmes', []):
+            for cme in queue['cmes']:
+                if cme['id'] == pos_cme['id']:
+                    cme['position'] = {
+                        'distance_au': pos_cme['position']['distance_au'],
+                        'distance_rsun': pos_cme['position']['distance_rsun'],
+                        'progress_percent': pos_cme['progress']['percent_to_l1'],
+                        'eta_hours': pos_cme['progress'].get('eta_hours'),
+                        'velocity_current': pos_cme['position']['velocity_current'],
+                        'speed_estimated': pos_cme['position'].get('speed_estimated', False),
+                    }
+                    break
+
         # 10. Check for removals
         from .utils import check_removals
         queue = check_removals(queue, classification_data, log)
