@@ -23,28 +23,13 @@ class BothmerSchwennClassifier:
                 return self._stereo_classification(cme, stereo_a)
             return self._predictive_classification(cme)
 
-        # Post-arrival: run flux rope classification
-        # Use ARRIVED timestamp as hint ONLY if it's old enough to be real
-        # (if it's within 10 min of now, the queue was just rebuilt — let L1 detect)
-        from datetime import datetime, timezone
-        shock_hint = None
-        for h in cme['state'].get('history', []):
-            if h.get('to') == 'ARRIVED':
-                try:
-                    ts = datetime.fromisoformat(h['timestamp'])
-                    if ts.tzinfo is None:
-                        ts = ts.replace(tzinfo=timezone.utc)
-                    age_min = (datetime.now(timezone.utc) - ts).total_seconds() / 60
-                    if age_min > 10:
-                        shock_hint = h['timestamp']
-                except Exception:
-                    pass
-                break
-
+        # Post-arrival: always auto-detect ejecta from L1 data
+        # Never use state transition timestamp — it reflects pipeline run time,
+        # not actual shock arrival, especially after queue rebuilds
         result = classify_flux_rope_l1(
             l1_mag=l1_mag,
             l1_plasma=l1_plasma,
-            shock_time=shock_hint if shock_hint else None,
+            shock_time=None,
             structure_duration_hrs=24.0
         )
 
@@ -355,13 +340,9 @@ class BothmerSchwennClassifier:
         if flux_notes:
             notes.extend(flux_notes)
 
-        # For arrived CMEs, set a window from ARRIVED timestamp to now
+        # No window for predictive classifications — highlight appears when
+        # the classifier successfully detects ejecta and returns a real result
         pred_window = None
-        if arrived:
-            for h in cme['state'].get('history', []):
-                if h.get('to') == 'ARRIVED':
-                    pred_window = {'start': h['timestamp'], 'end': None}
-                    break
 
         return {
             'active': True,
