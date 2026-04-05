@@ -100,7 +100,21 @@ def run_cme_pipeline(l1_mag, l1_plasma, stereo_a, epam, log):
                     bz_pred = classification.get('bz_predictions') or {}
                     progress = (classification.get('signatures') or {}).get('structure_progress_pct', 0)
                     _upgrade_aurora_rating(cme, cur, bz_pred, progress)
-        
+
+        # Pick best active_cme_id for classification panel:
+        # prefer highest-confidence non-passed classification
+        best_cls_id = None
+        best_cls_conf = -1
+        for cid, cls in classification_data['classifications'].items():
+            cur = cls.get('current') or {}
+            conf = cur.get('confidence', 0)
+            passed = cur.get('passed', False)
+            if not passed and conf > best_cls_conf:
+                best_cls_conf = conf
+                best_cls_id = cid
+        # Fall back to queue's active_cme_id if no good classification
+        classification_data['metadata']['active_cme_id'] = best_cls_id or queue['active_cme_id']
+
         # 9. Calculate positions for all active CMEs
         positions = calculate_cme_positions(queue['cmes'], coronal_holes, log)
 

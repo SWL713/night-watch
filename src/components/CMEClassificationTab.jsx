@@ -67,12 +67,13 @@ function CMEClassificationTab({ classifications, classificationMetadata, magData
     : null;
   const loading = !classifications && !magDataProp;
 
-  // Stabilize classWindow reference so plot redraws always have it
-  const classWindowRef = useRef(null);
-  if (classData?.classification_window) {
-    classWindowRef.current = classData.classification_window;
-  }
-  const stableClassWindow = classWindowRef.current;
+  // Memoize classWindow so it persists even when classData briefly nulls during refresh
+  const [stableClassWindow, setStableClassWindow] = useState(null);
+  useEffect(() => {
+    if (classData?.classification_window) {
+      setStableClassWindow(classData.classification_window);
+    }
+  }, [classData]);
   
   const handleZoomClick = useCallback((t) => {
     if (!zoomStart) {
