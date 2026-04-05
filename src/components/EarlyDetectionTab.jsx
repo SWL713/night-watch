@@ -4,8 +4,21 @@
  * placed under CME Dashboard for quick access.
  */
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, Component } from 'react';
 import { PlotCanvas, Toggle } from './SpaceWeatherPanel.jsx';
+
+class EarlyDetectionErrorBoundary extends Component {
+  constructor(props) { super(props); this.state = { error: null }; }
+  static getDerivedStateFromError(error) { return { error }; }
+  render() {
+    if (this.state.error) return (
+      <div style={{ padding: 20, color: '#ee5577', fontFamily: 'monospace', background: '#06080f', height: '100%', whiteSpace: 'pre-wrap', fontSize: 11 }}>
+        Early Detection error:{'\n'}{String(this.state.error?.message || this.state.error)}{'\n'}{String(this.state.error?.stack || '').slice(0, 500)}
+      </div>
+    );
+    return this.props.children;
+  }
+}
 
 const FONT = 'DejaVu Sans Mono, Consolas, monospace';
 

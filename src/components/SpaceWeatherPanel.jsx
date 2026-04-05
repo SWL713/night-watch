@@ -671,7 +671,7 @@ export default function SpaceWeatherPanel({ mag, plasma, epam, stereo, goes, spa
 
       {/* Sub-tab selector */}
       <div style={{ display: 'flex', gap: 3, padding: '4px 8px', borderBottom: `1px solid ${C.border}`, flexShrink: 0 }}>
-        {[['l1', 'L1 SOLAR WIND'], ['epam', 'EARLY DETECTION'], ['goes', 'GOES']].map(([key, label]) => (
+        {[['l1', 'L1 SOLAR WIND'], ['epam', 'EPAM/STEREO-A'], ['goes', 'GOES']].map(([key, label]) => (
           <button key={key} onClick={() => setSubTab(key)} style={{
             flex: 1, height: 28, background: subTab === key ? '#0d1a2a' : '#060810',
             border: `1px solid ${subTab === key ? '#44ddaa' : '#1a2a3a'}`,
