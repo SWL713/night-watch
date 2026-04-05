@@ -20,7 +20,7 @@
       },
       "properties": {
         "speed_initial": 583.4,
-        "speed_current": 550,
+        "speed_current": 528,
         "half_angle": 16.0,
         "type": "Common",
         "direction_lat": 20.0,
@@ -100,7 +100,7 @@
       },
       "properties": {
         "speed_initial": 554.1,
-        "speed_current": 550,
+        "speed_current": 528,
         "half_angle": 13.0,
         "type": "Faint CME",
         "direction_lat": 10.0,
