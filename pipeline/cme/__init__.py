@@ -91,7 +91,7 @@ def run_cme_pipeline(l1_mag, l1_plasma, stereo_a, epam, log):
         for cme in queue['cmes']:
             if cme['state']['current'] in ['WATCH', 'INBOUND', 'IMMINENT', 'ARRIVED', 'STORM_ACTIVE']:
                 classifier = BothmerSchwennClassifier(log)
-                classification = classifier.classify(cme, l1_mag, l1_plasma)
+                classification = classifier.classify(cme, l1_mag, l1_plasma, stereo_a=stereo_a)
                 classification_data['classifications'][cme['id']] = classification
 
                 # Upgrade aurora_rating with observed data when classification is real

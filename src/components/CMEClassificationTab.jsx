@@ -89,12 +89,13 @@ function CMEClassificationTab({ cmes, classifications, classificationMetadata, m
   // Highlight window as primitive timestamps (not object refs)
   const hlStart = classData?.classification_window?.start
     ? new Date(classData.classification_window.start).getTime() : null;
-  const hlEnd = classData?.classification_window?.end
-    ? new Date(classData.classification_window.end).getTime()
-    : (hlStart ? hlStart + 24 * 3600000 : null);
-  // For active ropes (progress < 100%), extend end to now
+  const rawHlEnd = classData?.classification_window?.end
+    ? new Date(classData.classification_window.end).getTime() : null;
   const progress = classData?.signatures?.structure_progress_pct || 0;
-  const effectiveHlEnd = (hlStart && progress > 0 && progress <= 100) ? Date.now() : hlEnd;
+  // End logic: null end = "to now", progress<=100% = ongoing rope = "to now"
+  const effectiveHlEnd = hlStart
+    ? (rawHlEnd && progress > 120 ? rawHlEnd : Date.now())
+    : null;
 
   const handleZoomClick = useCallback((t) => {
     if (!zoomStart) {

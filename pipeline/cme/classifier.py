@@ -10,23 +10,17 @@ class BothmerSchwennClassifier:
     def __init__(self, log):
         self.log = log
     
-    def classify(self, cme, l1_mag, l1_plasma):
+    def classify(self, cme, l1_mag, l1_plasma, stereo_a=None):
         """
-        Classify CME magnetic structure using flux_rope_l1
-        
-        Args:
-            cme: CME dict with state info
-            l1_mag: L1 magnetometer data
-            l1_plasma: L1 plasma data
-            
-        Returns:
-            Classification dict with flux rope type, confidence, predictions
+        Classify CME magnetic structure.
+        Uses L1 data for ARRIVED CMEs, STEREO-A for INBOUND/IMMINENT.
         """
-        
         state = cme['state']['current']
 
-        # Pre-arrival CMEs: predictive only — the L1 data isn't theirs
+        # Pre-arrival: attempt STEREO-A classification if data available
         if state in ['WATCH', 'INBOUND', 'IMMINENT']:
+            if stereo_a and state in ['INBOUND', 'IMMINENT']:
+                return self._stereo_classification(cme, stereo_a)
             return self._predictive_classification(cme)
 
         # Post-arrival: run flux rope classification
@@ -59,12 +53,23 @@ class BothmerSchwennClassifier:
                 return self._predictive_classification(cme, result.get('notes', []))
             return self._empty_classification()
         
-        # Map to Night Watch classification format
+        # Classification window: ejecta_start → actual analysis extent (not fixed +24h)
+        ejecta_start = result.get('ejecta_start_time')
+        analysis_end = None
+        if ejecta_start:
+            from datetime import datetime, timedelta, timezone as tz
+            try:
+                dt = datetime.fromisoformat(str(ejecta_start)).replace(tzinfo=tz.utc)
+                elapsed = result['structure_progress_pct'] / 100 * 24.0
+                analysis_end = (dt + timedelta(hours=elapsed)).isoformat()
+            except Exception:
+                pass
+
         classification = {
             'active': True,
             'classification_window': {
-                'start': result.get('ejecta_start_time'),
-                'end': self._calc_window_end(result),
+                'start': ejecta_start,
+                'end': analysis_end,
                 'duration_hours': result['structure_progress_pct'] / 100 * 24.0
             },
             'current': {
@@ -175,6 +180,114 @@ class BothmerSchwennClassifier:
         }
         return mapping.get(bs_type, 'N/A')
     
+    def _stereo_classification(self, cme, stereo_a):
+        """Attempt BS classification from STEREO-A Bn data (Bz proxy).
+
+        STEREO-A is upstream (~48° ahead), so its magnetic field gives
+        a preview of what may hit Earth. Bn (RTN north) ≈ Bz (GSM) roughly.
+        Confidence is capped at 35% because:
+        - RTN→GSM conversion is approximate
+        - STEREO-A path ≠ Earth path (different longitude)
+        - Data may not represent what Earth will see
+        """
+        # Build mag-like data from STEREO-A: map Bn→Bz, Bt→Bt, Br→Bx
+        stereo_list = stereo_a.get('data', []) if isinstance(stereo_a, dict) else (stereo_a if isinstance(stereo_a, list) else [])
+        if len(stereo_list) < 120:  # need at least 2h of data
+            return self._predictive_classification(cme, ['STEREO-A: insufficient data for classification'])
+
+        # Remap columns: STEREO-A [time, density, speed, temp, Br, Bt, Bn, Bt_tot, ...]
+        # sw_stereo_a.json columns: [time, bn, bt_tot, br, bt_tan, speed, density]
+        # But the data format varies — handle dict with 'columns' key
+        cols = stereo_a.get('columns', []) if isinstance(stereo_a, dict) else []
+        if cols:
+            i_time = cols.index('time') if 'time' in cols else 0
+            i_bn = cols.index('bn') if 'bn' in cols else -1
+            i_bt = cols.index('bt_tot') if 'bt_tot' in cols else -1
+            i_br = cols.index('br') if 'br' in cols else -1
+        else:
+            i_time, i_bn, i_bt, i_br = 0, 1, 2, 3
+
+        # Build fake mag data: [time, Bx(=Br), By(=0), Bz(=Bn), Bt]
+        fake_mag = {'columns': ['time', 'bx', 'by', 'bz', 'bt', 'phi'], 'data': []}
+        for row in stereo_list:
+            if isinstance(row, (list, tuple)):
+                t = row[i_time] if i_time >= 0 else None
+                bn = row[i_bn] if i_bn >= 0 and i_bn < len(row) else None
+                bt = row[i_bt] if i_bt >= 0 and i_bt < len(row) else None
+                br = row[i_br] if i_br >= 0 and i_br < len(row) else None
+            elif isinstance(row, dict):
+                t = row.get('timestamp', row.get('time'))
+                bn = row.get('mag_hgrtn_n_nT', row.get('bn'))
+                bt = row.get('Bt_nT', row.get('bt_tot'))
+                br = row.get('mag_hgrtn_r_nT', row.get('br'))
+            else:
+                continue
+            if t and bn is not None:
+                fake_mag['data'].append([t, br or 0, 0, bn, bt or abs(bn), 0])
+
+        if len(fake_mag['data']) < 120:
+            return self._predictive_classification(cme, ['STEREO-A: insufficient valid Bn data'])
+
+        result = classify_flux_rope_l1(
+            l1_mag=fake_mag,
+            l1_plasma=[],  # no plasma needed for magnetic classification
+            shock_time=None,
+            structure_duration_hrs=24.0
+        )
+
+        if result['insufficient_data']:
+            return self._predictive_classification(cme, result.get('notes', []) + ['STEREO-A: no ejecta detected in Bn data'])
+
+        # Cap confidence at 35% — STEREO-A is a proxy, not direct measurement
+        raw_conf = result['confidence_pct']
+        stereo_conf = min(raw_conf * 0.4, 35)
+
+        return {
+            'active': True,
+            'classification_window': {
+                'start': result.get('ejecta_start_time'),
+                'end': None,  # ongoing
+                'duration_hours': result['structure_progress_pct'] / 100 * 24.0
+            },
+            'current': {
+                'bs_type': result['type'],
+                'bs_type_full': f'{self._expand_type_name(result["type"])} (STEREO-A preview)',
+                'confidence': stereo_conf,
+                'confidence_trend': 'BUILDING',
+                'locked': False,
+                'passed': False,
+                'chirality': result['chirality'],
+                'data_source': 'stereo_a'
+            },
+            'signatures': {
+                'structure_progress_pct': result['structure_progress_pct'],
+                'bz_onset_timing': result['bz_onset_timing']
+            },
+            'bz_predictions': {
+                'description': f'{result["aurora_impact"]} (STEREO-A estimate — path may differ at Earth)',
+                'aurora_potential': self._map_aurora_potential(result['type'], result.get('peak_bz_estimate_nT')),
+                'kp_estimate': self._map_kp_estimate(result['type'], result.get('peak_bz_estimate_nT')),
+                'onset_time': result['bz_onset_timing'],
+                'duration_hours_low': result['bz_south_duration_hrs_low'],
+                'duration_hours_high': result['bz_south_duration_hrs_high'],
+                'peak_bz_estimate': result['peak_bz_estimate_nT'],
+                'flux_rope_duration_hours': 24.0,
+                'bz_south_onset_hours': result.get('bz_south_onset_hrs'),
+            },
+            'phi_events': [],
+            'quality_flags': {
+                'nosedive_detected': False,
+                'reverted': False,
+                'boundary_detected': False,
+                'expert_review_needed': True
+            },
+            'notes': [
+                'STEREO-A PREVIEW — Bn used as Bz proxy (RTN ≈ GSM)',
+                'STEREO-A is ~48° ahead of Earth — path may differ',
+                'Classification will update with L1 data on CME arrival'
+            ]
+        }
+
     def _predictive_classification(self, cme, flux_notes=None):
         """Speed-based prediction when flux rope classification has insufficient data.
 
