@@ -25,7 +25,7 @@ def check_removals(queue, classification_data, log):
                             next_classified = True
                             break
             
-            if next_classified or hours_in_subsiding >= 12:
+            if next_classified or hours_in_subsiding >= 6:
                 cmes_to_remove.append(cme['id'])
                 log.info(f"Removing CME {cme['id']} from queue")
     
