@@ -90,7 +90,7 @@
       },
       "properties": {
         "speed_initial": 554.1,
-        "speed_current": 541,
+        "speed_current": 555,
         "half_angle": 13.0,
         "type": "Faint CME",
         "direction_lat": 10.0,
