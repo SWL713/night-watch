@@ -124,7 +124,7 @@ export default function CMEDashboard() {
       )}
 
       {activeTab === 'early' && (
-        <EarlyDetectionTab epamData={epamData} stereoData={stereoData} />
+        <EarlyDetectionTab epamData={epamData} stereoData={stereoData} cmes={cmes} />
       )}
 
       {activeTab === 'queue' && (

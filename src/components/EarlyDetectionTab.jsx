@@ -27,7 +27,7 @@ const PRESETS = [
   { label: '7D',  ms: 7*86400000 },
 ];
 
-export default function EarlyDetectionTab({ epamData, stereoData }) {
+export default function EarlyDetectionTab({ epamData, stereoData, cmes }) {
   const [presetMs, setPresetMs] = useState(24 * 3600000);
   const [crosshairT, setCrosshairT] = useState(null);
   const [showElec, setShowElec] = useState(true);
@@ -112,6 +112,37 @@ export default function EarlyDetectionTab({ epamData, stereoData }) {
           />
         </div>
       )}
+
+      {/* EPAM signal alert — shows when any CME has a non-quiet EPAM signal */}
+      {(() => {
+        const allCMEs = cmes || [];
+        const alerts = allCMEs
+          .filter(c => c.epam_analysis && c.epam_analysis.description !== 'quiet')
+          .map(c => ({ id: c.id, ...c.epam_analysis }));
+        if (!alerts.length) return null;
+        return (
+          <div style={{
+            margin: '4px 10px', padding: '6px 10px',
+            border: '1px solid #ffaa00', borderRadius: 4,
+            background: 'rgba(255,170,0,0.08)',
+            fontFamily: FONT, flexShrink: 0,
+          }}>
+            {alerts.map((a, i) => (
+              <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: i < alerts.length - 1 ? 4 : 0 }}>
+                <span style={{ color: a.esp_detected ? '#ff5544' : '#ffaa00', fontSize: 10, fontWeight: 700 }}>
+                  {a.esp_detected ? '⚠' : '●'}
+                </span>
+                <span style={{ color: '#ffaa00', fontSize: 9, fontWeight: 600, flex: 1 }}>
+                  {a.description.toUpperCase()}
+                </span>
+                <span style={{ color: '#7a8a90', fontSize: 7 }}>
+                  {a.id.replace('CME_', '')} · +{a.confidence_boost}% conf
+                </span>
+              </div>
+            ))}
+          </div>
+        );
+      })()}
 
       {/* Protons */}
       {showProt && epam.length > 0 && (
