@@ -1,6 +1,6 @@
 {
   "metadata": {
-    "last_updated": "2026-04-05T05:00:05.996009+00:00"
+    "last_updated": "2026-04-05T06:11:28.465117+00:00"
   },
   "active_cme_id": "CME_2026-04-01T03:00Z",
   "cmes": [
@@ -59,16 +59,16 @@
         "confidence": null
       },
       "position": {
-        "distance_au": 0.789,
-        "distance_rsun": 169.7,
-        "progress_percent": 78.9,
-        "eta_hours": 15.0,
-        "velocity_current": 432.7,
+        "distance_au": 0.806,
+        "distance_rsun": 173.3,
+        "progress_percent": 80.6,
+        "eta_hours": 13.8,
+        "velocity_current": 432.1,
         "speed_estimated": false
       },
       "aurora_rating": {
         "stars": 2,
-        "confidence": 81,
+        "confidence": 82,
         "basis": "Observed: SWN type, WEAK aurora, peak -15.7 nT"
       },
       "created_at": "2026-04-05T04:29:23.053683+00:00",
@@ -142,13 +142,13 @@
         "distance_au": 1.0,
         "distance_rsun": 215.0,
         "progress_percent": 100,
-        "eta_hours": -23.0,
-        "velocity_current": 421.6,
+        "eta_hours": -24.2,
+        "velocity_current": 421.5,
         "speed_estimated": false
       },
       "aurora_rating": {
         "stars": 2,
-        "confidence": 81,
+        "confidence": 82,
         "basis": "Observed: SWN type, WEAK aurora, peak -15.7 nT"
       },
       "created_at": "2026-04-05T04:29:23.053737+00:00",
