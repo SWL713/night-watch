@@ -722,20 +722,14 @@ function ByPlot({ data, timeRange, ejectaStart, hlStart, hlEnd, crosshairT, onCr
       ctx.setLineDash([]);
     }
 
-    // Ejecta marker
-    if (ejectaStart) {
-      const ejectaTime = new Date(ejectaStart).getTime();
-      if (ejectaTime >= tMin && ejectaTime <= tMax) {
-        const x = xScale(ejectaTime);
-        ctx.strokeStyle = C.shock;
-        ctx.lineWidth = 1.5;
-        ctx.setLineDash([4, 3]);
-        ctx.beginPath();
-        ctx.moveTo(x, PAD.t);
-        ctx.lineTo(x, PAD.t + pH);
-        ctx.stroke();
-        ctx.setLineDash([]);
-      }
+    // Shock label at highlight start
+    if (hlStart && hlStart > tMin && hlStart < tMax) {
+      const x = xScale(hlStart);
+      const st = new Date(hlStart);
+      ctx.fillStyle = C.shock;
+      ctx.font = `bold 8px ${FONT}`;
+      ctx.textAlign = 'left';
+      ctx.fillText(`shock ${st.getUTCHours().toString().padStart(2,'0')}:${st.getUTCMinutes().toString().padStart(2,'0')}`, x + 3, PAD.t + 10);
     }
     
     // Zoom preview
@@ -991,20 +985,14 @@ function PhiPlot({ data, timeRange, ejectaStart, hlStart, hlEnd, crosshairT, onC
       ctx.setLineDash([]);
     }
 
-    // Ejecta marker
-    if (ejectaStart) {
-      const ejectaTime = new Date(ejectaStart).getTime();
-      if (ejectaTime >= tMin && ejectaTime <= tMax) {
-        const x = xScale(ejectaTime);
-        ctx.strokeStyle = C.shock;
-        ctx.lineWidth = 1.5;
-        ctx.setLineDash([4, 3]);
-        ctx.beginPath();
-        ctx.moveTo(x, PAD.t);
-        ctx.lineTo(x, PAD.t + pH);
-        ctx.stroke();
-        ctx.setLineDash([]);
-      }
+    // Shock label at highlight start
+    if (hlStart && hlStart > tMin && hlStart < tMax) {
+      const x = xScale(hlStart);
+      const st = new Date(hlStart);
+      ctx.fillStyle = C.shock;
+      ctx.font = `bold 8px ${FONT}`;
+      ctx.textAlign = 'left';
+      ctx.fillText(`shock ${st.getUTCHours().toString().padStart(2,'0')}:${st.getUTCMinutes().toString().padStart(2,'0')}`, x + 3, PAD.t + 10);
     }
     
     // Zoom preview
