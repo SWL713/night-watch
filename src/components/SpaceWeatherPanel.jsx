@@ -417,7 +417,7 @@ function PlotCanvas({ data, series, yMin, yMax, logScale, timeRange, crosshairTi
       ctx.strokeStyle = C.now; ctx.lineWidth = 1.5; ctx.setLineDash([])
       ctx.beginPath(); ctx.moveTo(x, PAD_T); ctx.lineTo(x, PAD_T + pH); ctx.stroke()
       ctx.fillStyle = C.now; ctx.font = `7px ${FONT}`
-      ctx.fillText('NOW', x + 2, PAD_T + 8)
+      ctx.fillText('EARTH', x + 2, PAD_T + 8)
     }
 
     // Crosshair
@@ -659,7 +659,7 @@ export default function SpaceWeatherPanel({ mag, plasma, epam, stereo, goes, spa
     crosshairTime: zoomMode ? null : crosshairT,
     onCrosshair:   zoomMode ? handleZoomTap : setCrosshairT,
     annotations:   showAnnots ? annotations : [],
-    nowTime: now, speedKms,
+    nowTime: now - Math.min((1.5e6 / (speedKms || 450)) * 1000, 5400000), speedKms,
     showLabels: true,   // y-axis always visible
     zoomMode,
   }

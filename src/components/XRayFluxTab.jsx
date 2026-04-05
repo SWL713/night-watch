@@ -856,8 +856,8 @@ export default function XRayFluxTab() {
 
       {/* Main content */}
       <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
-        {/* Top: X-Ray Flux Plot — flex 6 */}
-        <div style={{ flex: 6, display: 'flex', flexDirection: 'column', padding: '4px 10px 0', minHeight: 0 }}>
+        {/* Top: X-Ray Flux Plot — flex 5 */}
+        <div style={{ flex: 5, display: 'flex', flexDirection: 'column', padding: '4px 10px 0', minHeight: 0 }}>
           <XRayPlot
             data={xrayData}
             flares={flareData}
@@ -876,8 +876,8 @@ export default function XRayFluxTab() {
         <div style={{ padding: '3px 10px', borderTop: `1px solid ${C.grid}`, borderBottom: `1px solid ${C.grid}`, fontSize: 8, color: C.textDim, fontFamily: FONT, letterSpacing: 0.5, textTransform: 'uppercase' }}>
           Last significant flare (M/X class){lastMXFlare ? ` — ${lastMXFlare.class_label || ''} @ ${lastMXFlare.peak_time ? new Date(lastMXFlare.peak_time).toLocaleString('en-US', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit', timeZoneName: 'short' }) : ''}` : ''}
         </div>
-        {/* Bottom: Last M/X Flare Report */}
-        <div style={{ flex: 4, padding: '4px 10px 6px', minHeight: 0, overflow: 'hidden', display: 'flex', gap: 6 }}>
+        {/* Bottom: Last M/X Flare Report — flex 5 */}
+        <div style={{ flex: 5, padding: '4px 10px 6px', minHeight: 0, overflow: 'hidden', display: 'flex', gap: 6 }}>
           {/* Left: Flare data card */}
           <div style={{ flex: 1, display: 'flex', minHeight: 0 }}>
             <FlareCard flare={lastMXFlare} />
