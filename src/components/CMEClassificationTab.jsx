@@ -1239,20 +1239,36 @@ function ClassificationBox({ classData, metadata, cmeId }) {
           </div>
           <span style={{ fontSize: 9, color: confCol, fontWeight: 600, whiteSpace: 'nowrap' }}>{conf.toFixed(0)}%</span>
         </div>
-        <Row label="Kp" value={bz.kp_estimate} />
+        <Row label="Kp" value={bz.kp_estimate} color={
+          (() => { const k = parseInt(bz.kp_estimate); return k >= 7 ? '#ff6633' : k >= 5 ? '#ffaa00' : k >= 3 ? C.bz_north : C.textDim; })()
+        } />
         <Row label="Aurora" value={bz.aurora_potential} color={auCol} />
         {bz.peak_bz_estimate != null && <Row label="Peak" value={`${bz.peak_bz_estimate.toFixed(1)} nT`} color={C.bz_south} />}
         {bz.flux_rope_duration_hours != null && <Row label="Rope" value={`~${Number(bz.flux_rope_duration_hours).toFixed(0)}h`} />}
-        {sigs.structure_progress_pct != null && <Row label="Struct" value={`${sigs.structure_progress_pct.toFixed(0)}%${cur.locked ? ' locked' : ''}`} />}
+        {sigs.structure_progress_pct != null && <Row label="Struct" value={`${sigs.structure_progress_pct > 100 ? 'passed' : sigs.structure_progress_pct.toFixed(0) + '%'}${cur.locked ? ' locked' : ''}`} />}
       </div>
 
-      {/* COL 3: Longer fields — timing, chirality, impact */}
+      {/* COL 3: Longer fields — timing, trend, impact */}
       <div style={{ flex: 1.3, display: 'flex', flexDirection: 'column', justifyContent: 'center', gap: 1, minWidth: 0 }}>
-        <Row label="Chirality" value={cur.chirality} />
-        {sigs.bz_onset_timing && <Row label="-Bz onset" value={sigs.bz_onset_timing} />}
-        {bz.bz_south_onset_hours != null && <Row label="-Bz begins" value={`~${Number(bz.bz_south_onset_hours).toFixed(1)}h post-shock`} />}
+        {/* Conditions trend — most actionable forward-looking signal */}
+        {cur.bs_type && cur.bs_type !== 'unknown' && (() => {
+          const prog = sigs.structure_progress_pct || 0;
+          const type = cur.bs_type;
+          // South-leading types (SEN/SWN/ESW/WSE): worsening early, improving late
+          // North-leading types (NES/NWS): improving early, worsening mid/late
+          const southLeading = ['SEN', 'SWN', 'ESW', 'WSE'].includes(type);
+          let trend, trendCol;
+          if (prog > 100) { trend = 'Subsiding'; trendCol = C.bz_north; }
+          else if (prog > 75) { trend = southLeading ? 'Improving' : 'Peak storm'; trendCol = southLeading ? C.bz_north : C.bz_south; }
+          else if (prog > 40) { trend = southLeading ? 'Peak storm' : 'Worsening'; trendCol = southLeading ? C.bz_south : '#ffaa00'; }
+          else if (prog > 10) { trend = southLeading ? 'Worsening' : 'Improving'; trendCol = southLeading ? '#ffaa00' : C.bz_north; }
+          else { trend = 'Early passage'; trendCol = '#ffaa00'; }
+          return <Row label="Trend" value={trend} color={trendCol} />;
+        })()}
         {(bz.duration_hours_low != null || bz.duration_hours_high != null) &&
-          <Row label="-Bz duration" value={`${bz.duration_hours_low?.toFixed(1)}–${bz.duration_hours_high?.toFixed(1)} hr`} />}
+          <Row label="-Bz duration" value={`${bz.duration_hours_low?.toFixed(1)}–${bz.duration_hours_high?.toFixed(1)} hr`} color={C.bz_south} />}
+        {sigs.bz_onset_timing && <Row label="-Bz onset" value={sigs.bz_onset_timing} />}
+        <Row label="Chirality" value={cur.chirality} />
         {bz.description && (
           <div style={{ fontSize: 8, color: C.text, background: C.panelBg, padding: '3px 5px', borderRadius: 2, lineHeight: 1.2, marginTop: 1 }}>
             {bz.description}
