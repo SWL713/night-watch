@@ -1,6 +1,6 @@
 {
   "metadata": {
-    "last_updated": "2026-04-05T01:14:00.042043+00:00"
+    "last_updated": "2026-04-05T02:53:25.212310+00:00"
   },
   "active_cme_id": "CME_2026-04-02T20:46Z",
   "cmes": [
@@ -17,7 +17,7 @@
       },
       "properties": {
         "speed_initial": 583.4,
-        "speed_current": 581,
+        "speed_current": 563,
         "half_angle": 35,
         "type": "Unknown",
         "direction_lat": 0,
@@ -64,7 +64,7 @@
       "last_updated": "2026-04-04T19:56:58.182503+00:00",
       "aurora_rating": {
         "stars": 2,
-        "confidence": 79,
+        "confidence": 80,
         "basis": "Observed: SWN type, WEAK aurora, peak -15.7 nT"
       }
     },
@@ -81,7 +81,7 @@
       },
       "properties": {
         "speed_initial": 554.1,
-        "speed_current": 581,
+        "speed_current": 563,
         "half_angle": 35,
         "type": "Faint CME",
         "direction_lat": 0,
@@ -128,7 +128,7 @@
       "last_updated": "2026-04-04T19:56:58.182550+00:00",
       "aurora_rating": {
         "stars": 2,
-        "confidence": 79,
+        "confidence": 80,
         "basis": "Observed: SWN type, WEAK aurora, peak -15.7 nT"
       }
     }
