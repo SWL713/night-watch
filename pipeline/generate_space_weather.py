@@ -1733,12 +1733,25 @@ def fetch_goes_flares():
 
             # SDO/AIA 131Å image URLs via Helioviewer API (for M/X flares)
             sdo_full_sun_url = None
+            sdo_zoom_url = None
             if max_class and max_class[0] in ('M', 'X') and peak:
+                import math as _m
                 peak_z = peak.replace('+00:00', 'Z')
                 base = 'https://api.helioviewer.org/v2/takeScreenshot/'
                 layers = '&layers=[SDO,AIA,AIA,131,1,100]&display=true&watermark=false'
-                # Full sun disk
-                sdo_full_sun_url = f'{base}?date={peak_z}&imageScale=6.0&x0=0&y0=0&width=512&height=512{layers}'
+                # Full sun (4.5 arcsec/px — tighter, less black border)
+                sdo_full_sun_url = f'{base}?date={peak_z}&imageScale=4.5&x0=0&y0=0&width=512&height=512{layers}'
+                # Zoomed region from flare location
+                loc_str = rec.get('location', rec.get('source_location', ''))
+                if loc_str and len(loc_str) >= 4:
+                    try:
+                        lat_v = int(loc_str[1:3]) * (1 if loc_str[0] == 'N' else -1)
+                        lon_v = int(loc_str[4:]) * (-1 if loc_str[3] == 'W' else 1)
+                        x_arc = round(960 * _m.sin(_m.radians(lon_v)) * _m.cos(_m.radians(lat_v)))
+                        y_arc = round(960 * _m.sin(_m.radians(lat_v)))
+                        sdo_zoom_url = f'{base}?date={peak_z}&imageScale=1.2&x0={x_arc}&y0={y_arc}&width=512&height=512{layers}'
+                    except Exception:
+                        pass
 
             flare = {
                 'id': flare_id,
@@ -1756,6 +1769,7 @@ def fetch_goes_flares():
                 'duration_minutes': duration_minutes,
                 'radio_blackout': _radio_blackout_scale(max_flux),
                 'sdo_image_url': sdo_full_sun_url,
+                'sdo_zoom_url': sdo_zoom_url,
             }
             flares.append(flare)
 
@@ -1795,6 +1809,26 @@ def fetch_goes_flares():
                 log.info(f'GOES flares: enriched with DONKI data ({len(donki_flares)} DONKI records)')
         except Exception as e:
             log.info(f'GOES flares: DONKI enrichment skipped ({e})')
+
+        # Generate zoom URLs for flares that now have location data
+        import math as _m
+        base_hv = 'https://api.helioviewer.org/v2/takeScreenshot/'
+        layers_hv = '&layers=[SDO,AIA,AIA,131,1,100]&display=true&watermark=false'
+        for flare in flares:
+            if flare.get('sdo_zoom_url') or not flare.get('location') or not flare.get('peak_time'):
+                continue
+            loc = flare['location']
+            if len(loc) < 4:
+                continue
+            try:
+                lat_v = int(loc[1:3]) * (1 if loc[0] == 'N' else -1)
+                lon_v = int(loc[4:]) * (-1 if loc[3] == 'W' else 1)
+                x_arc = round(960 * _m.sin(_m.radians(lon_v)) * _m.cos(_m.radians(lat_v)))
+                y_arc = round(960 * _m.sin(_m.radians(lat_v)))
+                peak_z = flare['peak_time'].replace('+00:00', 'Z')
+                flare['sdo_zoom_url'] = f'{base_hv}?date={peak_z}&imageScale=1.2&x0={x_arc}&y0={y_arc}&width=512&height=512{layers_hv}'
+            except Exception:
+                pass
 
         # Enrich M/X flares with CME association + proton/radio events
         try:

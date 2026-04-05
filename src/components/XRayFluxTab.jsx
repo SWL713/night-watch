@@ -617,85 +617,94 @@ function FlareCard({ flare }) {
 function SDOImagePanel({ flare }) {
   const containerRef = useRef(null);
   const canvasRef = useRef(null);
+  const [zoomed, setZoomed] = useState(false);
 
-  // Convert heliographic coords (e.g. "N03W16") to pixel position on 512px full-sun image
+  // Helio coords to pixel on 512px image at imageScale=4.5
+  // Solar radius = 960 arcsec / 4.5 = 213.3 px, disk center at (256, 256)
   const parseHelioCoords = (loc) => {
     if (!loc || loc.length < 4) return null;
     try {
-      const latDir = loc[0]; // N or S
-      const latVal = parseInt(loc.substring(1, 3));
-      const lonDir = loc[3]; // E or W
-      const lonVal = parseInt(loc.substring(4));
-      const lat = latVal * (latDir === 'N' ? 1 : -1);
-      const lon = lonVal * (lonDir === 'W' ? -1 : 1);
+      const lat = parseInt(loc.substring(1, 3)) * (loc[0] === 'N' ? 1 : -1);
+      const lon = parseInt(loc.substring(4)) * (loc[3] === 'W' ? -1 : 1);
       return { lat, lon };
     } catch { return null; }
   };
 
-  // Helio coords to pixel on 512px image (solar radius ≈ 160px at imageScale=6.0)
-  const helioToPixel = (lat, lon) => {
-    const R = 160; // solar radius in pixels at 6.0 arcsec/px in 512px image
-    const latRad = lat * Math.PI / 180;
-    const lonRad = lon * Math.PI / 180;
-    const x = 256 + R * Math.sin(lonRad) * Math.cos(latRad);
-    const y = 256 - R * Math.sin(latRad);
-    return { x, y };
-  };
-
   const coords = parseHelioCoords(flare.location);
-  const pixelPos = coords ? helioToPixel(coords.lat, coords.lon) : null;
+  const pixelPos = coords ? (() => {
+    const R = 960 / 4.5;  // 213.3 px solar radius at imageScale=4.5
+    const latRad = coords.lat * Math.PI / 180;
+    const lonRad = coords.lon * Math.PI / 180;
+    return {
+      x: 256 + R * Math.sin(lonRad) * Math.cos(latRad),
+      y: 256 - R * Math.sin(latRad),
+    };
+  })() : null;
 
-
-  // Draw red bounding box on canvas overlay
-  useEffect(() => {
+  // Draw red bounding box
+  const drawBox = useCallback(() => {
     const canvas = canvasRef.current;
     const container = containerRef.current;
-    if (!canvas || !container || !pixelPos) return;
+    if (!canvas || !container || !pixelPos || zoomed) return;
     const rect = container.getBoundingClientRect();
-    const scale = Math.min(rect.width, rect.height) / 512;
-    canvas.width = rect.width;
-    canvas.height = rect.height;
+    const dpr = window.devicePixelRatio || 1;
+    canvas.width = rect.width * dpr;
+    canvas.height = rect.height * dpr;
+    canvas.style.width = rect.width + 'px';
+    canvas.style.height = rect.height + 'px';
     const ctx = canvas.getContext('2d');
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    ctx.scale(dpr, dpr);
+    ctx.clearRect(0, 0, rect.width, rect.height);
 
-    // Offset for centering the 512px image in the container
-    const imgW = 512 * scale;
-    const imgH = 512 * scale;
-    const offX = (rect.width - imgW) / 2;
-    const offY = (rect.height - imgH) / 2;
+    // The image uses objectFit:contain — find where the 512px image sits
+    const imgAspect = 1;  // square
+    const contAspect = rect.width / rect.height;
+    let imgW, imgH, offX, offY;
+    if (contAspect > imgAspect) {
+      imgH = rect.height; imgW = rect.height;
+      offX = (rect.width - imgW) / 2; offY = 0;
+    } else {
+      imgW = rect.width; imgH = rect.width;
+      offX = 0; offY = (rect.height - imgH) / 2;
+    }
+    const scale = imgW / 512;
 
     const px = offX + pixelPos.x * scale;
     const py = offY + pixelPos.y * scale;
-    const boxSize = 40 * scale;
+    const boxSize = 35 * scale;
 
     ctx.strokeStyle = '#ff3333';
     ctx.lineWidth = 2;
     ctx.strokeRect(px - boxSize / 2, py - boxSize / 2, boxSize, boxSize);
-  }, [pixelPos]);
+  }, [pixelPos, zoomed]);
+
+  useEffect(() => { drawBox(); }, [drawBox]);
+
+  // Redraw on image load
+  const handleImgLoad = useCallback(() => { drawBox(); }, [drawBox]);
+
+  const currentUrl = zoomed && flare.sdo_zoom_url ? flare.sdo_zoom_url : flare.sdo_image_url;
 
   return (
-    <div ref={containerRef} style={{ position: 'relative', width: '100%', height: '100%' }}>
+    <div ref={containerRef} style={{ position: 'relative', width: '100%', height: '100%', cursor: flare.sdo_zoom_url ? 'pointer' : 'default' }}
+         onClick={() => flare.sdo_zoom_url && setZoomed(!zoomed)}>
       <img
-        src={flare.sdo_image_url}
+        src={currentUrl}
         alt={`SDO AIA 131Å — ${flare.class_label || ''}`}
         style={{ width: '100%', height: '100%', objectFit: 'contain' }}
-        onLoad={() => {
-          // Redraw box after image loads
-          const evt = new Event('resize');
-          window.dispatchEvent(evt);
-        }}
+        onLoad={handleImgLoad}
       />
-      {/* Red bounding box overlay */}
-      <canvas
-        ref={canvasRef}
-        style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', pointerEvents: 'none' }}
-      />
-      {/* Label */}
+      {/* Red bounding box — only on full sun view */}
+      {!zoomed && (
+        <canvas ref={canvasRef}
+          style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', pointerEvents: 'none' }}
+        />
+      )}
       <div style={{
         position: 'absolute', bottom: 4, left: 4,
         fontSize: 7, color: '#888', fontFamily: FONT, background: 'rgba(0,0,0,0.6)', padding: '1px 4px', borderRadius: 2,
       }}>
-        SDO/AIA 131Å @ {flare.class_label || ''} peak
+        {zoomed ? 'Tap to zoom out' : 'SDO/AIA 131Å'} @ {flare.class_label || ''} peak
       </div>
     </div>
   );
