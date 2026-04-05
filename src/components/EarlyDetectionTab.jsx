@@ -40,7 +40,7 @@ const PRESETS = [
   { label: '7D',  ms: 7*86400000 },
 ];
 
-export default function EarlyDetectionTab({ epamData, stereoData, cmes }) {
+function EarlyDetectionTabInner({ epamData, stereoData, cmes }) {
   const [presetMs, setPresetMs] = useState(24 * 3600000);
   const [crosshairT, setCrosshairT] = useState(null);
   const [showElec, setShowElec] = useState(true);
@@ -234,5 +234,13 @@ export default function EarlyDetectionTab({ epamData, stereoData, cmes }) {
         <Toggle label="STEREO-A" active={showStereo} color="#cc88ff" onClick={() => setShowStereo(v => !v)} />
       </div>
     </div>
+  );
+}
+
+export default function EarlyDetectionTab(props) {
+  return (
+    <EarlyDetectionErrorBoundary>
+      <EarlyDetectionTabInner {...props} />
+    </EarlyDetectionErrorBoundary>
   );
 }
