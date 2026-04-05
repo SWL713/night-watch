@@ -1273,7 +1273,11 @@ function ClassificationBox({ classData, metadata, cmeId, cme: selectedCME }) {
         <Row label="Aurora" value={bz.aurora_potential} color={auCol} />
         {bz.peak_bz_estimate != null && <Row label="Peak" value={`${bz.peak_bz_estimate.toFixed(1)} nT`} color={C.bz_south} />}
         {bz.flux_rope_duration_hours != null && <Row label="Rope" value={`~${Number(bz.flux_rope_duration_hours).toFixed(0)}h`} />}
-        {sigs.structure_progress_pct != null && <Row label="Struct" value={`${sigs.structure_progress_pct > 100 ? 'passed' : sigs.structure_progress_pct.toFixed(0) + '%'}${cur.locked ? ' locked' : ''}`} />}
+        {sigs.structure_progress_pct != null && <Row label="Struct" value={
+          cur.data_source === 'stereo_a'
+            ? `${Math.min(sigs.structure_progress_pct, 100).toFixed(0)}% at STEREO-A`
+            : `${sigs.structure_progress_pct > 100 ? 'passed' : sigs.structure_progress_pct.toFixed(0) + '%'}${cur.locked ? ' locked' : ''}`
+        } />}
       </div>
 
       {/* COL 3: Longer fields — timing, trend, impact */}
@@ -1282,8 +1286,14 @@ function ClassificationBox({ classData, metadata, cmeId, cme: selectedCME }) {
         {cur.bs_type && cur.bs_type !== 'unknown' && (() => {
           const prog = sigs.structure_progress_pct || 0;
           const type = cur.bs_type;
-          // South-leading types (SEN/SWN/ESW/WSE): worsening early, improving late
-          // North-leading types (NES/NWS): improving early, worsening mid/late
+          const isStereo = cur.data_source === 'stereo_a';
+          // STEREO-A: show what to expect at Earth based on the type, not progress
+          if (isStereo) {
+            const southLeading = ['SEN', 'SWN', 'ESW', 'WSE'].includes(type);
+            const trend = southLeading ? 'Expect -Bz early' : 'Expect +Bz early';
+            const col = southLeading ? '#ffaa00' : C.bz_north;
+            return <Row label="At Earth" value={trend} color={col} />;
+          }
           const southLeading = ['SEN', 'SWN', 'ESW', 'WSE'].includes(type);
           let trend, trendCol;
           if (prog > 100) { trend = 'Subsiding'; trendCol = C.bz_north; }
