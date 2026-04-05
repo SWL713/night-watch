@@ -1754,6 +1754,39 @@ def fetch_goes_flares():
         flares.sort(key=lambda f: f.get('begin_time') or '', reverse=True)
         log.info(f'GOES flares: {len(flares)} unique flares after dedup')
 
+        # Enrich flares with AR number + location from DONKI
+        try:
+            from datetime import timedelta as _td
+            donki_start = (datetime.now(timezone.utc) - _td(days=8)).strftime('%Y-%m-%d')
+            donki_end = datetime.now(timezone.utc).strftime('%Y-%m-%d')
+            donki_url = f'https://kauai.ccmc.gsfc.nasa.gov/DONKI/WS/get/FLR?startDate={donki_start}&endDate={donki_end}'
+            donki_flares = safe_get(donki_url, timeout=15) or []
+            if donki_flares:
+                for flare in flares:
+                    if not flare.get('peak_time'):
+                        continue
+                    try:
+                        fp = datetime.fromisoformat(flare['peak_time'])
+                        if fp.tzinfo is None: fp = fp.replace(tzinfo=timezone.utc)
+                    except Exception:
+                        continue
+                    for df in donki_flares:
+                        if not isinstance(df, dict): continue
+                        try:
+                            dp = datetime.fromisoformat(str(df.get('peakTime', '')).replace('Z', '+00:00'))
+                            if dp.tzinfo is None: dp = dp.replace(tzinfo=timezone.utc)
+                            if abs((dp - fp).total_seconds()) < 600:  # within 10 min
+                                if df.get('activeRegionNum'):
+                                    flare['active_region'] = df['activeRegionNum']
+                                if df.get('sourceLocation'):
+                                    flare['location'] = df['sourceLocation']
+                                break
+                        except Exception:
+                            continue
+                log.info(f'GOES flares: enriched with DONKI data ({len(donki_flares)} DONKI records)')
+        except Exception as e:
+            log.info(f'GOES flares: DONKI enrichment skipped ({e})')
+
         # Enrich M/X flares with CME association + proton/radio events
         try:
             cme_queue_path = os.path.join(os.path.dirname(__file__), '..', 'data', 'cme_queue.json')
