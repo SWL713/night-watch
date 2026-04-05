@@ -132,22 +132,10 @@ export default function ClearSkyLayer({
         )), 0.4)
         const idx = (py * CANVAS_W + px) * 4
         if (cf <= p60) {
-          const cfBINS = [
-            { maxCf: p20, alpha: 153, nextAlpha: 95 },
-            { maxCf: p40, alpha: 95,  nextAlpha: 45 },
-            { maxCf: p60, alpha: 45,  nextAlpha: 0  },
-          ]
-          let aAlpha = 0
-          for (const bin of cfBINS) {
-            const lo = bin.maxCf - AA * 100
-            const hi = bin.maxCf + AA * 100
-            if (cf > hi) continue
-            if (cf <= lo) { aAlpha = bin.alpha; break }
-            const t = (hi - cf) / (2 * AA * 100)
-            const s = t * t * (3 - 2 * t)
-            aAlpha = Math.round(bin.nextAlpha + (bin.alpha - bin.nextAlpha) * s)
-            break
-          }
+          // Linear alpha: fully opaque at 0% cloud, transparent at p60
+          const range = Math.max(p60, 5)  // avoid division by zero
+          const frac = Math.max(0, 1 - cf / range)
+          const aAlpha = Math.round(30 + 123 * frac)  // 30 at p60 edge, 153 at 0% cloud
           if (aAlpha > 2) {
             d[idx]=0; d[idx+1]=210; d[idx+2]=160; d[idx+3]=Math.round(aAlpha * edgeFade)
           }
