@@ -82,8 +82,8 @@ class BothmerSchwennClassifier:
             },
             'bz_predictions': {
                 'description': result['aurora_impact'],
-                'aurora_potential': self._map_aurora_potential(result['type']),
-                'kp_estimate': self._map_kp_estimate(result['type']),
+                'aurora_potential': self._map_aurora_potential(result['type'], result.get('peak_bz_estimate_nT')),
+                'kp_estimate': self._map_kp_estimate(result['type'], result.get('peak_bz_estimate_nT')),
                 'onset_time': result['bz_onset_timing'],
                 'duration_hours_low': result['bz_south_duration_hrs_low'],
                 'duration_hours_high': result['bz_south_duration_hrs_high'],
@@ -118,23 +118,50 @@ class BothmerSchwennClassifier:
         }
         return names.get(bs_type, bs_type)
     
-    def _map_aurora_potential(self, bs_type):
-        """Map B-S type to aurora potential"""
-        mapping = {
-            'NES': 'EXCELLENT',
-            'NWS': 'GOOD',
-            'SEN': 'GOOD',
-            'SWN': 'WEAK',
-            'ESW': 'EXTREME',
-            'WSE': 'EXTREME',
-            'ENW': 'NONE',
-            'WNE': 'NONE',
-            'unknown': 'UNKNOWN'
+    def _map_aurora_potential(self, bs_type, peak_bz=None):
+        """Map B-S type to aurora potential, modulated by actual peak Bz.
+        Type gives the ceiling; Bz magnitude determines if it's reached."""
+        type_ceiling = {
+            'NES': 4, 'NWS': 3, 'SEN': 3, 'SWN': 1,
+            'ESW': 5, 'WSE': 5, 'ENW': 0, 'WNE': 0, 'unknown': 0
         }
-        return mapping.get(bs_type, 'UNKNOWN')
-    
-    def _map_kp_estimate(self, bs_type):
-        """Map B-S type to Kp estimate"""
+        # Bz-based level: how strong is the actual southward field?
+        if peak_bz is None:
+            bz_level = type_ceiling.get(bs_type, 0)
+        elif peak_bz > -3:
+            bz_level = 0  # barely southward
+        elif peak_bz > -5:
+            bz_level = 1  # weak
+        elif peak_bz > -10:
+            bz_level = 2  # moderate
+        elif peak_bz > -20:
+            bz_level = 3  # good
+        elif peak_bz > -30:
+            bz_level = 4  # excellent
+        else:
+            bz_level = 5  # extreme
+
+        level = min(type_ceiling.get(bs_type, 0), bz_level)
+        labels = {0: 'NONE', 1: 'WEAK', 2: 'MODERATE', 3: 'GOOD', 4: 'EXCELLENT', 5: 'EXTREME'}
+        return labels[level]
+
+    def _map_kp_estimate(self, bs_type, peak_bz=None):
+        """Map B-S type to Kp estimate, modulated by actual peak Bz and type duration."""
+        # Type duration weights: how much of the peak Bz is sustained
+        # ESW/WSE sustain south throughout, SWN is brief
+        type_weight = {
+            'ESW': 1.0, 'WSE': 1.0, 'NES': 0.8, 'NWS': 0.7,
+            'SEN': 0.7, 'SWN': 0.4, 'ENW': 0.0, 'WNE': 0.0
+        }.get(bs_type, 0.5)
+        if peak_bz is not None and peak_bz < 0 and type_weight > 0:
+            effective_bz = abs(peak_bz) * type_weight
+            kp_est = min(9, 2.0 + effective_bz / 3)
+            kp_lo = max(0, int(kp_est - 0.5))
+            kp_hi = min(9, int(kp_est + 0.5))
+            if type_weight <= 0.1:
+                return 'N/A'
+            return f'{kp_lo}-{kp_hi}'
+        # Fallback to type-based
         mapping = {
             'NES': '6-7',
             'NWS': '5-6',

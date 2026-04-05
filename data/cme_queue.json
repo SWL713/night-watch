@@ -1,6 +1,6 @@
 {
   "metadata": {
-    "last_updated": "2026-04-05T13:14:17.647792+00:00"
+    "last_updated": "2026-04-05T13:17:54.522104+00:00"
   },
   "active_cme_id": "CME_2026-04-02T20:46Z",
   "cmes": [
@@ -20,7 +20,7 @@
       },
       "properties": {
         "speed_initial": 583.4,
-        "speed_current": 521,
+        "speed_current": 526,
         "half_angle": 16.0,
         "type": "Common",
         "direction_lat": 20.0,
@@ -69,11 +69,11 @@
         "confidence": null
       },
       "position": {
-        "distance_au": 0.905,
-        "distance_rsun": 194.6,
-        "progress_percent": 90.5,
-        "eta_hours": 6.8,
-        "velocity_current": 428.8,
+        "distance_au": 0.906,
+        "distance_rsun": 194.8,
+        "progress_percent": 90.6,
+        "eta_hours": 6.7,
+        "velocity_current": 428.7,
         "speed_estimated": false
       },
       "aurora_rating": {
@@ -100,7 +100,7 @@
       },
       "properties": {
         "speed_initial": 554.1,
-        "speed_current": 521,
+        "speed_current": 526,
         "half_angle": 13.0,
         "type": "Faint CME",
         "direction_lat": 10.0,
@@ -152,13 +152,13 @@
         "distance_au": 1.0,
         "distance_rsun": 215.0,
         "progress_percent": 100,
-        "eta_hours": -31.2,
+        "eta_hours": -31.3,
         "velocity_current": 421.1,
         "speed_estimated": false
       },
       "aurora_rating": {
         "stars": 3,
-        "confidence": 31,
+        "confidence": 32,
         "basis": "Early: NWS type (36% passed), peak -4.9 nT"
       },
       "created_at": "2026-04-05T04:29:23.053737+00:00",
