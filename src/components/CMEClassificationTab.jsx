@@ -86,7 +86,7 @@ function CMEClassificationTab({ cmes, classifications, classificationMetadata, m
   // Plot data: STEREO-A for pre-arrival, L1 for arrived/passed
   // Map stereo Bn→bz, Bt→bt, Br→bx for plot compatibility
   const plotData = isPreArrival ? stereoData.map(d => ({
-    time: d.time, bz: d.bn, by: null, bx: d.br, bt: d.bt, phi: null
+    time: d.time, bz: d.bn, by: d.bt_tan, bx: d.br, bt: d.bt, phi: null
   })) : magData;
   const plotLabel = isPreArrival ? 'STEREO-A (RTN)' : 'L1 (GSM)';
 

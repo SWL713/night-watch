@@ -47,6 +47,7 @@ function parseStereoData(raw) {
   const iBn = cols.indexOf('bn');
   const iBt = cols.indexOf('bt_tot');
   const iBr = cols.indexOf('br');
+  const iBtan = cols.indexOf('bt_tan');
   if (iTime === -1) return [];
   return raw.data.map(row => {
     try {
@@ -57,6 +58,7 @@ function parseStereoData(raw) {
         bn: iBn >= 0 ? row[iBn] : null,
         bt: iBt >= 0 ? row[iBt] : null,
         br: iBr >= 0 ? row[iBr] : null,
+        bt_tan: iBtan >= 0 ? row[iBtan] : null,
       };
     } catch { return null; }
   }).filter(Boolean);
