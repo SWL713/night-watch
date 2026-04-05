@@ -1253,6 +1253,14 @@ function ClassificationBox({ classData, metadata, cmeId }) {
         <div style={{ fontSize: 7, color: C.textDim, marginTop: 3, textAlign: 'center', lineHeight: 1.2, maxWidth: 76 }}>
           {cur.bs_type_full || ''}
         </div>
+        {selectedCME && ['ARRIVED', 'STORM_ACTIVE'].includes(selectedCME.state?.current) && (() => {
+          const h = selectedCME.state?.history?.find(h => h.to === 'ARRIVED');
+          if (!h) return null;
+          try {
+            const d = new Date(h.timestamp);
+            return <div style={{ fontSize: 6, color: '#44ddaa', marginTop: 1 }}>Arrived {d.getUTCMonth()+1}/{d.getUTCDate()} {String(d.getUTCHours()).padStart(2,'0')}:{String(d.getUTCMinutes()).padStart(2,'0')} UTC</div>;
+          } catch { return null; }
+        })()}
         {cmeId && <div style={{ fontSize: 6, color: C.textFaint, marginTop: 1, letterSpacing: 0.5 }}>{cmeId}</div>}
       </div>
 
