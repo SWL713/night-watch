@@ -209,7 +209,18 @@ class BothmerSchwennClassifier:
 
         # Adjust for state
         if arrived:
-            status_text = 'Classification in progress — collecting post-arrival L1 data'
+            # Find arrived timestamp from state history
+            arrived_at = ''
+            for h in cme['state'].get('history', []):
+                if h.get('to') == 'ARRIVED':
+                    try:
+                        from datetime import datetime as _dt
+                        at = _dt.fromisoformat(h['timestamp'].replace('Z', '+00:00'))
+                        arrived_at = f' @ {at.strftime("%b %d %H:%M")} UTC'
+                    except Exception:
+                        pass
+                    break
+            status_text = f'Arrived{arrived_at} — collecting L1 data'
             eta_text = 'arrived'
             confidence = min(confidence + 5, 30)
             notes = [
@@ -231,9 +242,17 @@ class BothmerSchwennClassifier:
         if flux_notes:
             notes.extend(flux_notes)
 
+        # For arrived CMEs, set a window from ARRIVED timestamp to now
+        pred_window = None
+        if arrived:
+            for h in cme['state'].get('history', []):
+                if h.get('to') == 'ARRIVED':
+                    pred_window = {'start': h['timestamp'], 'end': None}
+                    break
+
         return {
             'active': True,
-            'classification_window': None,
+            'classification_window': pred_window,
             'current': {
                 'bs_type': 'unknown',
                 'bs_type_full': status_text,

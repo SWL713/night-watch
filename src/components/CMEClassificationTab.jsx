@@ -257,7 +257,7 @@ function CMEClassificationTab({ cmes, classifications, classificationMetadata, m
           {allCMEs.length > 0 && (
             <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap', justifyContent: 'center' }}>
               {allCMEs.map((cme, i) => {
-                const colors = ['#44aaff', '#ffaa33', '#ff5577', '#44ddaa', '#aa88ff', '#ff8844'];
+                const colors = ['#00FFF0', '#FF00FF', '#00FF00', '#FFFF00', '#FF0080', '#0080FF', '#FF8000', '#80FF00'];
                 const col = colors[i % colors.length];
                 const isSelected = cme.id === selectedCMEId;
                 const label = `CME ${i + 1}`;
