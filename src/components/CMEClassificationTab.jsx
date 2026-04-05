@@ -1244,7 +1244,9 @@ function ClassificationBox({ classData, metadata, cmeId, cme: selectedCME }) {
           </span>
         </div>
         <div style={{ fontSize: 7, color: C.textDim, marginTop: 3, textAlign: 'center', lineHeight: 1.2, maxWidth: 76 }}>
-          {cur.bs_type_full || ''}
+          <span style={{ color: cur.data_source === 'stereo_a' ? '#ffaa00' : C.textDim }}>
+            {cur.bs_type_full || ''}
+          </span>
         </div>
         {selectedCME && ['ARRIVED', 'STORM_ACTIVE'].includes(selectedCME.state?.current) && (() => {
           const h = selectedCME.state?.history?.find(h => h.to === 'ARRIVED');
@@ -1296,7 +1298,7 @@ function ClassificationBox({ classData, metadata, cmeId, cme: selectedCME }) {
         {sigs.bz_onset_timing && <Row label="-Bz onset" value={sigs.bz_onset_timing} />}
         <Row label="Chirality" value={cur.chirality} />
         {bz.description && (
-          <div style={{ fontSize: 8, color: C.text, background: C.panelBg, padding: '3px 5px', borderRadius: 2, lineHeight: 1.2, marginTop: 1 }}>
+          <div style={{ fontSize: 8, color: cur.data_source === 'stereo_a' ? '#ffaa00' : C.text, background: C.panelBg, padding: '3px 5px', borderRadius: 2, lineHeight: 1.2, marginTop: 1 }}>
             {bz.description}
           </div>
         )}
