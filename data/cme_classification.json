@@ -1,6 +1,6 @@
 {
   "metadata": {
-    "last_updated": "2026-04-05T20:45:19.485541+00:00",
+    "last_updated": "2026-04-05T21:29:59.903369+00:00",
     "active_cme_id": "CME_2026-04-02T20:46Z"
   },
   "classifications": {
@@ -14,7 +14,7 @@
       "current": {
         "bs_type": "ESW",
         "bs_type_full": "East-South-West (South throughout - extreme storm) (STEREO-A preview)",
-        "confidence": 32.1214479059684,
+        "confidence": 32.12144790596841,
         "confidence_trend": "BUILDING",
         "locked": false,
         "passed": false,

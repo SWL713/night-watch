@@ -1,6 +1,6 @@
 {
   "metadata": {
-    "last_updated": "2026-04-05T20:45:19.485541+00:00"
+    "last_updated": "2026-04-05T21:29:59.903369+00:00"
   },
   "active_cme_id": "CME_2026-04-02T20:46Z",
   "cmes": [
@@ -67,8 +67,8 @@
         "distance_au": 1.0,
         "distance_rsun": 215.0,
         "progress_percent": 100,
-        "eta_hours": -0.8,
-        "velocity_current": 426.2,
+        "eta_hours": -1.5,
+        "velocity_current": 426.0,
         "speed_estimated": false
       },
       "aurora_rating": {
