@@ -198,8 +198,9 @@ class BothmerSchwennClassifier:
             i_bn = cols.index('bn') if 'bn' in cols else -1
             i_bt = cols.index('bt_tot') if 'bt_tot' in cols else -1
             i_br = cols.index('br') if 'br' in cols else -1
+            i_bt_tan = cols.index('bt_tan') if 'bt_tan' in cols else -1
         else:
-            i_time, i_bn, i_bt, i_br = 0, 1, 2, 3
+            i_time, i_bn, i_bt, i_br, i_bt_tan = 0, 1, 2, 3, -1
 
         # Build fake mag data: [time, Bx(=Br), By(=0), Bz(=Bn), Bt]
         fake_mag = {'columns': ['time', 'bx', 'by', 'bz', 'bt', 'phi'], 'data': []}
@@ -209,15 +210,18 @@ class BothmerSchwennClassifier:
                 bn = row[i_bn] if i_bn >= 0 and i_bn < len(row) else None
                 bt = row[i_bt] if i_bt >= 0 and i_bt < len(row) else None
                 br = row[i_br] if i_br >= 0 and i_br < len(row) else None
+                bt_tan = row[i_bt_tan] if i_bt_tan >= 0 and i_bt_tan < len(row) else None
             elif isinstance(row, dict):
                 t = row.get('timestamp', row.get('time'))
                 bn = row.get('mag_hgrtn_n_nT', row.get('bn'))
                 bt = row.get('Bt_nT', row.get('bt_tot'))
                 br = row.get('mag_hgrtn_r_nT', row.get('br'))
+                bt_tan = row.get('mag_hgrtn_t_nT', row.get('bt_tan'))
             else:
                 continue
             if t and bn is not None:
-                fake_mag['data'].append([t, br or 0, 0, bn, bt or abs(bn), 0])
+                # Map RTN → GSM-like: Br→Bx, Bt_tan→By, Bn→Bz, Bt_tot→Bt
+                fake_mag['data'].append([t, br or 0, bt_tan or 0, bn, bt or abs(bn), 0])
 
         if len(fake_mag['data']) < 120:
             return self._predictive_classification(cme, ['STEREO-A: insufficient valid Bn data'])
