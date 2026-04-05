@@ -903,7 +903,7 @@ export default function XRayFluxTab() {
         </div>
 
         {/* Bottom: Last M/X Flare Report — flex 4 */}
-        <div style={{ flex: 4, padding: '4px 10px 6px', minHeight: 0, display: 'flex', gap: 6 }}>
+        <div style={{ flex: 4, padding: '4px 10px 6px', minHeight: 0, overflow: 'hidden', display: 'flex', gap: 6 }}>
           {/* Left: Flare data card */}
           <div style={{ flex: 1, display: 'flex', minHeight: 0 }}>
             <FlareCard flare={lastMXFlare} />

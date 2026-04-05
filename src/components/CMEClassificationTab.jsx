@@ -677,19 +677,24 @@ function ByPlot({ data, timeRange, ejectaStart, classWindow, crosshairT, onCross
       ctx.stroke();
     }
     
-    // Classification window highlight
+    // Classification window highlight — persists across all zoom/time changes
     if (classWindow?.start) {
       const cwStart = new Date(classWindow.start).getTime();
-      const cwEnd = classWindow.end ? new Date(classWindow.end).getTime() : tMax;
-      const dim = 'rgba(0,0,0,0.45)';
-      if (cwStart > tMin) {
+      const cwEnd = classWindow.end ? new Date(classWindow.end).getTime() : (cwStart + 24 * 3600000);
+      const dim = 'rgba(0,0,0,0.55)';
+      if (cwEnd <= tMin || cwStart >= tMax) {
         ctx.fillStyle = dim;
-        ctx.fillRect(PAD.l, PAD.t, xScale(Math.min(cwStart, tMax)) - PAD.l, pH);
+        ctx.fillRect(PAD.l, PAD.t, pW, pH);
+      } else {
+        if (cwStart > tMin) { ctx.fillStyle = dim; ctx.fillRect(PAD.l, PAD.t, xScale(cwStart) - PAD.l, pH); }
+        if (cwEnd < tMax) { ctx.fillStyle = dim; ctx.fillRect(xScale(cwEnd), PAD.t, PAD.l + pW - xScale(cwEnd), pH); }
+        ctx.fillStyle = 'rgba(68,170,255,0.04)';
+        ctx.fillRect(xScale(Math.max(cwStart, tMin)), PAD.t, xScale(Math.min(cwEnd, tMax)) - xScale(Math.max(cwStart, tMin)), pH);
       }
-      if (cwEnd < tMax) {
-        ctx.fillStyle = dim;
-        ctx.fillRect(xScale(Math.max(cwEnd, tMin)), PAD.t, PAD.l + pW - xScale(Math.max(cwEnd, tMin)), pH);
-      }
+      ctx.setLineDash([3, 3]); ctx.lineWidth = 1.2; ctx.strokeStyle = 'rgba(68,170,255,0.5)';
+      if (cwStart > tMin && cwStart < tMax) { const x = xScale(cwStart); ctx.beginPath(); ctx.moveTo(x, PAD.t); ctx.lineTo(x, PAD.t + pH); ctx.stroke(); }
+      if (cwEnd > tMin && cwEnd < tMax) { const x = xScale(cwEnd); ctx.beginPath(); ctx.moveTo(x, PAD.t); ctx.lineTo(x, PAD.t + pH); ctx.stroke(); }
+      ctx.setLineDash([]);
     }
 
     // Ejecta marker
@@ -944,19 +949,24 @@ function PhiPlot({ data, timeRange, ejectaStart, classWindow, crosshairT, onCros
       }
     }
     
-    // Classification window highlight
+    // Classification window highlight — persists across all zoom/time changes
     if (classWindow?.start) {
       const cwStart = new Date(classWindow.start).getTime();
-      const cwEnd = classWindow.end ? new Date(classWindow.end).getTime() : tMax;
-      const dim = 'rgba(0,0,0,0.45)';
-      if (cwStart > tMin) {
+      const cwEnd = classWindow.end ? new Date(classWindow.end).getTime() : (cwStart + 24 * 3600000);
+      const dim = 'rgba(0,0,0,0.55)';
+      if (cwEnd <= tMin || cwStart >= tMax) {
         ctx.fillStyle = dim;
-        ctx.fillRect(PAD.l, PAD.t, xScale(Math.min(cwStart, tMax)) - PAD.l, pH);
+        ctx.fillRect(PAD.l, PAD.t, pW, pH);
+      } else {
+        if (cwStart > tMin) { ctx.fillStyle = dim; ctx.fillRect(PAD.l, PAD.t, xScale(cwStart) - PAD.l, pH); }
+        if (cwEnd < tMax) { ctx.fillStyle = dim; ctx.fillRect(xScale(cwEnd), PAD.t, PAD.l + pW - xScale(cwEnd), pH); }
+        ctx.fillStyle = 'rgba(68,170,255,0.04)';
+        ctx.fillRect(xScale(Math.max(cwStart, tMin)), PAD.t, xScale(Math.min(cwEnd, tMax)) - xScale(Math.max(cwStart, tMin)), pH);
       }
-      if (cwEnd < tMax) {
-        ctx.fillStyle = dim;
-        ctx.fillRect(xScale(Math.max(cwEnd, tMin)), PAD.t, PAD.l + pW - xScale(Math.max(cwEnd, tMin)), pH);
-      }
+      ctx.setLineDash([3, 3]); ctx.lineWidth = 1.2; ctx.strokeStyle = 'rgba(68,170,255,0.5)';
+      if (cwStart > tMin && cwStart < tMax) { const x = xScale(cwStart); ctx.beginPath(); ctx.moveTo(x, PAD.t); ctx.lineTo(x, PAD.t + pH); ctx.stroke(); }
+      if (cwEnd > tMin && cwEnd < tMax) { const x = xScale(cwEnd); ctx.beginPath(); ctx.moveTo(x, PAD.t); ctx.lineTo(x, PAD.t + pH); ctx.stroke(); }
+      ctx.setLineDash([]);
     }
 
     // Ejecta marker
