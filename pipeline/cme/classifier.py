@@ -40,30 +40,36 @@ class BothmerSchwennClassifier:
         
         # Classification window: ejecta_start → actual analysis extent (not fixed +24h)
         ejecta_start = result.get('ejecta_start_time')
+        progress = result['structure_progress_pct']
+        conf = self._decay_confidence(result['confidence_pct'], progress)
+        is_passed = progress > 120 or conf < 10
+
+        # Window end: cap at 24h (full rope duration) for passed classifications
+        # Don't let the window extend indefinitely into the future
         analysis_end = None
         if ejecta_start:
             from datetime import datetime, timedelta, timezone as tz
             try:
                 dt = datetime.fromisoformat(str(ejecta_start)).replace(tzinfo=tz.utc)
-                elapsed = result['structure_progress_pct'] / 100 * 24.0
-                analysis_end = (dt + timedelta(hours=elapsed)).isoformat()
+                cap_hours = min(progress / 100 * 24.0, 24.0)  # never beyond 24h
+                analysis_end = (dt + timedelta(hours=cap_hours)).isoformat()
             except Exception:
                 pass
 
         classification = {
-            'active': True,
+            'active': not is_passed,
             'classification_window': {
                 'start': ejecta_start,
                 'end': analysis_end,
-                'duration_hours': result['structure_progress_pct'] / 100 * 24.0
+                'duration_hours': min(progress / 100 * 24.0, 24.0)
             },
             'current': {
                 'bs_type': result['type'],
-                'bs_type_full': self._expand_type_name(result['type']),
-                'confidence': self._decay_confidence(result['confidence_pct'], result['structure_progress_pct']),
-                'confidence_trend': 'DECAYING' if result['structure_progress_pct'] > 120 else 'STABLE',
-                'locked': 80 <= result['structure_progress_pct'] <= 120,
-                'passed': result['structure_progress_pct'] > 120,
+                'bs_type_full': self._expand_type_name(result['type']) + (' (passed)' if is_passed else ''),
+                'confidence': conf,
+                'confidence_trend': 'DECAYING' if progress > 120 else 'STABLE',
+                'locked': 80 <= progress <= 120,
+                'passed': is_passed,
                 'chirality': result['chirality']
             },
             'signatures': {
@@ -111,8 +117,11 @@ class BothmerSchwennClassifier:
     def _map_aurora_potential(self, bs_type, peak_bz=None):
         """Map B-S type to aurora potential, modulated by actual peak Bz.
         Type gives the ceiling; Bz magnitude determines if it's reached."""
+        # Ceiling reflects max aurora potential for each type:
+        # South-leading types CAN produce strong aurora during peak,
+        # even if the south phase is shorter. North-throughout types cap at NONE.
         type_ceiling = {
-            'NES': 4, 'NWS': 3, 'SEN': 3, 'SWN': 1,
+            'NES': 4, 'NWS': 3, 'SEN': 4, 'SWN': 3,
             'ESW': 5, 'WSE': 5, 'ENW': 0, 'WNE': 0, 'unknown': 0
         }
         # Bz-based level: how strong is the actual southward field?
@@ -141,7 +150,7 @@ class BothmerSchwennClassifier:
         # ESW/WSE sustain south throughout, SWN is brief
         type_weight = {
             'ESW': 1.0, 'WSE': 1.0, 'NES': 0.8, 'NWS': 0.7,
-            'SEN': 0.7, 'SWN': 0.4, 'ENW': 0.0, 'WNE': 0.0
+            'SEN': 0.7, 'SWN': 0.6, 'ENW': 0.0, 'WNE': 0.0
         }.get(bs_type, 0.5)
         if peak_bz is not None and peak_bz < 0 and type_weight > 0:
             effective_bz = abs(peak_bz) * type_weight

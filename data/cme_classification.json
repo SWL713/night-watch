@@ -1,6 +1,6 @@
 {
   "metadata": {
-    "last_updated": "2026-04-05T17:24:16.274255+00:00",
+    "last_updated": "2026-04-05T16:15:54.281175+00:00",
     "active_cme_id": "CME_2026-04-02T20:46Z"
   },
   "classifications": {
@@ -14,7 +14,7 @@
       "current": {
         "bs_type": "NES",
         "bs_type_full": "North-East-South (South mid/trailing - sustained storm) (STEREO-A preview)",
-        "confidence": 28.525993742162285,
+        "confidence": 28.525993742162342,
         "confidence_trend": "BUILDING",
         "locked": false,
         "passed": false,
@@ -53,8 +53,8 @@
       "active": true,
       "classification_window": {
         "start": "2026-04-01T11:27:00",
-        "end": "2026-04-05T17:11:00+00:00",
-        "duration_hours": 101.73333333333333
+        "end": "2026-04-05T16:12:00+00:00",
+        "duration_hours": 100.75
       },
       "current": {
         "bs_type": "SWN",
@@ -66,7 +66,7 @@
         "chirality": "left-handed"
       },
       "signatures": {
-        "structure_progress_pct": 423.8888888888889,
+        "structure_progress_pct": 419.7916666666667,
         "bz_onset_timing": "early (0.7h post-shock)"
       },
       "bz_predictions": {
@@ -74,8 +74,8 @@
         "aurora_potential": "WEAK",
         "kp_estimate": "3-4",
         "onset_time": "early (0.7h post-shock)",
-        "duration_hours_low": 5.366162036266845,
-        "duration_hours_high": 13.415405090667111,
+        "duration_hours_low": 5.403023177695666,
+        "duration_hours_high": 13.507557944239165,
         "peak_bz_estimate": -15.65,
         "flux_rope_duration_hours": 24.0,
         "bz_south_onset_hours": 0.6666666666666666
