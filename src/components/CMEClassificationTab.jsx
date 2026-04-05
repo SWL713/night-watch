@@ -1247,7 +1247,7 @@ function ClassificationBox({ classData, metadata, cmeId }) {
           background: 'rgba(255,255,255,0.03)',
         }}>
           <span style={{ fontSize: 26, fontWeight: 700, color: C.text, letterSpacing: 2 }}>
-            {cur.bs_type || '?'}
+            {cur.bs_type && cur.bs_type !== 'unknown' ? cur.bs_type : 'TBD'}
           </span>
         </div>
         <div style={{ fontSize: 7, color: C.textDim, marginTop: 3, textAlign: 'center', lineHeight: 1.2, maxWidth: 76 }}>
