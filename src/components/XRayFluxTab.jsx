@@ -183,14 +183,17 @@ function XRayPlot({ data, flares, timeRange, showXrsB, showXrsA, showFlares, cro
     const [tMin, tMax] = timeRange;
     const visData = (data || []).filter(d => d.time >= tMin && d.time <= tMax);
 
-    // Auto-scale Y: find min/max flux in visible data, pad by 1 decade
-    let dataMin = 1e-8, dataMax = 1e-4;
+    // Auto-scale Y: use 2nd/98th percentile to ignore outlier dips/spikes
+    const allFlux = [];
     for (const d of visData) {
-      if (d.fluxLong > 0) { dataMin = Math.min(dataMin, d.fluxLong); dataMax = Math.max(dataMax, d.fluxLong); }
-      if (d.fluxShort > 0) { dataMin = Math.min(dataMin, d.fluxShort); dataMax = Math.max(dataMax, d.fluxShort); }
+      if (d.fluxLong > 0) allFlux.push(d.fluxLong);
+      if (d.fluxShort > 0) allFlux.push(d.fluxShort);
     }
-    const logMin = Math.floor(Math.log10(dataMin)) - 1;
-    const logMax = Math.ceil(Math.log10(dataMax)) + 0.5;
+    allFlux.sort((a, b) => a - b);
+    const p2 = allFlux[Math.floor(allFlux.length * 0.02)] || 1e-8;
+    const p98 = allFlux[Math.floor(allFlux.length * 0.98)] || 1e-4;
+    const logMin = Math.floor(Math.log10(p2)) - 0.5;
+    const logMax = Math.ceil(Math.log10(p98)) + 0.5;
 
     const xScale = (t) => PAD.l + ((t - tMin) / (tMax - tMin)) * pW;
     const yScale = (v) => {
@@ -686,12 +689,12 @@ function SDOImagePanel({ flare }) {
   const currentUrl = zoomed && flare.sdo_zoom_url ? flare.sdo_zoom_url : flare.sdo_image_url;
 
   return (
-    <div ref={containerRef} style={{ position: 'relative', width: '100%', height: '100%', cursor: flare.sdo_zoom_url ? 'pointer' : 'default' }}
+    <div ref={containerRef} style={{ position: 'relative', width: '100%', height: '100%', display: 'flex', alignItems: 'start', justifyContent: 'center', cursor: flare.sdo_zoom_url ? 'pointer' : 'default' }}
          onClick={() => flare.sdo_zoom_url && setZoomed(!zoomed)}>
       <img
         src={currentUrl}
         alt={`SDO AIA 131Å — ${flare.class_label || ''}`}
-        style={{ width: '100%', height: '100%', objectFit: 'contain' }}
+        style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain' }}
         onLoad={handleImgLoad}
       />
       {/* Red bounding box — only on full sun view */}
