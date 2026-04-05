@@ -2,7 +2,7 @@
   "metadata": {
     "last_updated": "2026-04-05T06:11:28.465117+00:00"
   },
-  "active_cme_id": "CME_2026-04-01T03:00Z",
+  "active_cme_id": "CME_2026-04-02T20:46Z",
   "cmes": [
     {
       "id": "CME_2026-04-02T20:46Z",
@@ -20,7 +20,7 @@
       },
       "properties": {
         "speed_initial": 583.4,
-        "speed_current": 583.4,
+        "speed_current": 572,
         "half_angle": 16.0,
         "type": "Common",
         "direction_lat": 20.0,
@@ -36,8 +36,8 @@
         "scoreboard_url": "https://kauai.ccmc.gsfc.nasa.gov/CMEscoreboard/"
       },
       "state": {
-        "current": "INBOUND",
-        "entered_at": "2026-04-05T04:29:26.687585+00:00",
+        "current": "ARRIVED",
+        "entered_at": "2026-04-05T07:38:52.925860+00:00",
         "history": [
           {
             "from": "QUIET",
@@ -48,6 +48,16 @@
             "from": "WATCH",
             "to": "INBOUND",
             "timestamp": "2026-04-05T04:29:26.687582+00:00"
+          },
+          {
+            "from": "INBOUND",
+            "to": "IMMINENT",
+            "timestamp": "2026-04-05T07:38:52.925675+00:00"
+          },
+          {
+            "from": "IMMINENT",
+            "to": "ARRIVED",
+            "timestamp": "2026-04-05T07:38:52.925853+00:00"
           }
         ]
       },
@@ -90,7 +100,7 @@
       },
       "properties": {
         "speed_initial": 554.1,
-        "speed_current": 555,
+        "speed_current": 572,
         "half_angle": 13.0,
         "type": "Faint CME",
         "direction_lat": 10.0,
