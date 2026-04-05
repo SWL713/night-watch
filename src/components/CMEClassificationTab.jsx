@@ -1122,60 +1122,72 @@ function PhiPlot({ data, timeRange, ejectaStart, hlStart, hlEnd, crosshairT, onC
 }
 
 // Detect significant phi changes — HCS crossings and sector boundaries
-// Tuned to reduce false positives: longer windows, stricter thresholds,
-// requires sustained Bx polarity flip for HCS, wider skip to prevent clustering
+// Phase 1: scan all data for candidates with strict thresholds
+// Phase 2: cluster nearby candidates, keep strongest per cluster
 function detectPhiChanges(data) {
-  const changes = [];
-  const W = 60; // 60-minute window (was 30 — too noisy)
-  const MIN_SKIP = 120; // skip 2h after detection to prevent clustering
+  const W = 60; // 60-minute comparison window
+  const CLUSTER_MS = 60 * 60000; // 1h cluster radius
 
+  // Phase 1: find all candidates
+  const candidates = [];
   for (let i = W; i < data.length - W; i++) {
     const before = data.slice(i - W, i).filter(d => d.phi !== null);
     const after = data.slice(i, i + W).filter(d => d.phi !== null);
-
     if (before.length < 20 || after.length < 20) continue;
 
     const phiBefore = before.reduce((s, d) => s + d.phi, 0) / before.length;
     const phiAfter = after.reduce((s, d) => s + d.phi, 0) / after.length;
-
     let delta = phiAfter - phiBefore;
     if (delta > 180) delta -= 360;
     if (delta < -180) delta += 360;
     const absDelta = Math.abs(delta);
+    if (absDelta < 120) continue;
 
-    if (absDelta < 120) continue; // ignore small rotations (was 90)
+    // Score: larger rotation + stronger Bx flip = better candidate
+    let score = absDelta;
+    let isHCS = false;
 
-    // HCS: requires Bx polarity flip + sustained phi rotation 140-220°
     const bxB = before.filter(d => d.bx !== null && Math.abs(d.bx) > 0.5).map(d => d.bx);
     const bxA = after.filter(d => d.bx !== null && Math.abs(d.bx) > 0.5).map(d => d.bx);
-
     if (bxB.length > 10 && bxA.length > 10) {
       const avgBxB = bxB.reduce((a, b) => a + b) / bxB.length;
       const avgBxA = bxA.reduce((a, b) => a + b) / bxA.length;
-
-      // Require clear polarity flip with meaningful magnitude (> 1 nT avg)
       if (Math.sign(avgBxB) !== Math.sign(avgBxA) &&
           Math.abs(avgBxB) > 1 && Math.abs(avgBxA) > 1 &&
           absDelta >= 140 && absDelta <= 220) {
-        changes.push({
-          time: data[i].time, label: 'HCS', color: C.hcs,
-          textColor: '#aabbcc', width: 2
-        });
-        i += MIN_SKIP;
-        continue;
+        isHCS = true;
+        score += Math.abs(avgBxB) + Math.abs(avgBxA); // boost HCS by flip magnitude
       }
     }
 
-    // Sector boundary: very large sustained rotation without Bx flip
-    if (absDelta >= 160) {
-      changes.push({
-        time: data[i].time, label: 'SB', color: C.boundary,
-        textColor: '#ffcc88', width: 1.5
-      });
-      i += MIN_SKIP;
+    if (isHCS || absDelta >= 160) {
+      candidates.push({ time: data[i].time, score, isHCS, absDelta });
     }
   }
 
+  // Phase 2: cluster and keep strongest per cluster
+  const used = new Set();
+  const changes = [];
+  // Sort by score descending — process strongest first
+  candidates.sort((a, b) => b.score - a.score);
+
+  for (const c of candidates) {
+    // Skip if too close to an already-selected event
+    let tooClose = false;
+    for (const sel of changes) {
+      if (Math.abs(c.time - sel.time) < CLUSTER_MS) { tooClose = true; break; }
+    }
+    if (tooClose) continue;
+
+    if (c.isHCS) {
+      changes.push({ time: c.time, label: 'HCS', color: C.hcs, textColor: '#aabbcc', width: 2 });
+    } else {
+      changes.push({ time: c.time, label: 'SB', color: C.boundary, textColor: '#ffcc88', width: 1.5 });
+    }
+  }
+
+  // Sort chronologically for rendering
+  changes.sort((a, b) => a.time - b.time);
   return changes;
 }
 
