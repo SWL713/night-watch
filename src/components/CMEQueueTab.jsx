@@ -380,16 +380,20 @@ export default function CMEQueueTab({ cmes, positions }) {
                   <div style={{ display: 'flex', gap: 6 }}>
                     <span style={{ color: C.textDim }}>ETA:</span>
                     <span style={{ color: C.text }}>
-                      {etaInfo 
-                        ? `${etaInfo.hours}h${etaInfo.plusMinus ? ` ±${etaInfo.plusMinus}h` : ''}`
-                        : 'N/A'}
+                      {['ARRIVED', 'STORM_ACTIVE', 'SUBSIDING'].includes(cme.state?.current)
+                        ? 'Arrived'
+                        : etaInfo
+                          ? `${etaInfo.hours}h${etaInfo.plusMinus ? ` ±${etaInfo.plusMinus}h` : ''}`
+                          : 'N/A'}
                     </span>
                   </div>
-                  
+
                   <div style={{ display: 'flex', gap: 6 }}>
                     <span style={{ color: C.textDim }}>ARRIVAL:</span>
                     <span style={{ color: C.text, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                      {etaInfo ? formatETATimestamp(etaInfo.timestamp, etaInfo.plusMinus) : 'N/A'}
+                      {['ARRIVED', 'STORM_ACTIVE', 'SUBSIDING'].includes(cme.state?.current)
+                        ? 'Arrived at Earth'
+                        : etaInfo ? formatETATimestamp(etaInfo.timestamp, etaInfo.plusMinus) : 'N/A'}
                     </span>
                   </div>
                   
