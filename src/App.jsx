@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect, useRef } from 'react'
+import { useState, useCallback, useEffect, useRef, useMemo } from 'react'
 import { MapContainer, TileLayer, useMapEvents, useMap, Rectangle, Tooltip, Marker } from 'react-leaflet'
 import 'leaflet/dist/leaflet.css'
 
@@ -52,10 +52,7 @@ const FONT = 'DejaVu Sans Mono, Consolas, monospace'
 // Admin passphrase — change this to your own admin password
 const ADMIN_PHRASE = 'nwadmin2026'
 
-// Keeps Leaflet attribution at bottom-right (default) — styled via CSS
-function AttributionMover() {
-  return null
-}
+
 
 // Listens for flyto events dispatched when admin clicks 'View on App Map'
 function MapFlyToHandler() {
@@ -97,7 +94,7 @@ function App() {
   const queueCount = (pendingSpots?.length || 0) + (pendingPhotos?.length || 0) + (flaggedPhotos?.length || 0) + pendingRemovals.length
   const [selectedSighting, setSelectedSighting] = useState(null)
   const [sightingScreen, setSightingScreen] = useState(null)
-  const { getCloudAt, getAvgCloudAt, loading: cloudLoading, progress, coverage, total, phase, cloudData, cloudBounds } = useCloudCover()
+  const { getCloudAt, getAvgCloudAt, loading: cloudLoading, progress, phase, cloudData, cloudBounds } = useCloudCover()
 
 
   const [longShot, setLongShot] = useState(false)
@@ -134,7 +131,7 @@ function App() {
     }
   }, [manualAnchor, userLocation, pickingAnchor])
 
-  const moonData = getMoonData()
+  const moonData = useMemo(() => getMoonData(), [])
   const [bortleGrid, setBortleGrid] = useState(null)
   useEffect(() => { loadBortleGrid().then(g => { if (g) setBortleGrid(g) }) }, [])
 
@@ -293,7 +290,6 @@ function App() {
               setModal('submitSpot')
             }}
           />
-          <AttributionMover />
           <MapFlyToHandler />
 
           {/* Night mode toggle */}
@@ -1177,8 +1173,6 @@ function App() {
               onClose={() => setModal(null)}
               onViewOnMap={(lat, lon) => {
                 setModal(null)
-                // Use a custom event to fly the map — MapFlyTo component listens for it
-                window.__nightWatchFlyTo = { lat, lon }
                 window.dispatchEvent(new CustomEvent('nightwatch:flyto', { detail: { lat, lon } }))
               }}
             />

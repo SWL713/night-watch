@@ -17,8 +17,6 @@ export default function CMEDashboard() {
   const [activeTab, setActiveTab] = useState('queue');
   const { cmes, classifications, positions, loading, error } = useCMEData();
 
-  const [registry, setRegistry] = useState({});
-
   if (loading) {
     return (
       <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', color: C.text, fontSize: 11 }}>
@@ -111,7 +109,7 @@ export default function CMEDashboard() {
       )}
 
       {activeTab === 'classification' && (
-        <CMEClassificationTab cmes={cmes} classifications={classifications} registry={registry} />
+        <CMEClassificationTab />
       )}
     </div>
   );

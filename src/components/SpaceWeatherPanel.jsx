@@ -86,11 +86,11 @@ function parkerAngle(speedKms) {
   const R = 1.5e11       // m, 1 AU
   const v = (speedKms || 450) * 1000
   const phi_rad = Math.atan(OMEGA * R / v)
-  const away = (360 - Math.degrees(phi_rad) + 360) % 360
+  const away = (360 - degrees(phi_rad) + 360) % 360
   const toward = (away + 180) % 360
   return { away, toward }
 }
-Math.degrees = r => r * 180 / Math.PI
+const degrees = r => r * 180 / Math.PI
 
 // ── Sector classification (Towards = 90–270°) ────────────────────────────────
 function isToward(phi) {

@@ -49,7 +49,7 @@ const TIME_RANGES = [
   { label: '48H', hours: 48 },
 ];
 
-function CMEClassificationTab({ activeCME, classification }) {
+function CMEClassificationTab() {
   const [timeRange, setTimeRange] = useState(24);
   const [magData, setMagData] = useState([]);
   const [classData, setClassData] = useState(null);
