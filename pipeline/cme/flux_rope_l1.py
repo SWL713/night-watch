@@ -326,11 +326,12 @@ def classify_flux_rope_l1(l1_mag, l1_plasma, shock_time=None,
     if ejecta_start is None:
         return {**null_result, 'notes': ['No ejecta arrival detected in L1 data']}
     
-    # Check elapsed time (normalize tz to avoid naive/aware mismatch)
+    # Normalize timezone: make ejecta_start match the DataFrame index
     now = l1_mag_df.index.max()
-    if now.tzinfo is None and hasattr(ejecta_start, 'tzinfo') and ejecta_start.tzinfo is not None:
-        now = now.tz_localize('UTC')
-    elif now.tzinfo is not None and (not hasattr(ejecta_start, 'tzinfo') or ejecta_start.tzinfo is None):
+    if hasattr(ejecta_start, 'tzinfo') and ejecta_start.tzinfo is not None and now.tzinfo is None:
+        # Strip tz from ejecta_start to match naive index
+        ejecta_start = ejecta_start.tz_localize(None) if hasattr(ejecta_start, 'tz_localize') else pd.Timestamp(ejecta_start).tz_localize(None)
+    elif (not hasattr(ejecta_start, 'tzinfo') or ejecta_start.tzinfo is None) and now.tzinfo is not None:
         ejecta_start = pd.Timestamp(ejecta_start, tz='UTC')
     elapsed_hrs = (now - ejecta_start).total_seconds() / 3600
     
@@ -341,8 +342,8 @@ def classify_flux_rope_l1(l1_mag, l1_plasma, shock_time=None,
             'notes': [f'Only {elapsed_hrs:.1f}hr elapsed since arrival - need {MIN_ELAPSED_HRS}hr for classification']
         }
     
-    structure_progress = min(elapsed_hrs / structure_duration_hrs, 1.0)
-    structure_progress_pct = structure_progress * 100
+    structure_progress = elapsed_hrs / structure_duration_hrs
+    structure_progress_pct = structure_progress * 100  # Can exceed 100% — used for decay
     
     # Extract rope window
     rope_df = l1_mag_df.loc[ejecta_start:]

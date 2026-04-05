@@ -66,6 +66,13 @@ function CMEClassificationTab({ classifications, classificationMetadata, magData
     ? classifications[activeCMEId]
     : null;
   const loading = !classifications && !magDataProp;
+
+  // Stabilize classWindow reference so plot redraws always have it
+  const classWindowRef = useRef(null);
+  if (classData?.classification_window) {
+    classWindowRef.current = classData.classification_window;
+  }
+  const stableClassWindow = classWindowRef.current;
   
   const handleZoomClick = useCallback((t) => {
     if (!zoomStart) {
@@ -179,7 +186,7 @@ function CMEClassificationTab({ classifications, classificationMetadata, magData
             data={magData}
             timeRange={actualRange}
             ejectaStart={ejectaStart}
-            classWindow={classData?.classification_window}
+            classWindow={stableClassWindow}
             crosshairT={zoomMode ? null : crosshairT}
             onCrosshair={zoomMode ? handleZoomClick : setCrosshairT}
             zoomMode={zoomMode}
@@ -189,7 +196,7 @@ function CMEClassificationTab({ classifications, classificationMetadata, magData
             data={magData}
             timeRange={actualRange}
             ejectaStart={ejectaStart}
-            classWindow={classData?.classification_window}
+            classWindow={stableClassWindow}
             crosshairT={zoomMode ? null : crosshairT}
             onCrosshair={zoomMode ? handleZoomClick : setCrosshairT}
             zoomMode={zoomMode}
@@ -199,7 +206,7 @@ function CMEClassificationTab({ classifications, classificationMetadata, magData
             data={magData}
             timeRange={actualRange}
             ejectaStart={ejectaStart}
-            classWindow={classData?.classification_window}
+            classWindow={stableClassWindow}
             crosshairT={zoomMode ? null : crosshairT}
             onCrosshair={zoomMode ? handleZoomClick : setCrosshairT}
             zoomMode={zoomMode}

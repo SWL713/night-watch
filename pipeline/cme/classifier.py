@@ -23,19 +23,39 @@ class BothmerSchwennClassifier:
             Classification dict with flux rope type, confidence, predictions
         """
         
-        # Let flux_rope_l1 detect the actual ejecta start from L1 data
-        # (velocity jump, Bt elevation, etc.) rather than using the state
-        # transition timestamp, which may be artificial (e.g. G-level fast-track)
+        state = cme['state']['current']
+
+        # Pre-arrival CMEs: predictive only — the L1 data isn't theirs
+        if state in ['WATCH', 'INBOUND', 'IMMINENT']:
+            return self._predictive_classification(cme)
+
+        # Post-arrival: run flux rope classification
+        # Use ARRIVED timestamp as hint ONLY if it's old enough to be real
+        # (if it's within 10 min of now, the queue was just rebuilt — let L1 detect)
+        from datetime import datetime, timezone
+        shock_hint = None
+        for h in cme['state'].get('history', []):
+            if h.get('to') == 'ARRIVED':
+                try:
+                    ts = datetime.fromisoformat(h['timestamp'])
+                    if ts.tzinfo is None:
+                        ts = ts.replace(tzinfo=timezone.utc)
+                    age_min = (datetime.now(timezone.utc) - ts).total_seconds() / 60
+                    if age_min > 10:
+                        shock_hint = h['timestamp']
+                except Exception:
+                    pass
+                break
+
         result = classify_flux_rope_l1(
             l1_mag=l1_mag,
             l1_plasma=l1_plasma,
-            shock_time=None,
+            shock_time=shock_hint if shock_hint else None,
             structure_duration_hrs=24.0
         )
-        
+
         if result['insufficient_data']:
-            # Pre-arrival or early post-arrival: show predictive output
-            if cme['state']['current'] in ['WATCH', 'INBOUND', 'IMMINENT', 'ARRIVED', 'STORM_ACTIVE']:
+            if state in ['ARRIVED', 'STORM_ACTIVE']:
                 return self._predictive_classification(cme, result.get('notes', []))
             return self._empty_classification()
         
@@ -50,9 +70,10 @@ class BothmerSchwennClassifier:
             'current': {
                 'bs_type': result['type'],
                 'bs_type_full': self._expand_type_name(result['type']),
-                'confidence': result['confidence_pct'],
-                'confidence_trend': 'STABLE',
-                'locked': result['structure_progress_pct'] >= 80,
+                'confidence': self._decay_confidence(result['confidence_pct'], result['structure_progress_pct']),
+                'confidence_trend': 'DECAYING' if result['structure_progress_pct'] > 120 else 'STABLE',
+                'locked': 80 <= result['structure_progress_pct'] <= 120,
+                'passed': result['structure_progress_pct'] > 120,
                 'chirality': result['chirality']
             },
             'signatures': {
@@ -216,6 +237,22 @@ class BothmerSchwennClassifier:
             },
             'notes': notes
         }
+
+    def _decay_confidence(self, raw_confidence, progress_pct):
+        """Decay confidence as structure passes beyond 100%.
+        At 100% the full rope has passed — confidence stays.
+        Beyond 120% the rope is clearly gone — confidence decays toward 0.
+        This prevents stale high-confidence classifications lingering."""
+        if progress_pct <= 100:
+            return raw_confidence
+        elif progress_pct <= 120:
+            # Gradual decay 100-120%
+            decay = (progress_pct - 100) / 20  # 0 at 100%, 1 at 120%
+            return raw_confidence * (1 - decay * 0.5)  # lose up to 50%
+        else:
+            # Beyond 120% — rapid decay
+            overshoot = (progress_pct - 120) / 80  # 0 at 120%, 1 at 200%
+            return max(5, raw_confidence * 0.5 * (1 - min(overshoot, 1)))
 
     def _calc_window_end(self, result):
         """Compute classification window end from start + 24h structure duration"""
