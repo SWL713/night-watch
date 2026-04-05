@@ -645,31 +645,6 @@ function SDOImagePanel({ flare }) {
   const coords = parseHelioCoords(flare.location);
   const pixelPos = coords ? helioToPixel(coords.lat, coords.lon) : null;
 
-  // Determine inset corner (opposite to flare)
-  const insetSize = 130;
-  const margin = 6;
-  let insetCorner = null;
-  if (pixelPos) {
-    const qx = pixelPos.x < 256 ? 'right' : 'left';
-    const qy = pixelPos.y < 256 ? 'bottom' : 'top';
-    // Check if flare is too close to center (within insetSize of center)
-    const distFromCenter = Math.sqrt((pixelPos.x - 256) ** 2 + (pixelPos.y - 256) ** 2);
-    if (distFromCenter > 40) {
-      insetCorner = { x: qx, y: qy };
-    }
-  }
-
-  // Build zoomed URL centered on flare location
-  const zoomUrl = (() => {
-    if (!coords || !flare.peak_time) return null;
-    const peakZ = typeof flare.peak_time === 'number'
-      ? new Date(flare.peak_time).toISOString()
-      : String(flare.peak_time).replace('+00:00', 'Z');
-    // Convert helio to arcsec for Helioviewer (approx: lon*sin → arcsec, lat*sin → arcsec)
-    const xArc = Math.round(960 * Math.sin(coords.lon * Math.PI / 180) * Math.cos(coords.lat * Math.PI / 180));
-    const yArc = Math.round(-960 * Math.sin(coords.lat * Math.PI / 180));
-    return `https://api.helioviewer.org/v2/takeScreenshot/?date=${peakZ}&imageScale=1.2&layers=[SDO,AIA,AIA,131,1,100]&x0=${xArc}&y0=${yArc}&width=400&height=400&display=true&watermark=false`;
-  })();
 
   // Draw red bounding box on canvas overlay
   useEffect(() => {
@@ -715,23 +690,6 @@ function SDOImagePanel({ flare }) {
         ref={canvasRef}
         style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', pointerEvents: 'none' }}
       />
-      {/* Conditional zoomed inset in opposite corner */}
-      {insetCorner && zoomUrl && (
-        <img
-          src={zoomUrl}
-          alt="Zoomed active region"
-          style={{
-            position: 'absolute',
-            [insetCorner.y]: margin,
-            [insetCorner.x]: margin,
-            width: insetSize,
-            height: insetSize,
-            border: '2px solid #ff3333',
-            borderRadius: 3,
-            objectFit: 'cover',
-          }}
-        />
-      )}
       {/* Label */}
       <div style={{
         position: 'absolute', bottom: 4, left: 4,
