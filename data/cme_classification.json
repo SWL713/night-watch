@@ -5,49 +5,44 @@
   },
   "classifications": {
     "CME_2026-04-02T20:46Z": {
-      "active": true,
+      "active": false,
       "classification_window": {
-        "start": "2026-04-04T10:53:00+00:00",
-        "end": null,
-        "duration_hours": 33.3
+        "start": "2026-04-01T11:27:00",
+        "end": "2026-04-02T11:27:00+00:00",
+        "duration_hours": 24.0
       },
       "current": {
-        "bs_type": "ESW",
-        "bs_type_full": "East-South-West (South throughout - extreme storm) (STEREO-A preview)",
-        "confidence": 32.12144790596841,
-        "confidence_trend": "BUILDING",
+        "bs_type": "SWN",
+        "bs_type_full": "South-West-North (Weakening - north trailing) (passed)",
+        "confidence": 5,
+        "confidence_trend": "DECAYING",
         "locked": false,
-        "passed": false,
-        "chirality": "left-handed",
-        "data_source": "stereo_a"
+        "passed": true,
+        "chirality": "left-handed"
       },
       "signatures": {
-        "structure_progress_pct": 138.75,
-        "bz_onset_timing": "throughout (est)"
+        "structure_progress_pct": 447.9861111111111,
+        "bz_onset_timing": "early (0.7h post-shock)"
       },
       "bz_predictions": {
-        "description": "South throughout passage. Deep prolonged storm. (STEREO-A estimate \u2014 path may differ at Earth)",
-        "aurora_potential": "NONE",
-        "kp_estimate": "2-3",
-        "onset_time": "throughout (est)",
-        "duration_hours_low": 0.04875846501128668,
-        "duration_hours_high": 0.1218961625282167,
-        "peak_bz_estimate": -2.243,
+        "description": "North trailing edge. Weakening.",
+        "aurora_potential": "GOOD",
+        "kp_estimate": "4-5",
+        "onset_time": "early (0.7h post-shock)",
+        "duration_hours_low": 5.108506616257088,
+        "duration_hours_high": 12.77126654064272,
+        "peak_bz_estimate": -15.65,
         "flux_rope_duration_hours": 24.0,
-        "bz_south_onset_hours": null
+        "bz_south_onset_hours": 0.6666666666666666
       },
       "phi_events": [],
       "quality_flags": {
         "nosedive_detected": false,
         "reverted": false,
         "boundary_detected": false,
-        "expert_review_needed": true
+        "expert_review_needed": false
       },
-      "notes": [
-        "STEREO-A PREVIEW \u2014 Bn used as Bz proxy (RTN \u2248 GSM)",
-        "STEREO-A is ~48\u00b0 ahead of Earth \u2014 path may differ",
-        "Classification will update with L1 data on CME arrival"
-      ]
+      "notes": []
     }
   }
 }
