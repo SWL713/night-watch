@@ -253,6 +253,7 @@ function CMEClassificationTab({ cmes, classifications, classificationMetadata, m
             classData={classData}
             metadata={classificationMetadata}
             cmeId={selectedCMEId}
+            cme={selectedCME}
           />
           {/* CME Selector Buttons */}
           {allCMEs.length > 0 && (
@@ -1200,7 +1201,7 @@ function detectPhiChanges(data) {
 }
 
 // Classification Box Component
-function ClassificationBox({ classData, metadata, cmeId }) {
+function ClassificationBox({ classData, metadata, cmeId, cme: selectedCME }) {
   if (!classData || !classData.active) {
     let msg = 'No active CME for classification';
     let col = C.textDim;
