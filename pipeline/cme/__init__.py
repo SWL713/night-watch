@@ -7,7 +7,6 @@ from .scraper import fetch_cme_scoreboard
 from .state_machine import CMEStateMachine
 from .classifier import BothmerSchwennClassifier
 from .position_calculator import calculate_cme_positions
-from .coronal_holes import associate_coronal_holes
 
 __all__ = [
     'run_cme_pipeline',
@@ -15,7 +14,6 @@ __all__ = [
     'CMEStateMachine',
     'BothmerSchwennClassifier',
     'calculate_cme_positions',
-    'associate_coronal_holes'
 ]
 
 

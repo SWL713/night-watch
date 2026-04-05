@@ -36,12 +36,10 @@ GOES_FLARES_PATH  = os.path.join(os.path.dirname(__file__), '..', 'data', 'goes_
 
 # ── Data source URLs ─────────────────────────────────────────────────────────
 DSCOVR_MAG_URL    = 'https://services.swpc.noaa.gov/json/rtsw/rtsw_mag_1m.json'
-DSCOVR_PLASMA_URL = 'https://services.swpc.noaa.gov/json/rtsw/rtsw_plasma_1m.json'
 WIND_URL          = 'https://services.swpc.noaa.gov/json/rtsw/rtsw_wind_1m.json'
 NOAA_ALERTS_URL   = 'https://services.swpc.noaa.gov/products/alerts.json'
 NOAA_FORECAST_URL = 'https://services.swpc.noaa.gov/text/3-day-forecast.txt'
 OVATION_URL       = 'https://services.swpc.noaa.gov/json/ovation_aurora_latest.json'
-ENLIL_BASE        = 'https://nomads.ncep.noaa.gov/pub/data/nccf/com/wsa_enlil/prod/'
 ENLIL_JSON_URL    = 'https://services.swpc.noaa.gov/json/enlil_time_series.json'
 
 # STEREO-A: multiple URL candidates — first 200-OK wins, logged so we can pin the right one
@@ -81,16 +79,6 @@ def safe_get(url, timeout=15):
         return r.json()
     except Exception as e:
         log.warning(f'GET {url} failed: {e}')
-        return None
-
-
-def safe_get_bytes(url, timeout=30):
-    try:
-        r = requests.get(url, timeout=timeout)
-        r.raise_for_status()
-        return r.content
-    except Exception as e:
-        log.warning(f'GET bytes {url} failed: {e}')
         return None
 
 
@@ -284,7 +272,7 @@ def parse_noaa_3day_forecast_text(forecast_text):
     return results
 
 
-def parse_noaa_3day_forecast_text():
+def _fetch_and_parse_3day_forecast():
     """
     Parse official NOAA 3-day-forecast.txt for G-scale.
     This is the AUTHORITATIVE source - same text shown on SWPC website.
@@ -495,7 +483,7 @@ def fetch_kp_data():
     # This is the AUTHORITATIVE source - same text shown on SWPC website.
     # Prioritized over noaa-scales.json because 3-day forecast is what forecasters actually publish.
     try:
-        g_from_3day = parse_noaa_3day_forecast_text()
+        g_from_3day = _fetch_and_parse_3day_forecast()
         if g_from_3day is not None:  # None = parse failed, '' = no activity
             g_now = g_from_3day
             # Back-derive kp_now if we got G-scale but no Kp value
@@ -1740,17 +1728,13 @@ def fetch_goes_flares():
                 integrated_flux = None
 
             # SDO/AIA 131Å image URLs via Helioviewer API (for M/X flares)
-            sdo_image_url = None
             sdo_full_sun_url = None
-            sdo_zoom_url = None
             if max_class and max_class[0] in ('M', 'X') and peak:
                 peak_z = peak.replace('+00:00', 'Z')
                 base = 'https://api.helioviewer.org/v2/takeScreenshot/'
                 layers = '&layers=[SDO,AIA,AIA,131,1,100]&display=true&watermark=false'
                 # Full sun disk
                 sdo_full_sun_url = f'{base}?date={peak_z}&imageScale=6.0&x0=0&y0=0&width=512&height=512{layers}'
-                sdo_image_url = sdo_full_sun_url
-                # Zoomed region (will be computed on frontend from location coords)
 
             flare = {
                 'id': flare_id,
@@ -1880,7 +1864,6 @@ def fetch_goes_flares():
                 # Data is 1-minute cadence, sorted by time
                 # Use only the most recent 60 minutes for live detection
                 recent = xray_data[-60:]
-                above_threshold = []
                 streak_start = None
                 streak_rows = []
 
@@ -2684,97 +2667,6 @@ def main_with_clouds():
     # ══════════════════════════════════════════════════════════════════════
     try:
         log.info("Running CME pipeline...")
-        
-        # ──────────────────────────────────────────────────────────────────
-        # PHASE 1: DONKI Scoreboard Integration
-        # DISABLED: DONKI API integration - unreliable/frequently down
-        # Using CCMC Scoreboard scraper instead (see line ~2363)
-        if False:
-            try:
-                from cme.donki import get_earth_directed_cmes
-                from cme.queue_manager import build_cme_queue_from_donki
-                import signal
-                
-                # Fast-fail timeout wrapper for DONKI (15 seconds max)
-                def timeout_handler(signum, frame):
-                    raise TimeoutError("DONKI fetch exceeded 15 second timeout")
-                
-                log.info("DONKI: Fetching CME scoreboard data...")
-                
-                # Set 15-second timeout for DONKI fetch
-                signal.signal(signal.SIGALRM, timeout_handler)
-                signal.alarm(15)
-                
-                try:
-                    donki_data = get_earth_directed_cmes()
-                    signal.alarm(0)  # Cancel timeout
-                except TimeoutError as e:
-                    signal.alarm(0)
-                    log.warning(f"DONKI: Fetch timeout after 15s - skipping CME update")
-                    donki_data = None
-                
-                if donki_data and (donki_data['cmes'] or donki_data['enlil_sims']):
-                    # Build CME queue from DONKI scoreboard
-                    cme_queue = build_cme_queue_from_donki(
-                        donki_data['cmes'],
-                        donki_data['enlil_sims'],
-                        donki_data['ips_events']
-                    )
-                    
-                    # Write DONKI-enhanced CME queue
-                    cme_queue_output = {
-                        'metadata': {
-                            'last_updated': now.isoformat(),
-                            'donki_last_sync': now.isoformat(),
-                            'cmes_tracked': len(cme_queue)
-                        },
-                        'active_cme_id': cme_queue[0]['id'] if cme_queue else None,
-                        'cmes': cme_queue
-                    }
-                    
-                    cme_queue_path = os.path.join(os.path.dirname(__file__), '..', 'data', 'cme_queue.json')
-                    os.makedirs(os.path.dirname(cme_queue_path), exist_ok=True)
-                    with open(cme_queue_path, 'w') as f:
-                        json.dump(cme_queue_output, f, indent=2)
-                    
-                    log.info(f"DONKI: CME queue written - {len(cme_queue)} Earth-directed CMEs")
-                    
-                    # Also update positions for visualization
-                    cme_positions = []
-                    for cme in cme_queue:
-                        cme_positions.append({
-                            'id': cme['id'],
-                            'distance_au': cme['position']['distance_au'],
-                            'progress_percent': cme['position']['progress_percent'],
-                            'speed': cme['properties']['speed_initial'],
-                            'state': cme['state']['current']
-                        })
-                    
-                    cme_pos_output = {
-                        'metadata': {'last_updated': now.isoformat()},
-                        'positions': cme_positions
-                    }
-                    
-                    cme_pos_path = os.path.join(os.path.dirname(__file__), '..', 'data', 'cme_positions.json')
-                    with open(cme_pos_path, 'w') as f:
-                        json.dump(cme_pos_output, f, indent=2)
-                    
-                    log.info(f"DONKI: CME positions written - {len(cme_positions)} positions")
-                else:
-                    log.info("DONKI: No Earth-directed CMEs on scoreboard")
-                    
-            except ImportError as e:
-                log.warning(f"DONKI: Module import failed - {e}")
-                log.warning(f"DONKI: Ensure donki.py and queue_manager.py are in pipeline/cme/")
-            except Exception as e:
-                log.error(f"DONKI: Integration failed (non-fatal) - {e}")
-                import traceback
-                log.error(traceback.format_exc())
-                # Don't crash main pipeline if DONKI fails
-        
-        # ──────────────────────────────────────────────────────────────────
-        # END DONKI INTEGRATION
-        # ──────────────────────────────────────────────────────────────────
         
         # Load data from JSON files (already fetched above - zero duplicate API calls!)
         mag_7day_data = None

@@ -37,14 +37,3 @@ def check_removals(queue, classification_data, log):
         log.info(f"Archived {cme_id}")
     
     return queue
-
-
-def write_json(path, data):
-    """Write JSON file safely"""
-    import json
-    import os
-    
-    os.makedirs(os.path.dirname(path), exist_ok=True)
-    
-    with open(path, 'w') as f:
-        json.dump(data, f, indent=2)
