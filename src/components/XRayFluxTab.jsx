@@ -231,20 +231,23 @@ function XRayPlot({ data, flares, timeRange, showXrsB, showXrsA, showFlares, cro
       ctx.fillText(th.label, PAD.l + pW + 4, y + 3);
     }
 
-    // X-axis time labels
+    // X-axis time labels — sparse, ~6-8 labels max
     ctx.fillStyle = C.textDim;
     ctx.font = `7px ${FONT}`;
     ctx.textAlign = 'center';
     const spanH = (tMax - tMin) / 3600000;
-    const tickInterval = spanH <= 24 ? 60 : spanH <= 72 ? 360 : 1440;
+    const tickInterval = spanH <= 6 ? 60 : spanH <= 14 ? 120 : spanH <= 30 ? 360 : spanH <= 80 ? 720 : 1440;
     const tickMs = tickInterval * 60000;
     const firstTick = Math.ceil(tMin / tickMs) * tickMs;
     for (let t = firstTick; t <= tMax; t += tickMs) {
       const x = xScale(t);
       const d = new Date(t);
-      const label = spanH <= 48
-        ? `${String(d.getUTCHours()).padStart(2, '0')}:${String(d.getUTCMinutes()).padStart(2, '0')}`
-        : `${d.getUTCMonth() + 1}/${d.getUTCDate()}`;
+      let label;
+      if (spanH <= 48) {
+        label = `${String(d.getUTCHours()).padStart(2, '0')}:${String(d.getUTCMinutes()).padStart(2, '0')}`;
+      } else {
+        label = `${d.getUTCMonth() + 1}/${d.getUTCDate()} ${String(d.getUTCHours()).padStart(2, '0')}:00`;
+      }
       ctx.fillText(label, x, H - 3);
       ctx.strokeStyle = C.grid;
       ctx.lineWidth = 0.5;
