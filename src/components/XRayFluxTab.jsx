@@ -872,7 +872,11 @@ export default function XRayFluxTab() {
           />
         </div>
 
-        {/* Bottom: Last M/X Flare Report — flex 4 */}
+        {/* Banner */}
+        <div style={{ padding: '3px 10px', borderTop: `1px solid ${C.grid}`, borderBottom: `1px solid ${C.grid}`, fontSize: 8, color: C.textDim, fontFamily: FONT, letterSpacing: 0.5, textTransform: 'uppercase' }}>
+          Last significant flare (M/X class){lastMXFlare ? ` — ${lastMXFlare.class_label || ''} @ ${lastMXFlare.peak_time ? new Date(lastMXFlare.peak_time).toLocaleString('en-US', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit', timeZoneName: 'short' }) : ''}` : ''}
+        </div>
+        {/* Bottom: Last M/X Flare Report */}
         <div style={{ flex: 4, padding: '4px 10px 6px', minHeight: 0, overflow: 'hidden', display: 'flex', gap: 6 }}>
           {/* Left: Flare data card */}
           <div style={{ flex: 1, display: 'flex', minHeight: 0 }}>

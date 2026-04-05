@@ -1121,64 +1121,61 @@ function PhiPlot({ data, timeRange, ejectaStart, hlStart, hlEnd, crosshairT, onC
   );
 }
 
-// Detect phi changes for annotations (simplified version)
+// Detect significant phi changes — HCS crossings and sector boundaries
+// Tuned to reduce false positives: longer windows, stricter thresholds,
+// requires sustained Bx polarity flip for HCS, wider skip to prevent clustering
 function detectPhiChanges(data) {
   const changes = [];
-  const windowSize = 30; // 30 minutes
-  
-  for (let i = windowSize; i < data.length - windowSize; i++) {
-    const before = data.slice(i - windowSize, i).filter(d => d.phi !== null);
-    const after = data.slice(i, i + windowSize).filter(d => d.phi !== null);
-    
-    if (before.length < 10 || after.length < 10) continue;
-    
-    const phiBefore = before.reduce((sum, d) => sum + d.phi, 0) / before.length;
-    const phiAfter = after.reduce((sum, d) => sum + d.phi, 0) / after.length;
-    
+  const W = 60; // 60-minute window (was 30 — too noisy)
+  const MIN_SKIP = 120; // skip 2h after detection to prevent clustering
+
+  for (let i = W; i < data.length - W; i++) {
+    const before = data.slice(i - W, i).filter(d => d.phi !== null);
+    const after = data.slice(i, i + W).filter(d => d.phi !== null);
+
+    if (before.length < 20 || after.length < 20) continue;
+
+    const phiBefore = before.reduce((s, d) => s + d.phi, 0) / before.length;
+    const phiAfter = after.reduce((s, d) => s + d.phi, 0) / after.length;
+
     let delta = phiAfter - phiBefore;
-    // Handle wrap-around
     if (delta > 180) delta -= 360;
     if (delta < -180) delta += 360;
-    
     const absDelta = Math.abs(delta);
-    
-    if (absDelta > 90) {
-      // Check for HCS (Bx flip)
-      const bxBefore = before.filter(d => d.bx !== null).map(d => d.bx);
-      const bxAfter = after.filter(d => d.bx !== null).map(d => d.bx);
-      
-      if (bxBefore.length > 5 && bxAfter.length > 5) {
-        const avgBxBefore = bxBefore.reduce((a, b) => a + b) / bxBefore.length;
-        const avgBxAfter = bxAfter.reduce((a, b) => a + b) / bxAfter.length;
-        
-        if (Math.sign(avgBxBefore) !== 0 && Math.sign(avgBxAfter) !== 0 && 
-            Math.sign(avgBxBefore) !== Math.sign(avgBxAfter) && absDelta >= 120 && absDelta <= 240) {
-          changes.push({
-            time: data[i].time,
-            label: '↔ HCS',
-            color: C.hcs,
-            textColor: '#aabbcc',
-            width: 2.5
-          });
-          i += windowSize; // Skip ahead
-          continue;
-        }
-      }
-      
-      // Large rotation
-      if (absDelta >= 150) {
+
+    if (absDelta < 120) continue; // ignore small rotations (was 90)
+
+    // HCS: requires Bx polarity flip + sustained phi rotation 140-220°
+    const bxB = before.filter(d => d.bx !== null && Math.abs(d.bx) > 0.5).map(d => d.bx);
+    const bxA = after.filter(d => d.bx !== null && Math.abs(d.bx) > 0.5).map(d => d.bx);
+
+    if (bxB.length > 10 && bxA.length > 10) {
+      const avgBxB = bxB.reduce((a, b) => a + b) / bxB.length;
+      const avgBxA = bxA.reduce((a, b) => a + b) / bxA.length;
+
+      // Require clear polarity flip with meaningful magnitude (> 1 nT avg)
+      if (Math.sign(avgBxB) !== Math.sign(avgBxA) &&
+          Math.abs(avgBxB) > 1 && Math.abs(avgBxA) > 1 &&
+          absDelta >= 140 && absDelta <= 220) {
         changes.push({
-          time: data[i].time,
-          label: '⚡ BOUNDARY',
-          color: C.boundary,
-          textColor: '#ffcc88',
-          width: 3.4
+          time: data[i].time, label: 'HCS', color: C.hcs,
+          textColor: '#aabbcc', width: 2
         });
-        i += windowSize;
+        i += MIN_SKIP;
+        continue;
       }
     }
+
+    // Sector boundary: very large sustained rotation without Bx flip
+    if (absDelta >= 160) {
+      changes.push({
+        time: data[i].time, label: 'SB', color: C.boundary,
+        textColor: '#ffcc88', width: 1.5
+      });
+      i += MIN_SKIP;
+    }
   }
-  
+
   return changes;
 }
 

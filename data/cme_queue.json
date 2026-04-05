@@ -1,6 +1,6 @@
 {
   "metadata": {
-    "last_updated": "2026-04-05T16:28:01.679043+00:00"
+    "last_updated": "2026-04-05T16:15:54.281175+00:00"
   },
   "active_cme_id": "CME_2026-04-01T03:00Z",
   "cmes": [
@@ -64,10 +64,10 @@
         "confidence": null
       },
       "position": {
-        "distance_au": 0.95,
-        "distance_rsun": 204.3,
-        "progress_percent": 95.0,
-        "eta_hours": 3.5,
+        "distance_au": 0.948,
+        "distance_rsun": 203.7,
+        "progress_percent": 94.8,
+        "eta_hours": 3.7,
         "velocity_current": 427.6,
         "speed_estimated": false
       },
@@ -95,7 +95,7 @@
       },
       "properties": {
         "speed_initial": 554.1,
-        "speed_current": 551,
+        "speed_current": 552,
         "half_angle": 13.0,
         "type": "Faint CME",
         "direction_lat": 10.0,
@@ -147,7 +147,7 @@
         "distance_au": 1.0,
         "distance_rsun": 215.0,
         "progress_percent": 100,
-        "eta_hours": -34.5,
+        "eta_hours": -34.3,
         "velocity_current": 420.9,
         "speed_estimated": false
       },
