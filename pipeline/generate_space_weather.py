@@ -1580,7 +1580,26 @@ def fetch_goes_xray():
             merged[row[0]] = row
         rows = sorted(merged.values(), key=lambda r: r[0])
         rows = _purge_old(rows, time_key=0, cutoff_days=8)
-        log.info(f'GOES X-ray: {len(rows)} rows after merge+purge')
+
+        # Remove outlier dips: if a point's flux is < 1/20th of its neighbors, drop it
+        cleaned = []
+        for i, row in enumerate(rows):
+            keep = True
+            fl = row[1]
+            if fl is not None and fl > 0 and i > 0 and i < len(rows) - 1:
+                prev_fl = rows[i-1][1]
+                next_fl = rows[i+1][1]
+                if prev_fl and next_fl and prev_fl > 0 and next_fl > 0:
+                    ref = min(prev_fl, next_fl)
+                    if fl < ref / 20:
+                        keep = False
+            if keep:
+                cleaned.append(row)
+        if len(cleaned) < len(rows):
+            log.info(f'GOES X-ray: removed {len(rows) - len(cleaned)} outlier dips')
+        rows = cleaned
+
+        log.info(f'GOES X-ray: {len(rows)} rows after merge+purge+clean')
 
         os.makedirs(os.path.dirname(SW_GOES_XRAY_PATH), exist_ok=True)
         with open(SW_GOES_XRAY_PATH, 'w') as f:

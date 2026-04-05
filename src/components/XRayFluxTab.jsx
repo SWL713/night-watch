@@ -826,7 +826,6 @@ function FlareCard({ flare }) {
       <Row label="Peak" value={formatUTCShort(flare.peak_time)} />
       <Row label="End" value={flare.end_time ? formatUTCShort(flare.end_time) : '--'} />
       {(flare.duration_minutes || durationMin) != null && <Row label="Duration" value={`${flare.duration_minutes || durationMin} min`} />}
-      {flare.rise_minutes != null && <Row label="Rise time" value={`${flare.rise_minutes} min`} />}
       {peakFlux != null && <Row label="Peak flux" value={`${formatFlux(peakFlux)} W/m²`} />}
       {flare.integrated_flux != null && <Row label="Integrated" value={`${flare.integrated_flux.toFixed(4)} J/m²`} />}
       {flare.satellite && <Row label="Satellite" value={`GOES-${flare.satellite}`} />}
