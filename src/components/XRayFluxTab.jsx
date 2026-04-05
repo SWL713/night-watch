@@ -844,6 +844,137 @@ function FlareCard({ flare }) {
   );
 }
 
+// --- SDO Image Panel: full sun + red bounding box + conditional zoomed inset ---
+
+function SDOImagePanel({ flare }) {
+  const containerRef = useRef(null);
+  const canvasRef = useRef(null);
+
+  // Convert heliographic coords (e.g. "N03W16") to pixel position on 512px full-sun image
+  const parseHelioCoords = (loc) => {
+    if (!loc || loc.length < 4) return null;
+    try {
+      const latDir = loc[0]; // N or S
+      const latVal = parseInt(loc.substring(1, 3));
+      const lonDir = loc[3]; // E or W
+      const lonVal = parseInt(loc.substring(4));
+      const lat = latVal * (latDir === 'N' ? 1 : -1);
+      const lon = lonVal * (lonDir === 'W' ? -1 : 1);
+      return { lat, lon };
+    } catch { return null; }
+  };
+
+  // Helio coords to pixel on 512px image (solar radius ≈ 160px at imageScale=6.0)
+  const helioToPixel = (lat, lon) => {
+    const R = 160; // solar radius in pixels at 6.0 arcsec/px in 512px image
+    const latRad = lat * Math.PI / 180;
+    const lonRad = lon * Math.PI / 180;
+    const x = 256 + R * Math.sin(lonRad) * Math.cos(latRad);
+    const y = 256 - R * Math.sin(latRad);
+    return { x, y };
+  };
+
+  const coords = parseHelioCoords(flare.location);
+  const pixelPos = coords ? helioToPixel(coords.lat, coords.lon) : null;
+
+  // Determine inset corner (opposite to flare)
+  const insetSize = 130;
+  const margin = 6;
+  let insetCorner = null;
+  if (pixelPos) {
+    const qx = pixelPos.x < 256 ? 'right' : 'left';
+    const qy = pixelPos.y < 256 ? 'bottom' : 'top';
+    // Check if flare is too close to center (within insetSize of center)
+    const distFromCenter = Math.sqrt((pixelPos.x - 256) ** 2 + (pixelPos.y - 256) ** 2);
+    if (distFromCenter > 40) {
+      insetCorner = { x: qx, y: qy };
+    }
+  }
+
+  // Build zoomed URL centered on flare location
+  const zoomUrl = (() => {
+    if (!coords || !flare.peak_time) return null;
+    const peakZ = typeof flare.peak_time === 'number'
+      ? new Date(flare.peak_time).toISOString()
+      : String(flare.peak_time).replace('+00:00', 'Z');
+    // Convert helio to arcsec for Helioviewer (approx: lon*sin → arcsec, lat*sin → arcsec)
+    const xArc = Math.round(960 * Math.sin(coords.lon * Math.PI / 180) * Math.cos(coords.lat * Math.PI / 180));
+    const yArc = Math.round(-960 * Math.sin(coords.lat * Math.PI / 180));
+    return `https://api.helioviewer.org/v2/takeScreenshot/?date=${peakZ}&imageScale=1.2&layers=[SDO,AIA,AIA,131,1,100]&x0=${xArc}&y0=${yArc}&width=400&height=400&display=true&watermark=false`;
+  })();
+
+  // Draw red bounding box on canvas overlay
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    const container = containerRef.current;
+    if (!canvas || !container || !pixelPos) return;
+    const rect = container.getBoundingClientRect();
+    const scale = Math.min(rect.width, rect.height) / 512;
+    canvas.width = rect.width;
+    canvas.height = rect.height;
+    const ctx = canvas.getContext('2d');
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+    // Offset for centering the 512px image in the container
+    const imgW = 512 * scale;
+    const imgH = 512 * scale;
+    const offX = (rect.width - imgW) / 2;
+    const offY = (rect.height - imgH) / 2;
+
+    const px = offX + pixelPos.x * scale;
+    const py = offY + pixelPos.y * scale;
+    const boxSize = 40 * scale;
+
+    ctx.strokeStyle = '#ff3333';
+    ctx.lineWidth = 2;
+    ctx.strokeRect(px - boxSize / 2, py - boxSize / 2, boxSize, boxSize);
+  }, [pixelPos]);
+
+  return (
+    <div ref={containerRef} style={{ position: 'relative', width: '100%', height: '100%' }}>
+      <img
+        src={flare.sdo_image_url}
+        alt={`SDO AIA 131Å — ${flare.class_label || ''}`}
+        style={{ width: '100%', height: '100%', objectFit: 'contain' }}
+        onLoad={() => {
+          // Redraw box after image loads
+          const evt = new Event('resize');
+          window.dispatchEvent(evt);
+        }}
+      />
+      {/* Red bounding box overlay */}
+      <canvas
+        ref={canvasRef}
+        style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', pointerEvents: 'none' }}
+      />
+      {/* Conditional zoomed inset in opposite corner */}
+      {insetCorner && zoomUrl && (
+        <img
+          src={zoomUrl}
+          alt="Zoomed active region"
+          style={{
+            position: 'absolute',
+            [insetCorner.y]: margin,
+            [insetCorner.x]: margin,
+            width: insetSize,
+            height: insetSize,
+            border: '2px solid #ff3333',
+            borderRadius: 3,
+            objectFit: 'cover',
+          }}
+        />
+      )}
+      {/* Label */}
+      <div style={{
+        position: 'absolute', bottom: 4, left: 4,
+        fontSize: 7, color: '#888', fontFamily: FONT, background: 'rgba(0,0,0,0.6)', padding: '1px 4px', borderRadius: 2,
+      }}>
+        SDO/AIA 131Å @ {flare.class_label || ''} peak
+      </div>
+    </div>
+  );
+}
+
 // --- Main Component ---
 
 export default function XRayFluxTab() {
@@ -1009,21 +1140,15 @@ export default function XRayFluxTab() {
           <div style={{ flex: 1, display: 'flex', minHeight: 0 }}>
             <FlareCard flare={lastMXFlare} />
           </div>
-          {/* Right: SDO/AIA 131Å image of flare */}
+          {/* Right: SDO/AIA 131Å full sun + red box + conditional zoomed inset */}
           <div style={{ flex: 1, display: 'flex', minHeight: 0, background: '#0a0e18', border: `1px solid ${C.grid}`, borderRadius: 3, overflow: 'hidden', alignItems: 'center', justifyContent: 'center' }}>
             {lastMXFlare?.sdo_image_url ? (
-              <img
-                src={lastMXFlare.sdo_image_url}
-                alt={`SDO AIA 131Å — ${lastMXFlare.class_label || ''} flare`}
-                style={{ width: '100%', height: '100%', objectFit: 'contain' }}
-                onError={(e) => { e.target.style.display = 'none'; e.target.nextSibling.style.display = 'flex'; }}
-              />
-            ) : null}
-            <div style={{ display: lastMXFlare?.sdo_image_url ? 'none' : 'flex', alignItems: 'center', justifyContent: 'center', width: '100%', height: '100%' }}>
+              <SDOImagePanel flare={lastMXFlare} />
+            ) : (
               <div style={{ fontSize: 9, color: C.textDim, textAlign: 'center', fontFamily: FONT }}>
                 {lastMXFlare ? 'SDO image unavailable' : 'No flare data'}
               </div>
-            </div>
+            )}
           </div>
         </div>
       </div>

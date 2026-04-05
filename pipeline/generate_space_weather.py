@@ -1739,16 +1739,18 @@ def fetch_goes_flares():
             except (ValueError, TypeError):
                 integrated_flux = None
 
-            # SDO/AIA 131Å image URL via Helioviewer API (for M/X flares)
+            # SDO/AIA 131Å image URLs via Helioviewer API (for M/X flares)
             sdo_image_url = None
+            sdo_full_sun_url = None
+            sdo_zoom_url = None
             if max_class and max_class[0] in ('M', 'X') and peak:
-                sdo_image_url = (
-                    f'https://api.helioviewer.org/v2/takeScreenshot/'
-                    f'?date={peak.replace("+00:00","Z")}'
-                    f'&imageScale=2.4&layers=[SDO,AIA,AIA,131,1,100]'
-                    f'&x0=0&y0=0&width=512&height=512'
-                    f'&display=true&watermark=false'
-                )
+                peak_z = peak.replace('+00:00', 'Z')
+                base = 'https://api.helioviewer.org/v2/takeScreenshot/'
+                layers = '&layers=[SDO,AIA,AIA,131,1,100]&display=true&watermark=false'
+                # Full sun disk
+                sdo_full_sun_url = f'{base}?date={peak_z}&imageScale=6.0&x0=0&y0=0&width=512&height=512{layers}'
+                sdo_image_url = sdo_full_sun_url
+                # Zoomed region (will be computed on frontend from location coords)
 
             flare = {
                 'id': flare_id,
@@ -1765,7 +1767,7 @@ def fetch_goes_flares():
                 'status': 'completed' if end else 'in_progress',
                 'duration_minutes': duration_minutes,
                 'radio_blackout': _radio_blackout_scale(max_flux),
-                'sdo_image_url': sdo_image_url,
+                'sdo_image_url': sdo_full_sun_url,
             }
             flares.append(flare)
 
