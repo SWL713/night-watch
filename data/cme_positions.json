@@ -1,6 +1,6 @@
 {
   "metadata": {
-    "last_updated": "2026-04-05T14:29:40.203910+00:00"
+    "last_updated": "2026-04-05T15:24:39.541954+00:00"
   },
   "satellites": {
     "l1": {
@@ -16,10 +16,10 @@
     {
       "id": "CME_2026-04-02T20:46Z",
       "position": {
-        "distance_au": 0.923,
-        "distance_rsun": 198.4,
-        "velocity_current": 428.3,
-        "acceleration": -0.1044,
+        "distance_au": 0.936,
+        "distance_rsun": 201.1,
+        "velocity_current": 428.0,
+        "acceleration": -0.1002,
         "distance_source": "scoreboard_aligned",
         "speed_estimated": false
       },
@@ -35,8 +35,8 @@
         "w_from_ch": false
       },
       "progress": {
-        "percent_to_l1": 92.3,
-        "eta_hours": 5.5,
+        "percent_to_l1": 93.6,
+        "eta_hours": 4.6,
         "eta_timestamp": 1775419200.0,
         "eta_source": "scoreboard_median"
       },
@@ -48,7 +48,7 @@
         "distance_au": 1.0,
         "distance_rsun": 215.0,
         "velocity_current": 421.0,
-        "acceleration": -0.0129,
+        "acceleration": -0.0124,
         "distance_source": "scoreboard_aligned",
         "speed_estimated": false
       },
@@ -65,7 +65,7 @@
       },
       "progress": {
         "percent_to_l1": 100,
-        "eta_hours": -32.5,
+        "eta_hours": -33.4,
         "eta_timestamp": 1775282400.0,
         "eta_source": "scoreboard_median"
       },
