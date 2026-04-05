@@ -2,3 +2,9 @@ requests>=2.31.0
 numpy>=1.26.0
 pandas>=2.1.0
 scipy>=1.11.0
+# eccodes: required by HRRR cloud cover (fetch_hrrr_cloud).
+# On Linux/macOS: pip install eccodes-python  (needs libeccodes system library).
+# On Windows: install via conda (conda install -c conda-forge eccodes).
+# If eccodes is unavailable, HRRR gracefully falls back — cloud_cover.json keeps
+# its last successful data. The pipeline itself never crashes due to missing eccodes.
+eccodes>=1.5.0

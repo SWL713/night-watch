@@ -49,57 +49,23 @@ const TIME_RANGES = [
   { label: '48H', hours: 48 },
 ];
 
-function CMEClassificationTab() {
+function CMEClassificationTab({ classifications, classificationMetadata, magData: magDataProp }) {
   const [timeRange, setTimeRange] = useState(24);
-  const [magData, setMagData] = useState([]);
-  const [classData, setClassData] = useState(null);
-  const [classMetadata, setClassMetadata] = useState(null);
-  const [loading, setLoading] = useState(true);
   const [crosshairT, setCrosshairT] = useState(null);
   const [zoomMode, setZoomMode] = useState(false);
   const [zoomStart, setZoomStart] = useState(null);
   const [customRange, setCustomRange] = useState(null);
   const [userChangedRange, setUserChangedRange] = useState(false);
   const [showAnnotations, setShowAnnotations] = useState(true);
-  
-  // Fetch L1 magnetic field data AND classification data
-  useEffect(() => {
-    const fetchData = async () => {
-      try {
-        const BASE = 'https://raw.githubusercontent.com/SWL713/night-watch/main/data';
-        
-        // Load mag data
-        const magRes = await fetch(`${BASE}/sw_mag_7day.json?t=${Date.now()}`);
-        if (magRes.ok) {
-          const magJson = await magRes.json();
-          setMagData(parseMagData(magJson));
-        }
-        
-        // Load classification data
-        const classRes = await fetch(`${BASE}/cme_classification.json?t=${Date.now()}`);
-        if (classRes.ok) {
-          const classJson = await classRes.json();
-          setClassMetadata(classJson.metadata || null);
-          
-          // Get the active CME's classification
-          const activeCMEId = classJson.metadata?.active_cme_id;
-          if (activeCMEId && classJson.classifications && classJson.classifications[activeCMEId]) {
-            setClassData(classJson.classifications[activeCMEId]);
-          } else {
-            setClassData(null);
-          }
-        }
-        
-        setLoading(false);
-      } catch (err) {
-        console.error('Failed to load data:', err);
-        setLoading(false);
-      }
-    };
-    fetchData();
-    const interval = setInterval(fetchData, 30000);
-    return () => clearInterval(interval);
-  }, []);
+
+  // Derive classification data from props (provided by CMEDashboard via useCMEData)
+  const magData = magDataProp || [];
+  const classMetadata = classificationMetadata || null;
+  const activeCMEId = classMetadata?.active_cme_id;
+  const classData = (activeCMEId && classifications && classifications[activeCMEId])
+    ? classifications[activeCMEId]
+    : null;
+  const loading = !classifications && !magDataProp;
   
   const handleZoomClick = useCallback((t) => {
     if (!zoomStart) {
@@ -247,7 +213,7 @@ function CMEClassificationTab() {
           <ClassificationBox
             classData={classData}
             metadata={classMetadata}
-            cmeId={activeCME?.id || classMetadata?.active_cme_id}
+            cmeId={activeCMEId}
           />
         </div>
       </div>
@@ -1277,40 +1243,6 @@ function ClassificationBox({ classData, metadata, cmeId }) {
       </div>
     </div>
   );
-}
-
-function parseMagData(raw) {
-  if (!raw || !raw.columns || !raw.data) return [];
-  
-  const cols = raw.columns;
-  const indices = {
-    time: cols.indexOf('time'),
-    bx: cols.indexOf('bx'),
-    by: cols.indexOf('by'),
-    bz: cols.indexOf('bz'),
-    bt: cols.indexOf('bt'),
-    phi: cols.indexOf('phi'),
-  };
-  
-  if (indices.time === -1) return [];
-  
-  return raw.data.map(row => {
-    try {
-      const t = new Date(row[indices.time]);
-      if (isNaN(t.getTime())) return null;
-      
-      return {
-        time: t.getTime(),
-        bx: indices.bx >= 0 ? row[indices.bx] : null,
-        by: indices.by >= 0 ? row[indices.by] : null,
-        bz: indices.bz >= 0 ? row[indices.bz] : null,
-        bt: indices.bt >= 0 ? row[indices.bt] : null,
-        phi: indices.phi >= 0 ? row[indices.phi] : null,
-      };
-    } catch {
-      return null;
-    }
-  }).filter(Boolean);
 }
 
 export default CMEClassificationTab;

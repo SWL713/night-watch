@@ -494,28 +494,32 @@ def fetch_kp_data():
     except Exception as e:
         log.warning(f'3-day forecast G-scale extraction failed: {e}')
 
-    # ── Direct G level from noaa-scales.json (most reliable, survives format changes) ──
+    # ── FALLBACK: noaa-scales.json — only used when 3-day forecast didn't produce a result ──
     # Format: {"G":{"Scale":"2",...},"S":{"Scale":"0",...},"R":{"Scale":"1",...},...}
-    try:
-        scales = safe_get(NOAA_SCALES_URL)
-        if scales:
-            log.info(f'noaa-scales.json keys: {list(scales.keys()) if isinstance(scales, dict) else type(scales).__name__}')
-            # Handle both dict and list-of-dicts (some versions return list)
-            rec = scales if isinstance(scales, dict) else (scales[0] if isinstance(scales, list) and scales else {})
-            g_scale = rec.get('G', {})
-            if isinstance(g_scale, dict):
-                g_val = str(g_scale.get('Scale', '0') or '0').strip()
-            else:
-                g_val = str(g_scale or '0').strip()
-            g_num = int(g_val) if g_val.isdigit() else 0
-            if g_num > 0:
-                g_now = f'G{g_num}'
-                # Back-derive kp_now if we didn't get it from the forecast
-                if kp_now is None:
-                    kp_now = {1: 5.0, 2: 6.0, 3: 7.0, 4: 8.0, 5: 9.0}.get(g_num, 5.0)
-            log.info(f'noaa-scales G={g_val} -> g_now={g_now}')
-    except Exception as e:
-        log.warning(f'noaa-scales.json fetch failed: {e}')
+    # The 3-day forecast (PRIORITY 1 above) is what SWPC forecasters actually publish.
+    # noaa-scales.json is a machine-derived real-time snapshot that can lag or conflict,
+    # so we only consult it when earlier methods failed.
+    if not g_now or g_now == 'G0':
+        try:
+            scales = safe_get(NOAA_SCALES_URL)
+            if scales:
+                log.info(f'noaa-scales.json keys: {list(scales.keys()) if isinstance(scales, dict) else type(scales).__name__}')
+                # Handle both dict and list-of-dicts (some versions return list)
+                rec = scales if isinstance(scales, dict) else (scales[0] if isinstance(scales, list) and scales else {})
+                g_scale = rec.get('G', {})
+                if isinstance(g_scale, dict):
+                    g_val = str(g_scale.get('Scale', '0') or '0').strip()
+                else:
+                    g_val = str(g_scale or '0').strip()
+                g_num = int(g_val) if g_val.isdigit() else 0
+                if g_num > 0:
+                    g_now = f'G{g_num}'
+                    # Back-derive kp_now if we didn't get it from the forecast
+                    if kp_now is None:
+                        kp_now = {1: 5.0, 2: 6.0, 3: 7.0, 4: 8.0, 5: 9.0}.get(g_num, 5.0)
+                log.info(f'noaa-scales G={g_val} -> g_now={g_now}')
+        except Exception as e:
+            log.warning(f'noaa-scales.json fetch failed: {e}')
 
     return {
         'kp_observed': kp_observed,
@@ -2068,170 +2072,6 @@ def fetch_sw_stereo_a():
     return True
 
 
-# ── Main ──────────────────────────────────────────────────────────────────────
-
-def main():
-    now = datetime.now(timezone.utc)
-    log.info(f'Night Watch pipeline starting: {now.isoformat()}')
-
-    # Fetch all data
-    l1 = fetch_l1()
-    noaa  = fetch_noaa_alerts()
-    kp    = fetch_kp_data()
-
-    bz_now   = l1['bz_now']   if l1 else 0.0
-    v_kms    = l1['v_kms']    if l1 else 450.0
-    density  = l1['density_ncc'] if l1 else 5.0
-
-    # Intensity
-    intensity_label, intensity_color, ey_adj = compute_intensity(bz_now, v_kms, density)
-
-    # Moon
-    moon = moon_illumination(now)
-    moon_rise, moon_set = moon_times(now)
-
-    # Sun times for NY (approximate)
-    NY_LAT, NY_LON = 40.7128, -74.006
-    n = now.timetuple().tm_yday
-    B = math.radians(360/365*(n-81))
-    eot = 9.87*math.sin(2*B) - 7.53*math.cos(B) - 1.5*math.sin(B)
-    decl = math.radians(23.45*math.sin(math.radians(360/365*(n-81))))
-    cos_ha = ((-math.sin(math.radians(-0.833)) - math.sin(math.radians(NY_LAT))*math.sin(decl))
-              / (math.cos(math.radians(NY_LAT))*math.cos(decl)))
-    cos_ha = max(-1.0, min(1.0, cos_ha))
-    ha = math.degrees(math.acos(cos_ha))
-    noon_utc = (720 - 4*NY_LON - eot) / 60
-    ss_hour = noon_utc + ha/15
-    sr_hour = noon_utc - ha/15
-    today = now.date()
-    ss_dt = datetime(today.year, today.month, today.day,
-                     int(ss_hour), int((ss_hour%1)*60), tzinfo=timezone.utc)
-    tomorrow = today + timedelta(days=1)
-    sr2_hour, _ = (noon_utc - ha/15, None)
-    sr2_dt = datetime(tomorrow.year, tomorrow.month, tomorrow.day,
-                      int(sr2_hour), int((sr2_hour%1)*60), tzinfo=timezone.utc)
-    dark_hours = max(0.1, (sr2_dt - ss_dt).total_seconds() / 3600)
-
-    # Moon interference
-    moon_up_hours = 0.0
-    if moon_rise and moon_set:
-        mr_dt = datetime.fromisoformat(moon_rise)
-        ms_dt = datetime.fromisoformat(moon_set)
-        if ms_dt > mr_dt:
-            overlap = max(0, (min(ms_dt, sr2_dt) - max(mr_dt, ss_dt)).total_seconds() / 3600)
-        else:
-            overlap = max(0, (min(sr2_dt, sr2_dt) - max(ss_dt, ss_dt)).total_seconds() / 3600)
-        moon_up_hours = overlap
-    elif moon_set:
-        ms_dt = datetime.fromisoformat(moon_set)
-        moon_up_hours = max(0, (min(ms_dt, sr2_dt) - ss_dt).total_seconds() / 3600)
-
-    interference_pct = min(100, moon['illumination'] * (moon_up_hours / dark_hours) * 100)
-
-    # Astro dark: 0% during day, tapers from sunset→astro twilight and back before sunrise
-    # Astronomical twilight = 1.5hr after sunset / before sunrise
-    astro_taper_hrs = 1.5
-    time_since_sunset  = (now - ss_dt).total_seconds()  / 3600
-    time_until_sunrise = (sr2_dt - now).total_seconds() / 3600
-
-    if now < ss_dt or now > sr2_dt:
-        # Daytime — hard 0%
-        raw_dark_pct = 0.0
-    elif time_since_sunset < astro_taper_hrs:
-        # Civil/nautical twilight after sunset — taper 0→100% over 1.5hr
-        raw_dark_pct = (time_since_sunset / astro_taper_hrs) * 100
-    elif time_until_sunrise < astro_taper_hrs:
-        # Approaching sunrise — taper 100→0% over 1.5hr
-        raw_dark_pct = (time_until_sunrise / astro_taper_hrs) * 100
-    else:
-        # Deep astronomical darkness
-        raw_dark_pct = 100.0
-
-    astro_dark_pct = max(0, round(raw_dark_pct - interference_pct * (raw_dark_pct / 100), 1))
-
-    # Overall quality
-    quality_label, quality_color = overall_quality(intensity_label, astro_dark_pct)
-
-    # HSS stateful + G from Kp
-    try:
-        with open(OUTPUT_PATH) as f: prev_json = json.load(f)
-    except Exception: prev_json = {}
-    hss_active, hss_watch_updated = compute_hss_active(v_kms, density, noaa, prev_json)
-    g_level     = kp.get('g_now', '')
-    noaa['hss_active'] = hss_active
-    noaa['hss_watch']  = hss_watch_updated   # write back updated watch flag
-    noaa['g_level']    = g_level
-
-    # State
-    state = determine_state(bz_now, v_kms, noaa)
-
-    # ENLIL — only fetch when warranted (avoid unnecessary 174MB downloads)
-    enlil_active   = True  # always fetch — caching carries data between model runs
-    enlil_timeline = fetch_enlil_timeline()
-
-    # Bz timeline
-    bz_timeline     = build_bz_timeline(l1)
-    plasma_timeline = build_plasma_timeline(l1)
-
-    # Ovation
-    ovation = fetch_ovation()
-
-    # Build output JSON
-    output = {
-        'last_updated':       now.isoformat(),
-        'state':              state,
-        'bz_now':             round(bz_now, 2),
-        'by_now':             round(l1['by_now'] if l1 else 0, 2),
-        'speed_kms':          round(v_kms, 0),
-        'density_ncc':        round(density, 2),
-        'ey_adjusted':        round(ey_adj, 2),
-        'intensity_label':    intensity_label,
-        'intensity_color':    intensity_color,
-        'aurora_quality':     quality_label,
-        'aurora_quality_color': quality_color,
-        'interference_pct':   round(interference_pct, 1),
-        'astro_dark_pct':     round(astro_dark_pct, 1),
-        'moon_illumination':  moon['illumination'],
-        'moon_phase_index':   moon['phase_index'],
-        'moon_phase_name':    moon['phase_name'],
-        'moon_phase_label':   moon['phase_label'],
-        'moon_rise':          moon_rise,
-        'moon_set':           moon_set,
-        'g_level':            g_level,
-        'g_label':            g_level,
-        'hss_active':         hss_active,
-        'hss_watch':          noaa.get('hss_watch', False),
-        'kp_now':             kp.get('kp_now'),
-        'kp_observed':        kp.get('kp_observed', []),
-        'kp_forecast':        kp.get('kp_forecast', []),
-        'enlil_active':       bool(enlil_active),
-        'enlil_timeline':     enlil_timeline,
-        'timeline':           bz_timeline,
-        'plasma_timeline':    plasma_timeline,
-        'ovation_oval':       ovation.get('oval_boundary', []),
-        'ovation_viewline':   ovation.get('view_line', []),
-        'ovation_obs_time':   ovation.get('observation_time'),
-        'ovation_fcst_time':  ovation.get('forecast_time'),
-    }
-
-    os.makedirs(os.path.dirname(OUTPUT_PATH), exist_ok=True)
-    with open(OUTPUT_PATH, 'w') as f:
-        json.dump(output, f, indent=2)
-
-    log.info(f'space_weather.json written: state={state} intensity={intensity_label} '
-             f'bz={bz_now:.1f} quality={quality_label}')
-
-    # Fetch 7-day history, EPAM, STEREO-A, and GOES for Space Weather tab
-    fetch_sw_mag_7day()
-    fetch_sw_plasma_7day()
-    fetch_epam()
-    fetch_sw_stereo_a()
-    fetch_goes_mag()
-    fetch_goes_xray()
-    fetch_goes_flares()
-
-
-
 # ── Cloud Grid ────────────────────────────────────────────────────────────────
 
 CLOUD_GRID_SPACING = 0.1   # increased from 0.25 — captures more HRRR native cell variation
@@ -2514,8 +2354,8 @@ def fetch_hrrr_cloud(grid):
     return results if len(results) >= len(grid) * 0.8 else None
 
 
-def main_with_clouds():
-    """Extended main that also fetches cloud cover."""
+def main():
+    """Full pipeline: space weather, CME dashboard, and cloud cover."""
     import time as _time
 
     now = datetime.now(timezone.utc)
@@ -2592,8 +2432,8 @@ def main_with_clouds():
     quality_label, quality_color = overall_quality(intensity_label, astro_dark_pct)
     state = determine_state(bz_now, v_kms, noaa)
 
-    enlil_active   = True  # always fetch — caching carries data between model runs
     enlil_timeline = fetch_enlil_timeline()
+    enlil_active   = bool(enlil_timeline)  # True only when we actually have ENLIL data
     bz_timeline     = build_bz_timeline(l1)
     plasma_timeline = build_plasma_timeline(l1)
 
@@ -2768,8 +2608,4 @@ def main_with_clouds():
 
 
 if __name__ == '__main__':
-    import sys, time
-    if '--clouds' in sys.argv:
-        main_with_clouds()   # cloud workflow: fetches clouds + space weather
-    else:
-        main()               # space weather workflow: no cloud fetch
+    main()

@@ -1,11 +1,5 @@
 {
   "metadata": {
-<<<<<<< Updated upstream
-    "last_updated": "2026-04-05T04:00:42.014524+00:00"
-  },
-  "points": [
-    {
-=======
     "last_updated": "2026-04-05T03:13:58.190918+00:00"
   },
   "points": [
@@ -50,7 +44,6 @@
       "source": "stereo_a_bn"
     },
     {
->>>>>>> Stashed changes
       "time": "2026-04-05T04:04:50.400000+00:00",
       "bz": 0.9,
       "source": "stereo_a_bn"
@@ -289,24 +282,6 @@
       "time": "2026-04-05T11:12:50.400000+00:00",
       "bz": 0.3,
       "source": "stereo_a_bn"
-<<<<<<< Updated upstream
-    },
-    {
-      "time": "2026-04-05T11:33:50.400000+00:00",
-      "bz": 0.6,
-      "source": "stereo_a_bn"
-    },
-    {
-      "time": "2026-04-05T11:38:50.400000+00:00",
-      "bz": 0.4,
-      "source": "stereo_a_bn"
-    },
-    {
-      "time": "2026-04-05T11:39:50.400000+00:00",
-      "bz": 0.2,
-      "source": "stereo_a_bn"
-=======
->>>>>>> Stashed changes
     }
   ],
   "source": "STEREO-A Bn (corotation delay 87h)"
