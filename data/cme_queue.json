@@ -1,6 +1,6 @@
 {
   "metadata": {
-    "last_updated": "2026-04-05T07:51:50.271945+00:00"
+    "last_updated": "2026-04-05T09:08:33.341284+00:00"
   },
   "active_cme_id": "CME_2026-04-02T20:46Z",
   "cmes": [
@@ -69,11 +69,11 @@
         "confidence": null
       },
       "position": {
-        "distance_au": 0.83,
-        "distance_rsun": 178.4,
-        "progress_percent": 83.0,
-        "eta_hours": 12.1,
-        "velocity_current": 431.2,
+        "distance_au": 0.848,
+        "distance_rsun": 182.2,
+        "progress_percent": 84.8,
+        "eta_hours": 10.9,
+        "velocity_current": 430.6,
         "speed_estimated": false
       },
       "aurora_rating": {
@@ -152,8 +152,8 @@
         "distance_au": 1.0,
         "distance_rsun": 215.0,
         "progress_percent": 100,
-        "eta_hours": -25.9,
-        "velocity_current": 421.4,
+        "eta_hours": -27.1,
+        "velocity_current": 421.3,
         "speed_estimated": false
       },
       "aurora_rating": {

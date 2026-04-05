@@ -1,6 +1,6 @@
 {
   "metadata": {
-    "last_updated": "2026-04-05T07:51:50.271945+00:00",
+    "last_updated": "2026-04-05T09:08:33.341284+00:00",
     "active_cme_id": "CME_2026-04-02T20:46Z"
   },
   "classifications": {
@@ -14,7 +14,7 @@
       "current": {
         "bs_type": "SWN",
         "bs_type_full": "South-West-North (Weakening - north trailing)",
-        "confidence": 84.46240301622593,
+        "confidence": 84.779587401258,
         "confidence_trend": "STABLE",
         "locked": true,
         "chirality": "left-handed"
@@ -28,8 +28,8 @@
         "aurora_potential": "WEAK",
         "kp_estimate": "3-4",
         "onset_time": "early (0.7h post-shock)",
-        "duration_hours_low": 5.49525727888665,
-        "duration_hours_high": 13.738143197216626,
+        "duration_hours_low": 5.4344528710725895,
+        "duration_hours_high": 13.586132177681474,
         "peak_bz_estimate": -15.65,
         "flux_rope_duration_hours": 24.0,
         "bz_south_onset_hours": 0.6666666666666666
@@ -53,7 +53,7 @@
       "current": {
         "bs_type": "SWN",
         "bs_type_full": "South-West-North (Weakening - north trailing)",
-        "confidence": 84.46240301622593,
+        "confidence": 84.779587401258,
         "confidence_trend": "STABLE",
         "locked": true,
         "chirality": "left-handed"
@@ -67,8 +67,8 @@
         "aurora_potential": "WEAK",
         "kp_estimate": "3-4",
         "onset_time": "early (0.7h post-shock)",
-        "duration_hours_low": 5.49525727888665,
-        "duration_hours_high": 13.738143197216626,
+        "duration_hours_low": 5.4344528710725895,
+        "duration_hours_high": 13.586132177681474,
         "peak_bz_estimate": -15.65,
         "flux_rope_duration_hours": 24.0,
         "bz_south_onset_hours": 0.6666666666666666
