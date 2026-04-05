@@ -2,6 +2,10 @@ import { useState, useEffect, useRef, useCallback, Component } from 'react';
 
 const FONT = 'DejaVu Sans Mono, Consolas, monospace';
 
+// Module-level highlight cache — survives ALL re-renders, never goes null
+// Updated from the component, read directly by draw functions
+const _hl = { start: null, end: null };
+
 // CME_Watch exact colors from render_aurora_card.py
 const C = {
   bg: '#06080f',
@@ -86,17 +90,17 @@ function CMEClassificationTab({ cmes, classifications, classificationMetadata, m
   })) : magData;
   const plotLabel = isPreArrival ? 'STEREO-A (RTN)' : 'L1 (GSM)';
 
-  // Highlight window as primitive timestamps (not object refs)
-  const hlStart = classData?.classification_window?.start
-    ? new Date(classData.classification_window.start).getTime() : null;
-  const rawHlEnd = classData?.classification_window?.end
-    ? new Date(classData.classification_window.end).getTime() : null;
-  const progress = classData?.signatures?.structure_progress_pct || 0;
-  // End logic: null end = "to now + buffer", ongoing rope = "to now + buffer"
-  // +5min buffer ensures hlEnd never equals tMax exactly (which causes full-dim)
-  const effectiveHlEnd = hlStart
-    ? (rawHlEnd && progress > 120 ? rawHlEnd : Date.now() + 5 * 60000)
-    : null;
+  // Write highlight bounds to module-level cache — draw functions read directly
+  // This NEVER goes null once set (survives all re-renders, toggles, zooms)
+  if (classData?.classification_window?.start) {
+    _hl.start = new Date(classData.classification_window.start).getTime();
+    const rawEnd = classData.classification_window.end
+      ? new Date(classData.classification_window.end).getTime() : null;
+    const prog = classData?.signatures?.structure_progress_pct || 0;
+    _hl.end = (rawEnd && prog > 120) ? rawEnd : Date.now() + 5 * 60000;
+  }
+  const hlStart = _hl.start;
+  const effectiveHlEnd = _hl.end;
 
   const handleZoomClick = useCallback((t) => {
     if (!zoomStart) {
@@ -462,7 +466,8 @@ function BzPlot({ data, timeRange, ejectaStart, hlStart, hlEnd, crosshairT, onCr
     }
     
     // Classification data highlight — uses primitive timestamps, persists across all views
-    if (hlStart && hlEnd) {
+    if (_hl.start && _hl.end) {
+      const hlStart = _hl.start, hlEnd = _hl.end;
       const dim = 'rgba(0,0,0,0.55)';
       if (hlEnd <= tMin || hlStart >= tMax) {
         ctx.fillStyle = dim; ctx.fillRect(PAD.l, PAD.t, pW, pH);
@@ -479,9 +484,9 @@ function BzPlot({ data, timeRange, ejectaStart, hlStart, hlEnd, crosshairT, onCr
     }
 
     // Shock label at highlight start
-    if (hlStart && hlStart > tMin && hlStart < tMax) {
-      const x = xScale(hlStart);
-      const st = new Date(hlStart);
+    if (_hl.start && _hl.start > tMin && _hl.start < tMax) {
+      const x = xScale(_hl.start);
+      const st = new Date(_hl.start);
       ctx.fillStyle = C.shock;
       ctx.font = `bold 8px ${FONT}`;
       ctx.textAlign = 'left';
@@ -706,7 +711,8 @@ function ByPlot({ data, timeRange, ejectaStart, hlStart, hlEnd, crosshairT, onCr
     }
     
     // Classification data highlight — primitive timestamps, persists across all views
-    if (hlStart && hlEnd) {
+    if (_hl.start && _hl.end) {
+      const hlStart = _hl.start, hlEnd = _hl.end;
       const dim = 'rgba(0,0,0,0.55)';
       if (hlEnd <= tMin || hlStart >= tMax) {
         ctx.fillStyle = dim; ctx.fillRect(PAD.l, PAD.t, pW, pH);
@@ -723,9 +729,9 @@ function ByPlot({ data, timeRange, ejectaStart, hlStart, hlEnd, crosshairT, onCr
     }
 
     // Shock label at highlight start
-    if (hlStart && hlStart > tMin && hlStart < tMax) {
-      const x = xScale(hlStart);
-      const st = new Date(hlStart);
+    if (_hl.start && _hl.start > tMin && _hl.start < tMax) {
+      const x = xScale(_hl.start);
+      const st = new Date(_hl.start);
       ctx.fillStyle = C.shock;
       ctx.font = `bold 8px ${FONT}`;
       ctx.textAlign = 'left';
@@ -969,7 +975,8 @@ function PhiPlot({ data, timeRange, ejectaStart, hlStart, hlEnd, crosshairT, onC
     }
     
     // Classification data highlight — primitive timestamps, persists across all views
-    if (hlStart && hlEnd) {
+    if (_hl.start && _hl.end) {
+      const hlStart = _hl.start, hlEnd = _hl.end;
       const dim = 'rgba(0,0,0,0.55)';
       if (hlEnd <= tMin || hlStart >= tMax) {
         ctx.fillStyle = dim; ctx.fillRect(PAD.l, PAD.t, pW, pH);
@@ -986,9 +993,9 @@ function PhiPlot({ data, timeRange, ejectaStart, hlStart, hlEnd, crosshairT, onC
     }
 
     // Shock label at highlight start
-    if (hlStart && hlStart > tMin && hlStart < tMax) {
-      const x = xScale(hlStart);
-      const st = new Date(hlStart);
+    if (_hl.start && _hl.start > tMin && _hl.start < tMax) {
+      const x = xScale(_hl.start);
+      const st = new Date(_hl.start);
       ctx.fillStyle = C.shock;
       ctx.font = `bold 8px ${FONT}`;
       ctx.textAlign = 'left';
