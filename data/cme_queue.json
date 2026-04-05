@@ -2,7 +2,7 @@
   "metadata": {
     "last_updated": "2026-04-05T03:18:00.485202+00:00"
   },
-  "active_cme_id": "CME_2026-04-02T20:46Z",
+  "active_cme_id": "CME_2026-04-01T03:00Z",
   "cmes": [
     {
       "id": "CME_2026-04-02T20:46Z",
@@ -33,18 +33,18 @@
         "scoreboard_url": "https://kauai.ccmc.gsfc.nasa.gov/CMEscoreboard/"
       },
       "state": {
-        "current": "ARRIVED",
-        "entered_at": "2026-04-04T19:56:58.183402+00:00",
+        "current": "INBOUND",
+        "entered_at": "2026-04-05T03:13:55.437527+00:00",
         "history": [
           {
             "from": "QUIET",
             "to": "WATCH",
-            "timestamp": "2026-04-04T19:56:58.183344+00:00"
+            "timestamp": "2026-04-05T03:13:55.437412+00:00"
           },
           {
             "from": "WATCH",
-            "to": "ARRIVED",
-            "timestamp": "2026-04-04T19:56:58.183400+00:00"
+            "to": "INBOUND",
+            "timestamp": "2026-04-05T03:13:55.437524+00:00"
           }
         ]
       },
@@ -60,13 +60,13 @@
         "progress_percent": 0,
         "eta_hours": null
       },
-      "created_at": "2026-04-04T19:56:58.182501+00:00",
-      "last_updated": "2026-04-04T19:56:58.182503+00:00",
       "aurora_rating": {
         "stars": 2,
         "confidence": 80,
         "basis": "Observed: SWN type, WEAK aurora, peak -15.7 nT"
-      }
+      },
+      "created_at": "2026-04-05T03:13:55.436040+00:00",
+      "last_updated": "2026-04-05T03:13:55.436042+00:00"
     },
     {
       "id": "CME_2026-04-01T03:00Z",
@@ -98,17 +98,27 @@
       },
       "state": {
         "current": "ARRIVED",
-        "entered_at": "2026-04-04T19:56:58.183500+00:00",
+        "entered_at": "2026-04-05T03:13:55.437813+00:00",
         "history": [
           {
             "from": "QUIET",
             "to": "WATCH",
-            "timestamp": "2026-04-04T19:56:58.183462+00:00"
+            "timestamp": "2026-04-05T03:13:55.437604+00:00"
           },
           {
             "from": "WATCH",
+            "to": "INBOUND",
+            "timestamp": "2026-04-05T03:13:55.437665+00:00"
+          },
+          {
+            "from": "INBOUND",
+            "to": "IMMINENT",
+            "timestamp": "2026-04-05T03:13:55.437726+00:00"
+          },
+          {
+            "from": "IMMINENT",
             "to": "ARRIVED",
-            "timestamp": "2026-04-04T19:56:58.183498+00:00"
+            "timestamp": "2026-04-05T03:13:55.437811+00:00"
           }
         ]
       },
@@ -124,13 +134,13 @@
         "progress_percent": 0,
         "eta_hours": null
       },
-      "created_at": "2026-04-04T19:56:58.182549+00:00",
-      "last_updated": "2026-04-04T19:56:58.182550+00:00",
       "aurora_rating": {
         "stars": 2,
         "confidence": 80,
         "basis": "Observed: SWN type, WEAK aurora, peak -15.7 nT"
-      }
+      },
+      "created_at": "2026-04-05T03:13:55.436135+00:00",
+      "last_updated": "2026-04-05T03:13:55.436137+00:00"
     }
   ]
 }
