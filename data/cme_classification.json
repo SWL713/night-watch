@@ -1,7 +1,7 @@
 {
   "metadata": {
-    "last_updated": "2026-04-05T13:49:57.869805+00:00",
-    "active_cme_id": "CME_2026-04-01T03:00Z"
+    "last_updated": "2026-04-05T14:29:40.203910+00:00",
+    "active_cme_id": "CME_2026-04-02T20:46Z"
   },
   "classifications": {
     "CME_2026-04-02T20:46Z": {
@@ -9,21 +9,21 @@
       "classification_window": null,
       "current": {
         "bs_type": "unknown",
-        "bs_type_full": "Pre-arrival forecast (ETA 6.2h)",
-        "confidence": 15,
+        "bs_type_full": "Pre-arrival forecast (ETA 5.5h)",
+        "confidence": 20,
         "confidence_trend": "STABLE",
         "locked": false,
         "chirality": "unknown"
       },
       "signatures": {
         "structure_progress_pct": 0,
-        "bz_onset_timing": "ETA 6.2h"
+        "bz_onset_timing": "ETA 5.5h"
       },
       "bz_predictions": {
         "description": "Slow CME (583 km/s). Mild impact expected.",
         "aurora_potential": "WEAK",
         "kp_estimate": "3-5",
-        "onset_time": "ETA 6.2h",
+        "onset_time": "ETA 5.5h",
         "duration_hours_low": null,
         "duration_hours_high": null,
         "peak_bz_estimate_nT": null
@@ -43,43 +43,41 @@
     },
     "CME_2026-04-01T03:00Z": {
       "active": true,
-      "classification_window": {
-        "start": "2026-04-01T11:27:00",
-        "end": "2026-04-02T11:27:00+00:00",
-        "duration_hours": 98.33333333333334
-      },
+      "classification_window": null,
       "current": {
-        "bs_type": "SWN",
-        "bs_type_full": "South-West-North (Weakening - north trailing)",
-        "confidence": 5,
-        "confidence_trend": "DECAYING",
+        "bs_type": "unknown",
+        "bs_type_full": "Classification in progress \u2014 collecting post-arrival L1 data",
+        "confidence": 20,
+        "confidence_trend": "STABLE",
         "locked": false,
-        "passed": true,
-        "chirality": "left-handed"
+        "chirality": "unknown"
       },
       "signatures": {
-        "structure_progress_pct": 409.72222222222223,
-        "bz_onset_timing": "early (0.7h post-shock)"
+        "structure_progress_pct": 0,
+        "bz_onset_timing": "ETA arrived"
       },
       "bz_predictions": {
-        "description": "North trailing edge. Weakening.",
+        "description": "Slow CME (554 km/s). Mild impact expected.",
         "aurora_potential": "WEAK",
-        "kp_estimate": "3-4",
-        "onset_time": "early (0.7h post-shock)",
-        "duration_hours_low": 5.369365652398143,
-        "duration_hours_high": 13.423414130995358,
-        "peak_bz_estimate": -15.65,
-        "flux_rope_duration_hours": 24.0,
-        "bz_south_onset_hours": 0.6666666666666666
+        "kp_estimate": "3-5",
+        "onset_time": "ETA arrived",
+        "duration_hours_low": null,
+        "duration_hours_high": null,
+        "peak_bz_estimate_nT": null
       },
       "phi_events": [],
       "quality_flags": {
         "nosedive_detected": false,
         "reverted": false,
         "boundary_detected": false,
-        "expert_review_needed": false
+        "expert_review_needed": true
       },
-      "notes": []
+      "notes": [
+        "CME ARRIVED \u2014 flux rope classification building",
+        "Need ~1.5 hours of post-shock L1 data for Bothmer-Schwenn typing",
+        "Confidence will increase as magnetic structure is measured",
+        "Only 0.7hr elapsed since arrival - need 1.0hr for classification"
+      ]
     }
   }
 }
